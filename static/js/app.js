@@ -2238,7 +2238,8 @@ function registerPrestamosApp() {
             async fetchRaffles() {
                 try {
                     const res = await fetch('/api/raffles');
-                    this.raffles = await res.json();
+                    const data = await res.json();
+                    this.raffles = data.raffles || (Array.isArray(data) ? data : []);
                 } catch(err) {
                     console.error("Error fetching raffles:", err);
                 }
@@ -2262,10 +2263,23 @@ function registerPrestamosApp() {
                     return;
                 }
                 try {
+                    const payload = {
+                        title: this.raffleForm.title,
+                        motive: this.raffleForm.description || '',
+                        description: this.raffleForm.description || '',
+                        mode: this.raffleForm.mode || 'numbers',
+                        range_min: Number(this.raffleForm.range_min || 1),
+                        range_max: Number(this.raffleForm.range_max || 100),
+                        number_min: Number(this.raffleForm.range_min || 1),
+                        number_max: Number(this.raffleForm.range_max || 100),
+                        names_list: this.raffleForm.names_list || '',
+                        ticket_price: Number(this.raffleForm.ticket_price || 0),
+                        prizes: this.raffleForm.prizes || []
+                    };
                     const res = await fetch('/api/raffles', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.raffleForm)
+                        body: JSON.stringify(payload)
                     });
                     if (res.ok) {
                         await this.fetchRaffles();
@@ -2295,16 +2309,17 @@ function registerPrestamosApp() {
                 try {
                     const res = await fetch(`/api/raffles/${raffle.id}/draw`, { method: 'POST' });
                     const data = await res.json();
-                    if (data.status === 'success') {
+                    if (data.success || data.status === 'success') {
                         setTimeout(() => {
                             this.playFanfare();
                             this.triggerConfetti();
+                            const winnerObj = (data.winners && data.winners[0]) || {};
                             this.goldenTicketModal = {
-                                hash: data.winners[0]?.verification_hash || 'VERIFIED-HASH',
-                                ticket_code: data.winners[0]?.ticket_code || '001',
-                                winner_name: data.winners[0]?.winner_name || 'Ganador',
+                                hash: winnerObj.verification_hash || winnerObj.hash || 'VERIFIED-HASH',
+                                ticket_code: winnerObj.ticket_code || '001',
+                                winner_name: winnerObj.winner_name || winnerObj.winner || 'Ganador',
                                 raffle_title: raffle.title,
-                                prize_title: data.winners[0]?.prize_title || '1° Premio'
+                                prize_title: winnerObj.prize_title || winnerObj.prize || '1° Premio'
                             };
                             this.fetchRaffles();
                         }, 2200);
@@ -2322,7 +2337,7 @@ function registerPrestamosApp() {
 
                 const participants = raffle.mode === 'names'
                     ? (raffle.names_list ? raffle.names_list.split('\n').filter(n => n.trim()) : ['Ana', 'Carlos', 'Eduardo', 'Maira'])
-                    : Array.from({length: Math.min(50, (raffle.range_max || 100) - (raffle.range_min || 1) + 1)}, (_, i) => String((raffle.range_min || 1) + i).padStart(2, '0'));
+                    : Array.from({length: Math.min(50, (raffle.range_max || raffle.number_max || 100) - (raffle.range_min || raffle.number_min || 1) + 1)}, (_, i) => String((raffle.range_min || raffle.number_min || 1) + i).padStart(2, '0'));
 
                 let count = 0;
                 const interval = setInterval(() => {
@@ -2383,7 +2398,8 @@ function registerPrestamosApp() {
             async fetchShoppingItems() {
                 try {
                     const res = await fetch('/api/shopping');
-                    this.shoppingItems = await res.json();
+                    const data = await res.json();
+                    this.shoppingItems = data.items || (Array.isArray(data) ? data : []);
                 } catch(err) {
                     console.error("Error fetching shopping items:", err);
                 }
@@ -2398,7 +2414,12 @@ function registerPrestamosApp() {
                     const res = await fetch('/api/shopping', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.shoppingForm)
+                        body: JSON.stringify({
+                            store_category: (this.shoppingForm.category || 'supermercado').toLowerCase(),
+                            item_name: this.shoppingForm.name,
+                            quantity: this.shoppingForm.quantity || '1',
+                            is_checked: false
+                        })
                     });
                     if (res.ok) {
                         this.shoppingForm.name = '';
@@ -2431,22 +2452,27 @@ function registerPrestamosApp() {
             async fetchNotices() {
                 try {
                     const res = await fetch('/api/noticeboard');
-                    this.noticeItems = await res.json();
+                    const data = await res.json();
+                    this.noticeItems = data.notices || (Array.isArray(data) ? data : []);
                 } catch(err) {
                     console.error("Error fetching notices:", err);
                 }
             },
 
             async createNotice() {
-                if (!this.noticeForm.title) {
-                    alert("Ingrese un título para la nota.");
+                if (!this.noticeForm.title && !this.noticeForm.content) {
+                    alert("Ingrese título o contenido para la nota.");
                     return;
                 }
                 try {
                     const res = await fetch('/api/noticeboard', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.noticeForm)
+                        body: JSON.stringify({
+                            author: this.noticeForm.title || 'Familia',
+                            message: this.noticeForm.content || this.noticeForm.title || '',
+                            is_pinned: Boolean(this.noticeForm.is_pinned)
+                        })
                     });
                     if (res.ok) {
                         this.noticeForm = { title: '', content: '', color: 'yellow', is_pinned: false };
@@ -2469,7 +2495,8 @@ function registerPrestamosApp() {
             async fetchCalendarEvents() {
                 try {
                     const res = await fetch('/api/home-calendar');
-                    this.calendarItems = await res.json();
+                    const data = await res.json();
+                    this.calendarItems = data.events || (Array.isArray(data) ? data : []);
                 } catch(err) {
                     console.error("Error fetching calendar events:", err);
                 }
@@ -2484,7 +2511,11 @@ function registerPrestamosApp() {
                     const res = await fetch('/api/home-calendar', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.calendarForm)
+                        body: JSON.stringify({
+                            title: this.calendarForm.title,
+                            category: this.calendarForm.category || 'servicios',
+                            due_date: this.calendarForm.event_date
+                        })
                     });
                     if (res.ok) {
                         this.calendarForm = { event_date: new Date().toISOString().split('T')[0], title: '', category: 'servicios', notes: '' };
@@ -2511,11 +2542,11 @@ function registerPrestamosApp() {
                     const res = await fetch('/api/hogar/parse-audio', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ audio_text: this.zeroUiText })
+                        body: JSON.stringify({ audio_text: this.zeroUiText, raw_text: this.zeroUiText })
                     });
                     const data = await res.json();
-                    if (data.status === 'success') {
-                        this.zeroUiResult = data.result;
+                    if (data.status === 'success' || data.success) {
+                        this.zeroUiResult = data.result || data.created_items;
                         this.zeroUiText = '';
                         await Promise.all([
                             this.fetchShoppingItems(),

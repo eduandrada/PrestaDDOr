@@ -2834,17 +2834,20 @@ def sign_biometric_request(token):
 def api_raffles():
     if request.method == 'GET':
         raffles = Raffle.query.order_by(Raffle.created_at.desc()).all()
-        return jsonify({"success": True, "raffles": [r.to_dict() for r in raffles]})
+        return jsonify({"success": True, "status": "success", "raffles": [r.to_dict() for r in raffles]})
     
     data = request.get_json() or {}
     title = data.get('title') or 'Sorteo Express'
-    motive = data.get('motive') or ''
+    motive = data.get('motive') or data.get('description') or ''
     mode = data.get('mode') or 'numbers'
-    number_min = int(data.get('number_min') or 1)
-    number_max = int(data.get('number_max') or 100)
+    number_min = int(data.get('number_min') or data.get('range_min') or 1)
+    number_max = int(data.get('number_max') or data.get('range_max') or 100)
     ticket_price = float(data.get('ticket_price') or 0.0)
     prizes = data.get('prizes') or []
     participants = data.get('participants') or []
+    if not participants and data.get('names_list'):
+        participants = [n.strip() for n in str(data.get('names_list')).split('\n') if n.strip()]
+
     draw_date = data.get('draw_date') or date.today().strftime('%Y-%m-%d')
 
     raffle = Raffle(
@@ -2861,21 +2864,21 @@ def api_raffles():
     )
     db.session.add(raffle)
     db.session.commit()
-    return jsonify({"success": True, "raffle": raffle.to_dict()})
+    return jsonify({"success": True, "status": "success", "raffle": raffle.to_dict()})
 
 @app.route('/api/raffles/<int:raffle_id>', methods=['DELETE'])
 def delete_raffle(raffle_id):
     r = Raffle.query.get_or_404(raffle_id)
     db.session.delete(r)
     db.session.commit()
-    return jsonify({"success": True})
+    return jsonify({"success": True, "status": "success"})
 
 @app.route('/api/raffles/<int:raffle_id>/draw', methods=['POST'])
 def draw_raffle_winners(raffle_id):
     import random
     import hashlib
     r = Raffle.query.get_or_404(raffle_id)
-    prizes = json.loads(r.prizes_json) if r.prizes_json else [{"rank": 1, "name": "1° Premio"}]
+    prizes = json.loads(r.prizes_json) if r.prizes_json else [{"rank": 1, "title": "1° Premio"}]
     participants = json.loads(r.participants_json) if r.participants_json else []
     
     if r.mode == 'numbers':
@@ -2889,7 +2892,7 @@ def draw_raffle_winners(raffle_id):
     winners = []
     for idx, prize in enumerate(prizes):
         winner_name = available.pop(0) if available else f"Ganador #{idx+1}"
-        prize_name = prize.get('name') if isinstance(prize, dict) else str(prize)
+        prize_name = prize.get('title') or prize.get('name') if isinstance(prize, dict) else str(prize)
         
         raw_hash_str = f"{r.id}-{winner_name}-{prize_name}-{datetime.utcnow().isoformat()}"
         ticket_hash = hashlib.sha256(raw_hash_str.encode('utf-8')).hexdigest()[:16].upper()
@@ -2897,16 +2900,19 @@ def draw_raffle_winners(raffle_id):
         winners.append({
             "rank": idx + 1,
             "prize": prize_name,
+            "prize_title": prize_name,
             "winner": winner_name,
+            "winner_name": winner_name,
             "ticket_code": f"TICKET-{r.id:03d}-{ticket_hash}",
             "hash": ticket_hash,
+            "verification_hash": ticket_hash,
             "draw_timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         })
 
     r.winners_json = json.dumps(winners)
-    r.status = 'finalizado'
+    r.status = 'completado'
     db.session.commit()
-    return jsonify({"success": True, "winners": winners, "raffle": r.to_dict()})
+    return jsonify({"success": True, "status": "success", "winners": winners, "raffle": r.to_dict()})
 
 @app.route('/api/generar-flyer', methods=['GET', 'POST'])
 def generar_flyer():
@@ -2917,13 +2923,30 @@ def generar_flyer():
     else:
         payload = request.args.to_dict()
     
-    title = payload.get('title') or "GRAN SORTEO Y RIFA FAMILIAR"
-    motive = payload.get('motive') or "Beneficio Fondo de la Casa & Actividades"
-    draw_date = payload.get('draw_date') or "Próximo Sábado 20:00 hs"
-    price = float(payload.get('ticket_price') or 1500.0)
-    number_min = int(payload.get('number_min') or 1)
-    number_max = int(payload.get('number_max') or 100)
-    prizes_str = payload.get('prizes') or "1° Premio: Asado Completo + Vino\n2° Premio: Postre Familiar + Sidra"
+    raffle_id = payload.get('raffle_id')
+    r_obj = None
+    if raffle_id:
+        try:
+            r_obj = Raffle.query.get(int(raffle_id))
+        except Exception:
+            pass
+
+    if r_obj:
+        title = payload.get('title') or r_obj.title
+        motive = payload.get('motive') or r_obj.motive or "Gran Sorteo & Rifa Express"
+        draw_date = payload.get('draw_date') or r_obj.draw_date or "Fecha a Confirmar"
+        price = float(payload.get('ticket_price') or r_obj.ticket_price or 0.0)
+        number_min = int(payload.get('number_min') or r_obj.number_min or 1)
+        number_max = int(payload.get('number_max') or r_obj.number_max or 100)
+        prizes_str = payload.get('prizes') or (json.loads(r_obj.prizes_json) if r_obj.prizes_json else "1° Premio")
+    else:
+        title = payload.get('title') or "GRAN SORTEO Y RIFA FAMILIAR"
+        motive = payload.get('motive') or "Beneficio Fondo de la Casa & Actividades"
+        draw_date = payload.get('draw_date') or "Próximo Sábado 20:00 hs"
+        price = float(payload.get('ticket_price') or 1500.0)
+        number_min = int(payload.get('number_min') or 1)
+        number_max = int(payload.get('number_max') or 100)
+        prizes_str = payload.get('prizes') or "1° Premio: Asado Completo + Vino\n2° Premio: Postre Familiar + Sidra"
 
     W, H = 1080, 1350
     img = Image.new('RGB', (W, H), color='#0f172a')
