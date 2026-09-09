@@ -243,15 +243,20 @@ function registerPrestamosApp() {
             isZeroUiProcessing: false,
             comidasForm: {
                 event_type: 'asado',
+                menu_type: 'asado',
                 people: 10,
                 adults: 10,
                 children: 0,
                 vegetarians: 0,
                 ticket_price: 0,
                 bought_items: [
-                    { name: 'Muzzarella / Carne', cost: 6000 },
-                    { name: 'Bebidas / Gaseosas', cost: 3500 }
-                ]
+                    { name: 'Muzzarella / Carne', price: 6000 },
+                    { name: 'Bebidas / Gaseosas', price: 3500 }
+                ],
+                ticket_images: [],
+                include_drinks: true,
+                include_ice: true,
+                include_dessert: false
             },
             comidasResult: null,
             asadoForm: { people: 10, include_asado: true, include_drinks: true, include_ice: true, ticket_price: 0, custom_notes: '' },
@@ -2644,33 +2649,123 @@ function registerPrestamosApp() {
                 }
             },
 
-            async calculateAsado() {
-                try {
-                    const res = await fetch('/api/asado/calculate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.asadoForm)
-                    });
-                    const data = await res.json();
-                    if (data.status === 'success') {
-                        this.asadoResult = data.data;
-                    }
-                } catch(err) {
-                    alert("Error calculando asado");
+            addIngredientToForm() {
+                if (!this.comidasForm.bought_items) this.comidasForm.bought_items = [];
+                this.comidasForm.bought_items.push({ name: '', price: 0 });
+            },
+
+            removeIngredientFromForm(index) {
+                if (this.comidasForm.bought_items) {
+                    this.comidasForm.bought_items.splice(index, 1);
+                    this.calculateComidas();
                 }
             },
 
-            copyAsadoWhatsapp() {
-                if (!this.asadoResult?.wa_share_string) return;
+            handleTicketPhotoUpload(event) {
+                const files = event.target.files;
+                if (!files || !files.length) return;
+                if (!this.comidasForm.ticket_images) this.comidasForm.ticket_images = [];
+                
+                Array.from(files).forEach(file => {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            this.comidasForm.ticket_images.push(e.target.result);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            },
+
+            removeTicketPhoto(index) {
+                if (this.comidasForm.ticket_images) {
+                    this.comidasForm.ticket_images.splice(index, 1);
+                }
+            },
+
+            async calculateComidas() {
+                try {
+                    const payload = {
+                        ...this.comidasForm,
+                        menu_type: this.comidasForm.menu_type || this.comidasForm.event_type || 'asado',
+                        bought_items: this.comidasForm.bought_items || []
+                    };
+                    const res = await fetch('/api/comidas/calculate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+                    if (data.status === 'success' || data.success) {
+                        const resData = data.data || data.calculation || {};
+                        this.comidasResult = {
+                            ...resData,
+                            menu_name: resData.menu_name || 'Juntada Gastronómica',
+                            people: resData.people || this.comidasForm.people,
+                            total_expense: resData.total_cost || resData.total_expense || 0,
+                            cost_per_person: resData.per_person_cost || resData.estimated_cost_per_person || 0,
+                            ingredients: resData.ingredients || [],
+                            whatsapp_message: resData.wa_share_string || resData.whatsapp_text || ''
+                        };
+                    }
+                } catch(err) {
+                    console.error("Error calculando comidas", err);
+                }
+            },
+
+            copyComidasWhatsapp() {
+                const msg = this.comidasResult?.whatsapp_message || this.comidasResult?.wa_share_string;
+                if (!msg) return;
                 if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(this.asadoResult.wa_share_string).then(() => {
-                        alert("¡Resumen de Asado copiado para WhatsApp! 🥩📲");
+                    navigator.clipboard.writeText(msg).then(() => {
+                        alert("¡Mensaje IA copiado para WhatsApp! 📲");
                     }).catch(() => {
-                        this.fallbackCopyText(this.asadoResult.wa_share_string);
+                        this.fallbackCopyText(msg);
                     });
                 } else {
-                    this.fallbackCopyText(this.asadoResult.wa_share_string);
+                    this.fallbackCopyText(msg);
                 }
+            },
+
+            async downloadComidasPdf() {
+                try {
+                    const payload = {
+                        people: this.comidasResult?.people || this.comidasForm.people,
+                        total_cost: this.comidasResult?.total_expense || this.comidasResult?.total_cost || 0,
+                        per_person_cost: this.comidasResult?.cost_per_person || this.comidasResult?.per_person_cost || 0,
+                        menu_name: this.comidasResult?.menu_name || 'Comprobante de Juntada',
+                        bought_items: this.comidasForm.bought_items || [],
+                        ticket_images: this.comidasForm.ticket_images || []
+                    };
+                    const res = await fetch('/api/comidas/pdf', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.ok) {
+                        const blob = await res.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `comprobante_juntada_${Date.now()}.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(url);
+                    } else {
+                        alert("Error al generar comprobante PDF/PNG");
+                    }
+                } catch(err) {
+                    alert("Error descargando comprobante: " + err);
+                }
+            },
+
+            async calculateAsado() {
+                return this.calculateComidas();
+            },
+
+            copyAsadoWhatsapp() {
+                return this.copyComidasWhatsapp();
             },
 
             // Chart.js Rendering

@@ -3560,6 +3560,7 @@ def calculate_comidas():
 def generar_comidas_pdf():
     from PIL import Image, ImageDraw, ImageFont
     import io
+    import base64
     
     if request.method == 'POST':
         payload = request.get_json() or {}
@@ -3567,12 +3568,35 @@ def generar_comidas_pdf():
         payload = request.args.to_dict()
 
     people = int(payload.get('people') or 10)
-    total_cost = float(payload.get('total_cost') or 0.0)
+    total_cost = float(payload.get('total_cost') or payload.get('total_expense') or 0.0)
     per_person = float(payload.get('per_person_cost') or payload.get('estimated_cost_per_person') or 0.0)
     menu_name = payload.get('menu_name') or "Juntada & Evento Gastronómico"
-    items = payload.get('bought_items') or []
+    items = payload.get('bought_items') or payload.get('ingredients') or []
 
-    W, H = 1200, 1600
+    ticket_images_raw = payload.get('ticket_images') or payload.get('ticket_photos') or []
+    decoded_ticket_imgs = []
+    if isinstance(ticket_images_raw, list):
+        for b64_item in ticket_images_raw:
+            try:
+                if isinstance(b64_item, str) and b64_item.strip():
+                    clean_b64 = b64_item.split(',')[-1]
+                    img_bytes = base64.b64decode(clean_b64)
+                    t_img = Image.open(io.BytesIO(img_bytes)).convert('RGB')
+                    decoded_ticket_imgs.append(t_img)
+            except Exception as err:
+                print(f"[Error decoding ticket photo]: {err}")
+
+    W = 1200
+    items_count = len(items) if isinstance(items, list) and items else 1
+    base_table_height = 550 + (items_count * 45)
+
+    ticket_section_h = 0
+    if decoded_ticket_imgs:
+        ticket_rows = (len(decoded_ticket_imgs) + 1) // 2
+        ticket_section_h = 100 + (ticket_rows * 420)
+
+    H = max(1600, base_table_height + ticket_section_h + 200)
+
     img = Image.new('RGB', (W, H), color='#ffffff')
     draw = ImageDraw.Draw(img)
 
@@ -3580,13 +3604,16 @@ def generar_comidas_pdf():
         font_title = ImageFont.truetype("arial.ttf", 40)
         font_sub = ImageFont.truetype("arial.ttf", 26)
         font_body = ImageFont.truetype("arial.ttf", 22)
+        font_caption = ImageFont.truetype("arial.ttf", 18)
     except Exception:
-        font_title = font_sub = font_body = ImageFont.load_default()
+        font_title = font_sub = font_body = font_caption = ImageFont.load_default()
 
+    # Header
     draw.rectangle([0, 0, W, 180], fill='#0f172a')
     draw.text((W // 2, 70), "🍽️ COMPROBANTE OFICIAL DE JUNTADA", fill="#ffffff", font=font_title, anchor="mm")
     draw.text((W // 2, 130), f"{menu_name.upper()} • PRORRATEO DE GASTOS", fill="#38bdf8", font=font_sub, anchor="mm")
 
+    # Info & Totals
     draw.text((80, 220), f"📅 FECHA DE EMISIÓN: {date.today().strftime('%d/%m/%Y')}", fill="#475569", font=font_sub)
     draw.text((80, 260), f"👥 ASISTENTES TOTALES: {people} Personas", fill="#475569", font=font_sub)
 
@@ -3594,6 +3621,7 @@ def generar_comidas_pdf():
     draw.text((120, 345), f"💵 GASTO TOTAL: ${total_cost:,.2f}", fill="#0f172a", font=font_title)
     draw.text((120, 395), f"👤 MONTO INDIVIDUAL POR PERSONA: ${per_person:,.2f}", fill="#16a34a", font=font_sub)
 
+    # Ingredients Table
     draw.rectangle([80, 480, W - 80, 530], fill='#1e293b')
     draw.text((110, 495), "DESCRIPCIÓN / INGREDIENTE", fill="#ffffff", font=font_sub)
     draw.text((W - 120, 495), "COSTO ($)", fill="#ffffff", font=font_sub, anchor="rm")
@@ -3601,17 +3629,50 @@ def generar_comidas_pdf():
     curr_y = 550
     if isinstance(items, list) and items:
         for it in items:
-            name = it.get('name', str(it)) if isinstance(it, dict) else str(it)
-            cost = float(it.get('cost', 0)) if isinstance(it, dict) else 0.0
+            name = it.get('name', it.get('item', str(it))) if isinstance(it, dict) else str(it)
+            cost = float(it.get('cost', it.get('price', 0))) if isinstance(it, dict) else 0.0
             draw.line([(80, curr_y + 35), (W - 80, curr_y + 35)], fill='#e2e8f0', width=1)
             draw.text((110, curr_y + 5), f"• {name}", fill="#334155", font=font_body)
             draw.text((W - 120, curr_y + 5), f"${cost:,.2f}", fill="#0f172a", font=font_body, anchor="rm")
             curr_y += 45
     else:
         draw.text((110, curr_y + 5), "• Prorrateo calculado automáticamente según comensales", fill="#64748b", font=font_body)
+        curr_y += 45
 
-    draw.line([(80, H - 120), (W - 80, H - 120)], fill='#cbd5e1', width=2)
-    draw.text((W // 2, H - 70), "Sistema de Gestión de Préstamos, Sorteos & Finanzas 2026", fill="#94a3b8", font=font_sub, anchor="mm")
+    # Render Uploaded Ticket Photos
+    if decoded_ticket_imgs:
+        curr_y += 40
+        draw.rectangle([80, curr_y, W - 80, curr_y + 50], fill='#0f172a')
+        draw.text((110, curr_y + 15), f"📷 COMPROBANTES Y TICKETS ADJUNTOS ({len(decoded_ticket_imgs)})", fill="#f59e0b", font=font_sub)
+        curr_y += 70
+
+        for idx, t_img in enumerate(decoded_ticket_imgs):
+            col = idx % 2
+            row = idx // 2
+            
+            x1 = 80 + col * 530
+            y1 = curr_y + row * 410
+            x2 = x1 + 510
+            y2 = y1 + 390
+            
+            draw.rounded_rectangle([x1, y1, x2, y2], radius=15, fill='#f8fafc', outline='#cbd5e1', width=2)
+            draw.text((x1 + 15, y1 + 15), f"Ticket #{idx + 1} - Foto de Comprobante", fill="#1e293b", font=font_caption)
+            
+            thumb_w = 480
+            thumb_h = 320
+            
+            t_resized = t_img.copy()
+            t_resized.thumbnail((thumb_w, thumb_h), Image.Resampling.LANCZOS)
+            
+            paste_x = x1 + 15 + (thumb_w - t_resized.width) // 2
+            paste_y = y1 + 45 + (thumb_h - t_resized.height) // 2
+            
+            img.paste(t_resized, (paste_x, paste_y))
+
+    # Footer
+    footer_y = H - 90
+    draw.line([(80, footer_y - 20), (W - 80, footer_y - 20)], fill='#cbd5e1', width=2)
+    draw.text((W // 2, footer_y + 10), "Sistema de Gestión de Préstamos, Sorteos & Finanzas 2026", fill="#94a3b8", font=font_sub, anchor="mm")
 
     img_io = io.BytesIO()
     img.save(img_io, 'PNG', quality=95)
