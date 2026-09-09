@@ -2033,6 +2033,8 @@
                   <option value="names">📜 Lista de Nombres</option>
                   <option value="scratch">🎨 Raspadita Virtual</option>
                   <option value="slot">🎰 Bolillero / Slot Machine</option>
+                  <option value="bingo">🎱 Bingo (75 / 90 Bolillas)</option>
+                  <option value="loteria">🎟️ Lotería / Billetes 5 Cifras</option>
                 </select>
               </div>
 
@@ -2043,8 +2045,8 @@
             </div>
 
             <!-- Mode Specific Inputs -->
-            <div x-show="raffleForm.mode === 'numbers'" class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-2 border border-slate-200 dark:border-slate-700">
-              <span class="text-[11px] font-extrabold text-slate-600 dark:text-slate-300">Rango Numeración:</span>
+            <div x-show="raffleForm.mode === 'numbers' || raffleForm.mode === 'bingo' || raffleForm.mode === 'loteria'" class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-2 border border-slate-200 dark:border-slate-700">
+              <span class="text-[11px] font-extrabold text-slate-600 dark:text-slate-300">Rango Numeración / Bolillas:</span>
               <div class="grid grid-cols-2 gap-2">
                 <input type="number" x-model="raffleForm.range_min" placeholder="Desde" class="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
                 <input type="number" x-model="raffleForm.range_max" placeholder="Hasta" class="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
@@ -2072,7 +2074,7 @@
             </div>
 
             <button @click="createRaffle()" class="w-full py-3 bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-700 hover:to-indigo-700 text-white rounded-xl font-extrabold text-xs shadow-lg transition transform hover:scale-[1.01] active:scale-95">
-              🎉 Guardar & Publicar Sorteo
+              🎉 Guardar & Publicar Sorteo / Bingo
             </button>
           </div>
         </div>
@@ -2092,8 +2094,8 @@
                 <div>
                   <div class="flex items-center space-x-2">
                     <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase"
-                          :class="r.mode === 'scratch' ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30' : r.mode === 'slot' ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30' : 'bg-brand-500/20 text-brand-600 dark:text-brand-300 border border-brand-500/30'"
-                          x-text="r.mode === 'scratch' ? '🎨 Raspadita' : r.mode === 'slot' ? '🎰 Bolillero' : r.mode === 'names' ? '📜 Nombres' : '🔢 Números'"></span>
+                          :class="r.mode === 'scratch' ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30' : r.mode === 'slot' ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30' : r.mode === 'bingo' ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30' : 'bg-brand-500/20 text-brand-600 dark:text-brand-300 border border-brand-500/30'"
+                          x-text="r.mode === 'scratch' ? '🎨 Raspadita' : r.mode === 'slot' ? '🎰 Bolillero' : r.mode === 'bingo' ? '🎱 Bingo' : r.mode === 'loteria' ? '🎟️ Lotería' : r.mode === 'names' ? '📜 Nombres' : '🔢 Números'"></span>
                     <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase"
                           :class="r.status === 'completado' ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-blue-500/20 text-blue-600 dark:text-blue-400'"
                           x-text="r.status"></span>
@@ -2102,7 +2104,7 @@
                   <p class="text-xs text-slate-500 dark:text-slate-400" x-text="r.description"></p>
                 </div>
                 <div class="text-right">
-                  <div class="text-[10px] text-slate-400 font-bold uppercase">Precio por Número</div>
+                  <div class="text-[10px] text-slate-400 font-bold uppercase">Precio por Ticket</div>
                   <div class="text-sm font-black text-emerald-600 dark:text-emerald-400" x-text="'$' + Number(r.ticket_price || 0).toLocaleString('es-AR')"></div>
                 </div>
               </div>
@@ -2165,12 +2167,15 @@
               <!-- Card Action Bar -->
               <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <div class="flex items-center space-x-2">
-                  <button @click="openFlyerModal(r)" class="px-3 py-1.5 rounded-xl bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-300 text-xs font-bold border border-indigo-500/20 transition flex items-center space-x-1">
-                    <span>🖼️ Generar Flyer PNG</span>
+                  <button @click="openFlyerModal(r, false)" class="px-3 py-1.5 rounded-xl bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-300 text-xs font-bold border border-indigo-500/20 transition flex items-center space-x-1">
+                    <span>🖼️ Flyer PNG</span>
                   </button>
-                  <a :href="'https://wa.me/?text=' + encodeURIComponent('🎉 *Sorteo Express: ' + r.title + '*\n\n' + r.description + '\n💰 Valor Ticket: $' + r.ticket_price + '\n¡Participa ahora!')" target="_blank" class="px-3 py-1.5 rounded-xl bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-300 text-xs font-bold border border-emerald-500/20 transition flex items-center space-x-1">
-                    <span>🟢 Compartir WA</span>
-                  </a>
+                  <button @click="openFlyerModal(r, true)" class="px-3 py-1.5 rounded-xl bg-amber-600/10 hover:bg-amber-600/20 text-amber-600 dark:text-amber-300 text-xs font-bold border border-amber-500/20 transition flex items-center space-x-1">
+                    <span>✨ Arte IA</span>
+                  </button>
+                  <button @click="generateBingoCardsPdf(r)" class="px-3 py-1.5 rounded-xl bg-purple-600/10 hover:bg-purple-600/20 text-purple-600 dark:text-purple-300 text-xs font-bold border border-purple-500/20 transition flex items-center space-x-1">
+                    <span>🎱 Cartones Bingo PDF</span>
+                  </button>
                 </div>
 
                 <div class="flex items-center space-x-2">
@@ -2231,7 +2236,7 @@
           <span>🎙️ Audios al Vuelo (Zero-UI)</span>
         </button>
         <button @click="shoppingSubTab = 'asado'" :class="shoppingSubTab === 'asado' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 whitespace-nowrap">
-          <span>🥩 Calculador de Asados</span>
+          <span>🍽️ Calculador de Comidas & Juntadas IA</span>
         </button>
       </div>
 
@@ -2435,78 +2440,139 @@
 
       </div>
 
-      <!-- SUB-TAB 4: CALCULADORA DE ASADOS -->
+      <!-- SUB-TAB 4: CALCULADORA DE COMIDAS & JUNTADAS IA -->
       <div x-show="shoppingSubTab === 'asado'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         <!-- Calculator Form -->
         <div class="adaptive-card p-5 space-y-4">
           <h3 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
-            <span>🥩 Calculador Inteligente de Asado & Juntada</span>
+            <span>🍽️ Calculador Multievento de Comidas & Juntadas IA</span>
           </h3>
 
           <div class="space-y-4">
+            <!-- Menu Type Selection Pills -->
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-500 mb-1.5">Tipo de Menú / Evento:</label>
+              <div class="grid grid-cols-3 gap-2">
+                <button type="button" @click="comidasForm.menu_type = 'asado'; calculateComidas()" :class="comidasForm.menu_type === 'asado' ? 'bg-red-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'" class="p-2 rounded-xl text-xs font-black transition text-center">🥩 Asado</button>
+                <button type="button" @click="comidasForm.menu_type = 'pizza'; calculateComidas()" :class="comidasForm.menu_type === 'pizza' ? 'bg-amber-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'" class="p-2 rounded-xl text-xs font-black transition text-center">🍕 Pizzas</button>
+                <button type="button" @click="comidasForm.menu_type = 'tacos'; calculateComidas()" :class="comidasForm.menu_type === 'tacos' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'" class="p-2 rounded-xl text-xs font-black transition text-center">🌮 Tacos</button>
+                <button type="button" @click="comidasForm.menu_type = 'disco'; calculateComidas()" :class="comidasForm.menu_type === 'disco' ? 'bg-purple-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'" class="p-2 rounded-xl text-xs font-black transition text-center">🥘 Pollo al Disco</button>
+                <button type="button" @click="comidasForm.menu_type = 'hamburguesas'; calculateComidas()" :class="comidasForm.menu_type === 'hamburguesas' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'" class="p-2 rounded-xl text-xs font-black transition text-center">🍔 Hamburguesada</button>
+                <button type="button" @click="comidasForm.menu_type = 'custom'; calculateComidas()" :class="comidasForm.menu_type === 'custom' ? 'bg-slate-900 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'" class="p-2 rounded-xl text-xs font-black transition text-center">🎨 Personalizado</button>
+              </div>
+            </div>
+
+            <!-- Number of People -->
             <div>
               <div class="flex justify-between text-xs font-bold text-slate-500 uppercase mb-1">
                 <span>Cantidad de Personas:</span>
-                <span class="text-indigo-600 dark:text-indigo-400 font-black text-sm" x-text="asadoForm.people + ' personas'"></span>
+                <span class="text-indigo-600 dark:text-indigo-400 font-black text-sm" x-text="comidasForm.people + ' comensales'"></span>
               </div>
-              <input type="range" min="1" max="50" x-model="asadoForm.people" @input="calculateAsado()" class="w-full accent-indigo-600 cursor-pointer">
+              <input type="range" min="1" max="60" x-model="comidasForm.people" @input="calculateComidas()" class="w-full accent-indigo-600 cursor-pointer">
             </div>
 
+            <!-- Itemized Purchased Ingredients Section -->
+            <div class="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+              <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2">
+                <span class="text-xs font-extrabold text-slate-700 dark:text-slate-200">🛒 Insumos Comprados con Precio Reales:</span>
+                <button type="button" @click="addIngredientToForm()" class="text-[11px] font-black text-indigo-600 dark:text-indigo-400 hover:underline">+ Agregar Insumo</button>
+              </div>
+
+              <div class="space-y-2">
+                <template x-for="(item, idx) in comidasForm.bought_items" :key="idx">
+                  <div class="flex items-center space-x-2">
+                    <input type="text" x-model="item.name" @input="calculateComidas()" placeholder="ej. Tira de Asado, Pan, Vino" class="flex-1 p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
+                    <div class="w-28 relative">
+                      <span class="absolute left-2.5 top-2 text-xs text-slate-400 font-bold">$</span>
+                      <input type="number" x-model="item.price" @input="calculateComidas()" placeholder="Monto" class="w-full p-2 pl-6 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
+                    </div>
+                    <button type="button" @click="removeIngredientFromForm(idx)" class="text-rose-500 hover:text-rose-700 font-bold text-xs p-1">✕</button>
+                  </div>
+                </template>
+              </div>
+              <p class="text-[10px] text-slate-400">Si agregas insumos con precio, el costo se calculará exactamente prorrateando tus tickets.</p>
+            </div>
+
+            <!-- Options Checkboxes -->
             <div class="grid grid-cols-3 gap-2 text-xs">
               <label class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center space-x-2 cursor-pointer bg-slate-50 dark:bg-slate-800/40">
-                <input type="checkbox" x-model="asadoForm.include_asado" @change="calculateAsado()" class="rounded text-indigo-600">
-                <span class="font-bold">Carne 🥩</span>
-              </label>
-              <label class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center space-x-2 cursor-pointer bg-slate-50 dark:bg-slate-800/40">
-                <input type="checkbox" x-model="asadoForm.include_drinks" @change="calculateAsado()" class="rounded text-indigo-600">
+                <input type="checkbox" x-model="comidasForm.include_drinks" @change="calculateComidas()" class="rounded text-indigo-600">
                 <span class="font-bold">Bebidas 🍷</span>
               </label>
               <label class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center space-x-2 cursor-pointer bg-slate-50 dark:bg-slate-800/40">
-                <input type="checkbox" x-model="asadoForm.include_ice" @change="calculateAsado()" class="rounded text-indigo-600">
+                <input type="checkbox" x-model="comidasForm.include_ice" @change="calculateComidas()" class="rounded text-indigo-600">
                 <span class="font-bold">Hielo 🧊</span>
+              </label>
+              <label class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center space-x-2 cursor-pointer bg-slate-50 dark:bg-slate-800/40">
+                <input type="checkbox" x-model="comidasForm.include_dessert" @change="calculateComidas()" class="rounded text-indigo-600">
+                <span class="font-bold">Postre 🍰</span>
               </label>
             </div>
 
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Costo por Entrada / Valor Ticket ($)</label>
-              <input type="number" x-model="asadoForm.ticket_price" @input="calculateAsado()" placeholder="0 (si es división exacta)" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
+              <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Costo Fijo Entrada / Ticket ($ opcional)</label>
+              <input type="number" x-model="comidasForm.ticket_price" @input="calculateComidas()" placeholder="0 (dejar en 0 para cálculo exacto)" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
             </div>
 
-            <button @click="calculateAsado()" class="w-full py-3 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white rounded-xl text-xs font-black shadow-lg">
-              🔥 Calcular Insumos & División de Ticket
+            <button @click="calculateComidas()" class="w-full py-3 bg-gradient-to-r from-red-600 to-indigo-600 hover:from-red-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black shadow-lg transition transform hover:scale-[1.01] active:scale-95">
+              🔥 Calcular Insumos, División de Gastos & Redacción IA
             </button>
           </div>
         </div>
 
         <!-- Calculator Result Card -->
-        <div class="adaptive-card p-6 space-y-4 bg-gradient-to-tr from-slate-900 to-red-950 text-white border border-red-500/30">
-          <h3 class="font-extrabold text-base text-red-300 flex items-center gap-2 border-b border-red-500/30 pb-3">
-            <span>📊 Resumen de Insumos para <span x-text="asadoResult?.people || asadoForm.people"></span> Personas</span>
-          </h3>
+        <div class="adaptive-card p-6 space-y-4 bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-950 text-white border border-indigo-500/30 shadow-2xl">
+          <div class="flex justify-between items-center border-b border-indigo-500/30 pb-3">
+            <h3 class="font-extrabold text-base text-indigo-300 flex items-center gap-2">
+              <span>📊 Resumen Gastronómico para <span x-text="comidasResult?.people || comidasForm.people"></span> Comensales</span>
+            </h3>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-black uppercase" x-text="comidasResult?.menu_name || 'Menú'"></span>
+          </div>
 
+          <!-- Total & Per Person Big Cards -->
           <div class="grid grid-cols-2 gap-3 text-xs">
-            <div class="p-3 bg-slate-900/80 rounded-xl border border-red-500/20">
-              <span class="text-[10px] text-slate-400 font-bold uppercase">Carne Total:</span>
-              <div class="text-lg font-black text-amber-400" x-text="(asadoResult?.meat_kg || 0) + ' kg'"></div>
+            <div class="p-3.5 bg-slate-900/90 rounded-2xl border border-indigo-500/30 text-center">
+              <span class="text-[10px] text-slate-400 font-bold uppercase block">Gasto Total Evento</span>
+              <div class="text-xl font-black text-amber-400 mt-1" x-text="'$' + Number(comidasResult?.total_expense || 0).toLocaleString('es-AR')"></div>
             </div>
-            <div class="p-3 bg-slate-900/80 rounded-xl border border-red-500/20">
-              <span class="text-[10px] text-slate-400 font-bold uppercase">Pan / Ensalada:</span>
-              <div class="text-lg font-black text-amber-400" x-text="(asadoResult?.bread_kg || 0) + ' kg / ' + (asadoResult?.coal_bags || 0) + ' bols. carbón'"></div>
-            </div>
-            <div class="p-3 bg-slate-900/80 rounded-xl border border-red-500/20">
-              <span class="text-[10px] text-slate-400 font-bold uppercase">Bebidas:</span>
-              <div class="text-lg font-black text-amber-400" x-text="(asadoResult?.wine_bottles || 0) + ' vino / ' + (asadoResult?.soda_liters || 0) + 'L gaseosa'"></div>
-            </div>
-            <div class="p-3 bg-slate-900/80 rounded-xl border border-red-500/20">
-              <span class="text-[10px] text-slate-400 font-bold uppercase">Costo Estimado Persona:</span>
-              <div class="text-lg font-black text-emerald-400" x-text="'$' + Number(asadoResult?.estimated_cost_per_person || 0).toLocaleString('es-AR')"></div>
+            <div class="p-3.5 bg-slate-900/90 rounded-2xl border border-emerald-500/30 text-center">
+              <span class="text-[10px] text-emerald-400 font-bold uppercase block">Costo por Persona</span>
+              <div class="text-xl font-black text-emerald-300 mt-1" x-text="'$' + Number(comidasResult?.cost_per_person || 0).toLocaleString('es-AR')"></div>
             </div>
           </div>
 
-          <button @click="copyAsadoWhatsapp()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md flex items-center justify-center space-x-2">
-            <span>📲 Copiar Resumen para WhatsApp</span>
-          </button>
+          <!-- Ingredients List breakdown -->
+          <div class="space-y-2">
+            <span class="text-[11px] font-extrabold uppercase text-slate-400 tracking-wider">Detalle Insumos Calculados:</span>
+            <div class="bg-slate-950/80 p-3 rounded-2xl border border-indigo-500/20 space-y-1.5 text-xs">
+              <template x-for="(ing, idx) in (comidasResult?.ingredients || [])" :key="idx">
+                <div class="flex justify-between items-center text-slate-200 border-b border-slate-800/60 pb-1 last:border-0 last:pb-0">
+                  <span class="font-bold" x-text="ing.item"></span>
+                  <div class="text-right">
+                    <span class="font-mono text-indigo-300 font-semibold" x-text="ing.qty"></span>
+                    <span x-show="ing.cost > 0" class="text-[10px] text-emerald-400 ml-1 font-bold" x-text="'($' + Number(ing.cost).toLocaleString('es-AR') + ')'"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Redacted IA Text Preview -->
+          <div x-show="comidasResult?.whatsapp_message" class="space-y-1">
+            <span class="text-[10px] font-bold uppercase text-purple-300">Mensaje Redactado con IA (WhatsApp):</span>
+            <div class="p-3 rounded-xl bg-slate-950 border border-purple-500/30 text-[11px] text-purple-200 font-mono whitespace-pre-wrap max-h-32 overflow-y-auto" x-text="comidasResult?.whatsapp_message"></div>
+          </div>
+
+          <!-- Action buttons: Whatsapp & PDF -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <button @click="copyComidasWhatsapp()" class="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md flex items-center justify-center space-x-2 transition active:scale-95">
+              <span>📲 Copiar Mensaje IA WhatsApp</span>
+            </button>
+            <button @click="downloadComidasPdf()" class="py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md flex items-center justify-center space-x-2 transition active:scale-95">
+              <span>📄 Descargar Reporte PDF</span>
+            </button>
+          </div>
         </div>
 
       </div>

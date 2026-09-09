@@ -2830,6 +2830,7 @@ def sign_biometric_request(token):
 # ----------------------------------------------------
 # API SORTEOS & RIFAS EXPRESS
 # ----------------------------------------------------
+@app.route('/api/sorteos', methods=['GET', 'POST'])
 @app.route('/api/raffles', methods=['GET', 'POST'])
 def api_raffles():
     if request.method == 'GET':
@@ -2864,7 +2865,7 @@ def api_raffles():
     )
     db.session.add(raffle)
     db.session.commit()
-    return jsonify({"success": True, "status": "success", "raffle": raffle.to_dict()})
+    return jsonify({"success": True, "status": "success", "raffle": raffle.to_dict()}), 201
 
 @app.route('/api/raffles/<int:raffle_id>', methods=['DELETE'])
 def delete_raffle(raffle_id):
@@ -2917,6 +2918,10 @@ def draw_raffle_winners(raffle_id):
 @app.route('/api/generar-flyer', methods=['GET', 'POST'])
 def generar_flyer():
     from PIL import Image, ImageDraw, ImageFont
+    import io
+    import urllib.request
+    import urllib.parse
+    import random
     
     if request.method == 'POST':
         payload = request.get_json() or {}
@@ -2948,15 +2953,37 @@ def generar_flyer():
         number_max = int(payload.get('number_max') or 100)
         prizes_str = payload.get('prizes') or "1° Premio: Asado Completo + Vino\n2° Premio: Postre Familiar + Sidra"
 
+    use_ai = str(payload.get('use_ai') or payload.get('ai') or '0').lower() in ['1', 'true', 'yes']
     W, H = 1080, 1350
-    img = Image.new('RGB', (W, H), color='#0f172a')
-    draw = ImageDraw.Draw(img)
+    ai_img = None
 
-    for y in range(260):
-        r_c = int(15 + (y / 260) * 20)
-        g_c = int(23 + (y / 260) * 100)
-        b_c = int(42 + (y / 260) * 160)
-        draw.line([(0, y), (W, y)], fill=(r_c, g_c, b_c))
+    if use_ai:
+        try:
+            prompt_str = f"vibrant gold luxury raffle trophy background {title} {motive} dark glassmorphism 2026 aesthetics"
+            encoded_prompt = urllib.parse.quote(prompt_str[:120])
+            ai_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1080&height=1350&nologo=true&seed={random.randint(100, 99999)}"
+            req = urllib.request.Request(ai_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=3.5) as resp:
+                ai_data = resp.read()
+                ai_img = Image.open(io.BytesIO(ai_data)).convert('RGB')
+                ai_img = ai_img.resize((W, H))
+        except Exception as err:
+            print(f"[AI Flyer Image Generator Fallback]: {err}")
+            ai_img = None
+
+    if ai_img:
+        overlay = Image.new('RGBA', (W, H), (15, 23, 42, 170))
+        img = Image.alpha_composite(ai_img.convert('RGBA'), overlay).convert('RGB')
+    else:
+        img = Image.new('RGB', (W, H), color='#0f172a')
+        draw_bg = ImageDraw.Draw(img)
+        for y in range(260):
+            r_c = int(15 + (y / 260) * 20)
+            g_c = int(23 + (y / 260) * 100)
+            b_c = int(42 + (y / 260) * 160)
+            draw_bg.line([(0, y), (W, y)], fill=(r_c, g_c, b_c))
+
+    draw = ImageDraw.Draw(img)
 
     try:
         font_title = ImageFont.truetype("arial.ttf", 50)
@@ -2967,7 +2994,7 @@ def generar_flyer():
         font_title = font_sub = font_body = font_num = ImageFont.load_default()
 
     draw.rounded_rectangle([60, 35, W - 60, 110], radius=20, fill='#0284c7', outline='#38bdf8', width=2)
-    draw.text((W // 2, 72), "🎲 SORTEO EXPRESS & RIFA 🎲", fill="#ffffff", font=font_sub, anchor="mm")
+    draw.text((W // 2, 72), "🎲 SORTEO EXPRESS & RIFA IA 🎲", fill="#ffffff", font=font_sub, anchor="mm")
 
     draw.text((W // 2, 170), title.upper(), fill="#ffffff", font=font_title, anchor="mm")
     draw.text((W // 2, 225), f"📌 {motive}", fill="#38bdf8", font=font_sub, anchor="mm")
@@ -3016,7 +3043,123 @@ def generar_flyer():
     img_io = io.BytesIO()
     img.save(img_io, 'PNG', quality=95)
     img_io.seek(0)
-    return send_file(img_io, mimetype='image/png', as_attachment=False, download_name='flyer_sorteo.png')
+    return send_file(img_io, mimetype='image/png', as_attachment=False, download_name='flyer_sorteo_ia.png')
+
+
+@app.route('/api/generar-cartones-bingo', methods=['GET', 'POST'])
+def generar_cartones_bingo():
+    from PIL import Image, ImageDraw, ImageFont
+    import random
+    import io
+    
+    if request.method == 'POST':
+        payload = request.get_json() or {}
+    else:
+        payload = request.args.to_dict()
+
+    raffle_title = payload.get('title') or "GRAN BINGO FAMILIAR 2026"
+    mode = str(payload.get('mode') or '75')
+    cards_count = min(10, max(1, int(payload.get('count') or payload.get('quantity') or 2)))
+
+    W, H = 1200, 1600
+    img = Image.new('RGB', (W, H), color='#090d16')
+    draw = ImageDraw.Draw(img)
+
+    try:
+        font_title = ImageFont.truetype("arial.ttf", 45)
+        font_sub = ImageFont.truetype("arial.ttf", 26)
+        font_num = ImageFont.truetype("arial.ttf", 32)
+        font_header = ImageFont.truetype("arial.ttf", 34)
+    except Exception:
+        font_title = font_sub = font_num = font_header = ImageFont.load_default()
+
+    draw.rounded_rectangle([40, 30, W - 40, 120], radius=20, fill='#1e1b4b', outline='#6366f1', width=3)
+    draw.text((W // 2, 75), f"🎱 {raffle_title.upper()} 🎱", fill="#ffffff", font=font_title, anchor="mm")
+    draw.text((W // 2, 145), f"CARTONES OFICIALES DE BINGO (MODO {mode} BOLILLAS) • GENERADO CON IA", fill="#a5b4fc", font=font_sub, anchor="mm")
+
+    cards_per_page = min(2, cards_count)
+    card_w = W - 120
+    card_h = 640
+    
+    for c_idx in range(cards_per_page):
+        top_y = 190 + c_idx * 680
+        
+        draw.rounded_rectangle([60, top_y, 60 + card_w, top_y + card_h], radius=25, fill='#0f172a', outline='#f59e0b', width=3)
+        
+        draw.rounded_rectangle([75, top_y + 15, 60 + card_w - 15, top_y + 75], radius=15, fill='#d97706', outline='#fbbf24', width=2)
+        card_id_str = f"CARTÓN N° #{c_idx + 1:03d} • HASH: BINGO-{random.randint(1000, 9999)}"
+        draw.text((W // 2, top_y + 45), card_id_str, fill="#ffffff", font=font_header, anchor="mm")
+
+        if mode == '75':
+            headers = ["B", "I", "N", "G", "O"]
+            cols = 5
+            rows = 5
+            col_w = (card_w - 40) // cols
+            row_h = (card_h - 120) // (rows + 1)
+            grid_left = 80
+            grid_top = top_y + 90
+            
+            for ci, h_letter in enumerate(headers):
+                cx1 = grid_left + ci * col_w
+                cy1 = grid_top
+                cx2 = cx1 + col_w - 6
+                cy2 = cy1 + row_h - 6
+                draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=10, fill='#4338ca', outline='#818cf8', width=2)
+                draw.text(((cx1 + cx2) // 2, (cy1 + cy2) // 2), h_letter, fill="#ffffff", font=font_header, anchor="mm")
+
+            col_ranges = [(1,15), (16,30), (31,45), (46,60), (61,75)]
+            card_grid = []
+            for col_i in range(5):
+                nums = random.sample(range(col_ranges[col_i][0], col_ranges[col_i][1] + 1), 5)
+                card_grid.append(nums)
+
+            for ri in range(5):
+                for ci in range(5):
+                    cx1 = grid_left + ci * col_w
+                    cy1 = grid_top + (ri + 1) * row_h
+                    cx2 = cx1 + col_w - 6
+                    cy2 = cy1 + row_h - 6
+                    
+                    if ri == 2 and ci == 2:
+                        draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=12, fill='#b45309', outline='#f59e0b', width=2)
+                        draw.text(((cx1 + cx2) // 2, (cy1 + cy2) // 2), "⭐ LIBRE ⭐", fill="#fef08a", font=font_sub, anchor="mm")
+                    else:
+                        num_val = card_grid[ci][ri]
+                        draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=12, fill='#1e293b', outline='#334155', width=1)
+                        draw.text(((cx1 + cx2) // 2, (cy1 + cy2) // 2), f"{num_val:02d}", fill="#ffffff", font=font_num, anchor="mm")
+
+        else: # 90 balls
+            cols = 9
+            rows = 3
+            col_w = (card_w - 40) // cols
+            row_h = (card_h - 110) // rows
+            grid_left = 80
+            grid_top = top_y + 90
+            
+            for ri in range(3):
+                row_nums = random.sample(range(1, 91), 5)
+                row_nums.sort()
+                positions = sorted(random.sample(range(9), 5))
+                pos_idx = 0
+                
+                for ci in range(9):
+                    cx1 = grid_left + ci * col_w
+                    cy1 = grid_top + ri * row_h
+                    cx2 = cx1 + col_w - 4
+                    cy2 = cy1 + row_h - 4
+                    
+                    if ci in positions:
+                        num_val = row_nums[pos_idx]
+                        pos_idx += 1
+                        draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=10, fill='#1e293b', outline='#475569', width=1)
+                        draw.text(((cx1 + cx2) // 2, (cy1 + cy2) // 2), f"{num_val:02d}", fill="#ffffff", font=font_num, anchor="mm")
+                    else:
+                        draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=10, fill='#090d16', outline='#1e293b', width=1)
+
+    img_io = io.BytesIO()
+    img.save(img_io, 'PNG', quality=95)
+    img_io.seek(0)
+    return send_file(img_io, mimetype='image/png', as_attachment=False, download_name='cartones_bingo.png')
 
 
 # ----------------------------------------------------
@@ -3245,74 +3388,162 @@ def whatsapp_webhook():
 
 
 
+@app.route('/api/comidas/calculate', methods=['POST'])
 @app.route('/api/asado/calculate', methods=['POST'])
-def calculate_asado():
+def calculate_comidas():
     import math
     data = request.get_json() or {}
-    people = max(1, int(data.get('people') or data.get('adults') or 10))
+    
+    event_type = (data.get('event_type') or data.get('menu_type') or 'asado').lower() # asado, pizza, tacos, disco, hamburguesas, custom
+    people = max(1, int(data.get('people') or data.get('diners_count') or data.get('adults') or 10))
     adults = max(0, int(data.get('adults') or people))
     children = max(0, int(data.get('children') or 0))
-    alcohol_drinkers = max(0, int(data.get('alcohol_drinkers') or adults))
     vegetarians = max(0, int(data.get('vegetarians') or 0))
-    ticket_costs = data.get('ticket_costs') or []
+    ticket_price = float(data.get('ticket_price') or 0.0)
+    bought_items = data.get('bought_items') or data.get('items') or []
 
-    include_asado = data.get('include_asado', True)
-    include_drinks = data.get('include_drinks', True)
-    include_ice = data.get('include_ice', True)
-    ticket_price = float(data.get('ticket_price') or 0)
+    ingredients_list = []
+    
+    if event_type == 'pizza':
+        pizzas_count = math.ceil((adults * 0.5) + (children * 0.25))
+        cheese_kg = round(pizzas_count * 0.25, 2)
+        flour_kg = round(pizzas_count * 0.2, 2)
+        sauce_lts = round(pizzas_count * 0.1, 2)
+        soda_liters = round((adults + children) * 1.0, 1)
+        beer_bottles = math.ceil(adults * 0.8)
 
-    eaters_meat = max(0, adults - vegetarians) if include_asado else 0
-    meat_kg = round(eaters_meat * 0.5 + children * 0.25, 2)
-    veggie_kg = round(vegetarians * 0.4, 2)
-    bread_kg = round((adults + children) * 0.15, 2)
-    coal_bags = math.ceil(max(1.0, (meat_kg + veggie_kg) / 5.0))
-    charcoal_kg = round(max(5.0, (meat_kg + veggie_kg) * 1.5), 1)
+        ingredients_list = [
+            {"item": "Pizzas Estimadas", "qty": f"{pizzas_count} unidades"},
+            {"item": "Queso Muzzarella", "qty": f"{cheese_kg} kg"},
+            {"item": "Harina 0000", "qty": f"{flour_kg} kg"},
+            {"item": "Salsa de Tomate", "qty": f"{sauce_lts} Lts"},
+            {"item": "Gaseosas", "qty": f"{soda_liters} Lts"},
+            {"item": "Cerveza / Bebidas", "qty": f"{beer_bottles} botellas/latas"}
+        ]
+        menu_name = "Noche de Pizzas Caseras 🍕"
 
-    soda_liters = round((adults + children) * 1.0, 1) if include_drinks else 0
-    wine_bottles = math.ceil(alcohol_drinkers * 0.75) if include_drinks else 0
-    drinks_soft_lts = soda_liters
-    drinks_alcohol_lts = round(alcohol_drinkers * 1.2, 1)
-    ice_bags = math.ceil((adults + children) / 5.0) if include_ice else 0
+    elif event_type == 'tacos':
+        tacos_count = (adults * 4) + (children * 2)
+        meat_kg = round((adults + children) * 0.2, 2)
+        tortillas_packs = math.ceil(tacos_count / 12.0)
+        guacamole_kg = round(people * 0.08, 2)
+        cheese_kg = round(people * 0.08, 2)
+        soda_liters = round(people * 1.0, 1)
 
-    total_cost = sum(float(c) for c in ticket_costs) if ticket_costs else (ticket_price * people)
-    per_person_cost = round(total_cost / max(1, people), 2) if total_cost > 0 else 0.0
+        ingredients_list = [
+            {"item": "Tacos Estimados", "qty": f"{tacos_count} tacos"},
+            {"item": "Carne Picada / Pollo", "qty": f"{meat_kg} kg"},
+            {"item": "Paquetes de Tortillas (x12)", "qty": f"{tortillas_packs} paquetes"},
+            {"item": "Guacamole / Palta", "qty": f"{guacamole_kg} kg"},
+            {"item": "Queso Rallado / Cheddar", "qty": f"{cheese_kg} kg"},
+            {"item": "Gaseosas / Bebidas", "qty": f"{soda_liters} Lts"}
+        ]
+        menu_name = "Taquiza & Noche de Tacos 🌮"
 
-    wa_summary = f"""🔥 *CÁLCULO INTELIGENTE DE ASADO / JUNTADA* 🔥
-👥 *Asistentes*: {people} personas ({adults} Adultos, {children} Niños)
+    elif event_type == 'disco':
+        chicken_kg = round(people * 0.4, 2)
+        potatoes_kg = round(people * 0.25, 2)
+        peppers_kg = round(people * 0.1, 2)
+        wine_white_bottles = math.ceil(people / 6.0)
+        bread_kg = round(people * 0.15, 2)
 
-🥩 *PROVISIONES SUGERIDAS*:
-- 🍖 *Carne (Asado/Vacío/Chorizos)*: {meat_kg} kg
-- 🥖 *Pan / Ensalada*: {bread_kg} kg
-- 🪵 *Carbón*: {coal_bags} bolsa(s) ({charcoal_kg} kg)
-- 🥤 *Gaseosa*: {soda_liters} Lts
-- 🍷 *Vino / Cerveza*: {wine_bottles} botella(s)
-- 🧊 *Hielo*: {ice_bags} bolsa(s)
+        ingredients_list = [
+            {"item": "Pollo Trozado", "qty": f"{chicken_kg} kg"},
+            {"item": "Papas / Cebollas", "qty": f"{potatoes_kg} kg"},
+            {"item": "Morrones / Pimientos", "qty": f"{peppers_kg} kg"},
+            {"item": "Vino Blanco para Cocinar", "qty": f"{wine_white_bottles} botellas"},
+            {"item": "Pan para Acompañar", "qty": f"{bread_kg} kg"}
+        ]
+        menu_name = "Pollo al Disco & Cazuela 🥘"
 
-💵 *GASTOS Y PRORRATEO*:
-- 💰 *Gasto Total Registrado*: ${total_cost:,.2f}
-- 👤 *Monto por Persona*: ${per_person_cost:,.2f}
+    elif event_type == 'hamburguesas':
+        burgers_count = (adults * 2) + children
+        meat_kg = round(burgers_count * 0.15, 2)
+        buns_packs = math.ceil(burgers_count / 4.0)
+        cheddar_slices = burgers_count
+        french_fries_kg = round(people * 0.2, 2)
 
-_Generado automáticamente desde Sistema de Gestión de Préstamos & Finanzas_"""
+        ingredients_list = [
+            {"item": "Medallones de Hamburguesa", "qty": f"{burgers_count} unidades ({meat_kg} kg)"},
+            {"item": "Panes de Hamburguesa", "qty": f"{burgers_count} panes ({buns_packs} paq.)"},
+            {"item": "Fetas de Queso Cheddar", "qty": f"{cheddar_slices} fetas"},
+            {"item": "Papas Fritas", "qty": f"{french_fries_kg} kg"}
+        ]
+        menu_name = "Hamburguesada Familiar 🍔"
+
+    elif event_type == 'custom':
+        ingredients_list = [
+            {"item": "Insumos Personalizados", "qty": f"{people} comensales"}
+        ]
+        menu_name = "Menú Personalizado & Juntada Libre 🎨"
+
+    else: # Asado Tradicional (Default)
+        eaters_meat = max(0, adults - vegetarians)
+        meat_kg = round(eaters_meat * 0.5 + children * 0.25, 2)
+        veggie_kg = round(vegetarians * 0.4, 2)
+        bread_kg = round(people * 0.15, 2)
+        coal_bags = math.ceil(max(1.0, (meat_kg + veggie_kg) / 5.0))
+        soda_liters = round(people * 1.0, 1)
+        wine_bottles = math.ceil(adults * 0.75)
+
+        ingredients_list = [
+            {"item": "Carne (Asado/Vacío/Chorizos)", "qty": f"{meat_kg} kg"},
+            {"item": "Verduras / Ensaladas", "qty": f"{veggie_kg} kg"},
+            {"item": "Pan Francés", "qty": f"{bread_kg} kg"},
+            {"item": "Bolsas de Carbón", "qty": f"{coal_bags} bolsa(s)"},
+            {"item": "Gaseosas", "qty": f"{soda_liters} Lts"},
+            {"item": "Vino / Cerveza", "qty": f"{wine_bottles} botellas"}
+        ]
+        menu_name = "Asado Tradicional 🥩"
+
+    parsed_items = []
+    total_cost = 0.0
+    for item in bought_items:
+        if isinstance(item, dict):
+            name = item.get('name') or item.get('item') or 'Ítem'
+            cost = float(item.get('cost') or item.get('price') or 0.0)
+        else:
+            name = str(item)
+            cost = 0.0
+        parsed_items.append({"name": name, "cost": cost})
+        total_cost += cost
+
+    if total_cost == 0.0 and ticket_price > 0:
+        total_cost = ticket_price * people
+
+    per_person_cost = round(total_cost / max(1, people), 2)
+
+    wa_summary = f"""🍽️ *REPORTE IA: {menu_name.upper()}* 🍽️
+👥 *Comensales*: {people} personas ({adults} Adultos, {children} Niños)
+
+📌 *INSUMOS SUGERIDOS*:
+"""
+    for ing in ingredients_list:
+        wa_summary += f"• *{ing['item']}*: {ing['qty']}\n"
+
+    if parsed_items:
+        wa_summary += f"\n💰 *DESGLOSE DE COMPRAS REGISTRADAS*:\n"
+        for p in parsed_items:
+            wa_summary += f"• {p['name']}: ${p['cost']:,.2f}\n"
+
+    wa_summary += f"\n💵 *PRORRATEO FINAL*:\n" \
+                  f"• 💰 *Gasto Total*: ${total_cost:,.2f}\n" \
+                  f"• 👤 *Monto por Persona*: ${per_person_cost:,.2f}\n\n" \
+                  f"_Generado automáticamente por Sistema de Gestión de Préstamos & Hogar 2026_"
 
     result_dict = {
+        "menu_name": menu_name,
+        "event_type": event_type,
         "people": people,
         "adults": adults,
         "children": children,
-        "alcohol_drinkers": alcohol_drinkers,
         "vegetarians": vegetarians,
-        "meat_kg": meat_kg,
-        "veggie_kg": veggie_kg,
-        "bread_kg": bread_kg,
-        "coal_bags": coal_bags,
-        "charcoal_kg": charcoal_kg,
-        "soda_liters": soda_liters,
-        "wine_bottles": wine_bottles,
-        "drinks_soft_lts": drinks_soft_lts,
-        "drinks_alcohol_lts": drinks_alcohol_lts,
-        "ice_bags": ice_bags,
+        "ingredients": ingredients_list,
+        "bought_items": parsed_items,
         "total_cost": total_cost,
         "estimated_cost_per_person": per_person_cost,
         "per_person_cost": per_person_cost,
+        "meat_kg": ingredients_list[0]['qty'] if ingredients_list else "0 kg",
         "wa_share_string": wa_summary,
         "whatsapp_text": wa_summary
     }
@@ -3323,6 +3554,70 @@ _Generado automáticamente desde Sistema de Gestión de Préstamos & Finanzas_""
         "data": result_dict,
         "calculation": result_dict
     })
+
+
+@app.route('/api/comidas/pdf', methods=['GET', 'POST'])
+def generar_comidas_pdf():
+    from PIL import Image, ImageDraw, ImageFont
+    import io
+    
+    if request.method == 'POST':
+        payload = request.get_json() or {}
+    else:
+        payload = request.args.to_dict()
+
+    people = int(payload.get('people') or 10)
+    total_cost = float(payload.get('total_cost') or 0.0)
+    per_person = float(payload.get('per_person_cost') or payload.get('estimated_cost_per_person') or 0.0)
+    menu_name = payload.get('menu_name') or "Juntada & Evento Gastronómico"
+    items = payload.get('bought_items') or []
+
+    W, H = 1200, 1600
+    img = Image.new('RGB', (W, H), color='#ffffff')
+    draw = ImageDraw.Draw(img)
+
+    try:
+        font_title = ImageFont.truetype("arial.ttf", 40)
+        font_sub = ImageFont.truetype("arial.ttf", 26)
+        font_body = ImageFont.truetype("arial.ttf", 22)
+    except Exception:
+        font_title = font_sub = font_body = ImageFont.load_default()
+
+    draw.rectangle([0, 0, W, 180], fill='#0f172a')
+    draw.text((W // 2, 70), "🍽️ COMPROBANTE OFICIAL DE JUNTADA", fill="#ffffff", font=font_title, anchor="mm")
+    draw.text((W // 2, 130), f"{menu_name.upper()} • PRORRATEO DE GASTOS", fill="#38bdf8", font=font_sub, anchor="mm")
+
+    draw.text((80, 220), f"📅 FECHA DE EMISIÓN: {date.today().strftime('%d/%m/%Y')}", fill="#475569", font=font_sub)
+    draw.text((80, 260), f"👥 ASISTENTES TOTALES: {people} Personas", fill="#475569", font=font_sub)
+
+    draw.rounded_rectangle([80, 310, W - 80, 440], radius=20, fill='#f8fafc', outline='#cbd5e1', width=2)
+    draw.text((120, 345), f"💵 GASTO TOTAL: ${total_cost:,.2f}", fill="#0f172a", font=font_title)
+    draw.text((120, 395), f"👤 MONTO INDIVIDUAL POR PERSONA: ${per_person:,.2f}", fill="#16a34a", font=font_sub)
+
+    draw.rectangle([80, 480, W - 80, 530], fill='#1e293b')
+    draw.text((110, 495), "DESCRIPCIÓN / INGREDIENTE", fill="#ffffff", font=font_sub)
+    draw.text((W - 120, 495), "COSTO ($)", fill="#ffffff", font=font_sub, anchor="rm")
+
+    curr_y = 550
+    if isinstance(items, list) and items:
+        for it in items:
+            name = it.get('name', str(it)) if isinstance(it, dict) else str(it)
+            cost = float(it.get('cost', 0)) if isinstance(it, dict) else 0.0
+            draw.line([(80, curr_y + 35), (W - 80, curr_y + 35)], fill='#e2e8f0', width=1)
+            draw.text((110, curr_y + 5), f"• {name}", fill="#334155", font=font_body)
+            draw.text((W - 120, curr_y + 5), f"${cost:,.2f}", fill="#0f172a", font=font_body, anchor="rm")
+            curr_y += 45
+    else:
+        draw.text((110, curr_y + 5), "• Prorrateo calculado automáticamente según comensales", fill="#64748b", font=font_body)
+
+    draw.line([(80, H - 120), (W - 80, H - 120)], fill='#cbd5e1', width=2)
+    draw.text((W // 2, H - 70), "Sistema de Gestión de Préstamos, Sorteos & Finanzas 2026", fill="#94a3b8", font=font_sub, anchor="mm")
+
+    img_io = io.BytesIO()
+    img.save(img_io, 'PNG', quality=95)
+    img_io.seek(0)
+    return send_file(img_io, mimetype='image/png', as_attachment=False, download_name='comprobante_juntada.png')
+
 
 
 import webbrowser

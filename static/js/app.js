@@ -216,7 +216,7 @@ function registerPrestamosApp() {
             raffleForm: {
                 title: '',
                 description: '',
-                mode: 'numbers', // 'numbers', 'names', 'scratch', 'slot'
+                mode: 'numbers', // 'numbers', 'names', 'scratch', 'slot', 'bingo', 'loteria'
                 range_min: 1,
                 range_max: 100,
                 custom_numbers: '',
@@ -241,6 +241,19 @@ function registerPrestamosApp() {
             zeroUiText: '',
             zeroUiResult: null,
             isZeroUiProcessing: false,
+            comidasForm: {
+                event_type: 'asado',
+                people: 10,
+                adults: 10,
+                children: 0,
+                vegetarians: 0,
+                ticket_price: 0,
+                bought_items: [
+                    { name: 'Muzzarella / Carne', cost: 6000 },
+                    { name: 'Bebidas / Gaseosas', cost: 3500 }
+                ]
+            },
+            comidasResult: null,
             asadoForm: { people: 10, include_asado: true, include_drinks: true, include_ice: true, ticket_price: 0, custom_notes: '' },
             asadoResult: null,
 
@@ -2388,8 +2401,78 @@ function registerPrestamosApp() {
                 });
             },
 
-            async openFlyerModal(raffle) {
-                this.flyerModal = { open: true, imgUrl: `/api/generar-flyer?raffle_id=${raffle.id}`, raffleTitle: raffle.title };
+            async openFlyerModal(raffle, useAi = false) {
+                const aiParam = useAi ? '&use_ai=1' : '';
+                this.flyerModal = { open: true, imgUrl: `/api/generar-flyer?raffle_id=${raffle.id}${aiParam}`, raffleTitle: raffle.title };
+            },
+
+            generateBingoCardsPdf(raffle) {
+                const url = `/api/generar-cartones-bingo?title=${encodeURIComponent(raffle.title)}&mode=${raffle.mode === 'bingo' ? '75' : '90'}&count=4`;
+                window.open(url, '_blank');
+            },
+
+            addIngredientToForm() {
+                if (!this.comidasForm.bought_items) this.comidasForm.bought_items = [];
+                this.comidasForm.bought_items.push({ name: '', cost: 0 });
+            },
+
+            removeIngredientFromForm(idx) {
+                if (this.comidasForm.bought_items && this.comidasForm.bought_items.length > 0) {
+                    this.comidasForm.bought_items.splice(idx, 1);
+                }
+            },
+
+            async calculateComidas() {
+                try {
+                    const res = await fetch('/api/comidas/calculate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.comidasForm)
+                    });
+                    const data = await res.json();
+                    if (data.status === 'success' || data.success) {
+                        this.comidasResult = data.data || data.calculation;
+                        this.asadoResult = data.data || data.calculation;
+                    }
+                } catch(err) {
+                    alert("Error al calcular menú gastronómico");
+                }
+            },
+
+            async calculateAsado() {
+                return this.calculateComidas();
+            },
+
+            copyComidasWhatsapp() {
+                const text = this.comidasResult?.wa_share_string || this.asadoResult?.wa_share_string;
+                if (!text) return;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        alert("¡Resumen de Juntada IA copiado para WhatsApp! 🍽️📲");
+                    }).catch(() => {
+                        this.fallbackCopyText(text);
+                    });
+                } else {
+                    this.fallbackCopyText(text);
+                }
+            },
+
+            copyAsadoWhatsapp() {
+                return this.copyComidasWhatsapp();
+            },
+
+            downloadComidasPdf() {
+                if (!this.comidasResult) {
+                    alert("Primero realiza el cálculo de comensales.");
+                    return;
+                }
+                const query = new URLSearchParams({
+                    people: this.comidasResult.people || 10,
+                    total_cost: this.comidasResult.total_cost || 0,
+                    per_person_cost: this.comidasResult.per_person_cost || 0,
+                    menu_name: this.comidasResult.menu_name || "Evento Gastronómico"
+                }).toString();
+                window.open(`/api/comidas/pdf?${query}`, '_blank');
             },
 
             // ============================================================
