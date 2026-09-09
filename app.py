@@ -3498,15 +3498,26 @@ def calculate_comidas():
 
     parsed_items = []
     total_cost = 0.0
+    category_labels = {
+        'alimentos': '🥩 Alimentos',
+        'bebidas': '🍷 Bebidas',
+        'postres': '🍰 Postres',
+        'varios': '📦 Artículos Varios'
+    }
+    
     for item in bought_items:
         if isinstance(item, dict):
-            name = item.get('name') or item.get('item') or 'Ítem'
+            name = (item.get('name') or item.get('item') or '').strip()
             cost = float(item.get('cost') or item.get('price') or 0.0)
+            cat = item.get('category') or 'alimentos'
         else:
-            name = str(item)
+            name = str(item).strip()
             cost = 0.0
-        parsed_items.append({"name": name, "cost": cost})
-        total_cost += cost
+            cat = 'alimentos'
+        if name:
+            cat_lbl = category_labels.get(cat, '🥩 Alimentos')
+            parsed_items.append({"name": name, "cost": cost, "price": cost, "category": cat, "category_label": cat_lbl})
+            total_cost += cost
 
     if total_cost == 0.0 and ticket_price > 0:
         total_cost = ticket_price * people
@@ -3516,15 +3527,24 @@ def calculate_comidas():
     wa_summary = f"""🍽️ *REPORTE IA: {menu_name.upper()}* 🍽️
 👥 *Comensales*: {people} personas ({adults} Adultos, {children} Niños)
 
-📌 *INSUMOS SUGERIDOS*:
+📌 *INSUMOS SUGERIDOS DE REFERENCIA*:
 """
     for ing in ingredients_list:
         wa_summary += f"• *{ing['item']}*: {ing['qty']}\n"
 
     if parsed_items:
-        wa_summary += f"\n💰 *DESGLOSE DE COMPRAS REGISTRADAS*:\n"
+        wa_summary += f"\n💰 *DESGLOSE DE COMPRAS REGISTRADAS POR CATEGORÍA*:\n"
+        grouped_items = {}
         for p in parsed_items:
-            wa_summary += f"• {p['name']}: ${p['cost']:,.2f}\n"
+            cat_lbl = p['category_label']
+            if cat_lbl not in grouped_items:
+                grouped_items[cat_lbl] = []
+            grouped_items[cat_lbl].append(p)
+            
+        for cat_lbl, cat_list in grouped_items.items():
+            wa_summary += f"\n*{cat_lbl}*:\n"
+            for p in cat_list:
+                wa_summary += f"  • {p['name']}: ${p['cost']:,.2f}\n"
 
     wa_summary += f"\n💵 *PRORRATEO FINAL*:\n" \
                   f"• 💰 *Gasto Total*: ${total_cost:,.2f}\n" \
@@ -3588,7 +3608,7 @@ def generar_comidas_pdf():
 
     W = 1200
     items_count = len(items) if isinstance(items, list) and items else 1
-    base_table_height = 550 + (items_count * 45)
+    base_table_height = 550 + (items_count * 50) + 120
 
     ticket_section_h = 0
     if decoded_ticket_imgs:
@@ -3604,9 +3624,10 @@ def generar_comidas_pdf():
         font_title = ImageFont.truetype("arial.ttf", 40)
         font_sub = ImageFont.truetype("arial.ttf", 26)
         font_body = ImageFont.truetype("arial.ttf", 22)
+        font_cat = ImageFont.truetype("arial.ttf", 22)
         font_caption = ImageFont.truetype("arial.ttf", 18)
     except Exception:
-        font_title = font_sub = font_body = font_caption = ImageFont.load_default()
+        font_title = font_sub = font_body = font_cat = font_caption = ImageFont.load_default()
 
     # Header
     draw.rectangle([0, 0, W, 180], fill='#0f172a')
@@ -3628,13 +3649,31 @@ def generar_comidas_pdf():
 
     curr_y = 550
     if isinstance(items, list) and items:
+        # Group items by category if available
+        grouped = {}
         for it in items:
-            name = it.get('name', it.get('item', str(it))) if isinstance(it, dict) else str(it)
-            cost = float(it.get('cost', it.get('price', 0))) if isinstance(it, dict) else 0.0
-            draw.line([(80, curr_y + 35), (W - 80, curr_y + 35)], fill='#e2e8f0', width=1)
-            draw.text((110, curr_y + 5), f"• {name}", fill="#334155", font=font_body)
-            draw.text((W - 120, curr_y + 5), f"${cost:,.2f}", fill="#0f172a", font=font_body, anchor="rm")
-            curr_y += 45
+            if isinstance(it, dict):
+                cat_lbl = it.get('category_label') or '🥩 Alimentos'
+                name = it.get('name') or it.get('item') or ''
+                cost = float(it.get('cost') or it.get('price') or 0.0)
+            else:
+                cat_lbl = '🥩 Alimentos'
+                name = str(it)
+                cost = 0.0
+            if name:
+                if cat_lbl not in grouped: grouped[cat_lbl] = []
+                grouped[cat_lbl].append((name, cost))
+
+        for cat_lbl, cat_items in grouped.items():
+            draw.rectangle([80, curr_y, W - 80, curr_y + 35], fill='#f1f5f9')
+            draw.text((100, curr_y + 6), cat_lbl, fill="#0f172a", font=font_cat)
+            curr_y += 40
+            for name, cost in cat_items:
+                draw.line([(80, curr_y + 32), (W - 80, curr_y + 32)], fill='#e2e8f0', width=1)
+                draw.text((120, curr_y + 4), f"• {name}", fill="#334155", font=font_body)
+                draw.text((W - 120, curr_y + 4), f"${cost:,.2f}", fill="#0f172a", font=font_body, anchor="rm")
+                curr_y += 40
+            curr_y += 10
     else:
         draw.text((110, curr_y + 5), "• Prorrateo calculado automáticamente según comensales", fill="#64748b", font=font_body)
         curr_y += 45

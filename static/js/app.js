@@ -250,13 +250,12 @@ function registerPrestamosApp() {
                 vegetarians: 0,
                 ticket_price: 0,
                 bought_items: [
-                    { name: 'Muzzarella / Carne', price: 6000 },
-                    { name: 'Bebidas / Gaseosas', price: 3500 }
+                    { name: 'Carne / Asado / Verduras', price: 15000, category: 'alimentos' },
+                    { name: 'Vino / Cerveza / Gaseosas', price: 6500, category: 'bebidas' },
+                    { name: 'Helado / Torta', price: 4000, category: 'postres' },
+                    { name: 'Hielo / Carbón / Servilletas', price: 2500, category: 'varios' }
                 ],
-                ticket_images: [],
-                include_drinks: true,
-                include_ice: true,
-                include_dessert: false
+                ticket_images: []
             },
             comidasResult: null,
             asadoForm: { people: 10, include_asado: true, include_drinks: true, include_ice: true, ticket_price: 0, custom_notes: '' },
@@ -2649,9 +2648,9 @@ function registerPrestamosApp() {
                 }
             },
 
-            addIngredientToForm() {
+            addIngredientToForm(category = 'alimentos') {
                 if (!this.comidasForm.bought_items) this.comidasForm.bought_items = [];
-                this.comidasForm.bought_items.push({ name: '', price: 0 });
+                this.comidasForm.bought_items.push({ name: '', price: 0, category: category });
             },
 
             removeIngredientFromForm(index) {
