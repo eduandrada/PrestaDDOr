@@ -261,7 +261,23 @@ function registerPrestamosApp() {
             asadoForm: { people: 10, include_asado: true, include_drinks: true, include_ice: true, ticket_price: 0, custom_notes: '' },
             asadoResult: null,
 
+            // Universal Converter State (Mobile-First 2026)
+            converterCategory: 'doc',
+            converterForm: {
+                targetFormat: 'docx',
+                isOcr: false,
+                isRecording: false,
+                recordingTime: 0,
+                recordingTimer: null,
+                mediaRecorder: null,
+                audioChunks: [],
+                audioBlob: null,
+                statusText: '',
+                isConverting: false
+            },
+
             // Chart References
+
             expenseChart: null,
             recoveryChart: null,
 
@@ -2766,6 +2782,150 @@ function registerPrestamosApp() {
             copyAsadoWhatsapp() {
                 return this.copyComidasWhatsapp();
             },
+
+            // Universal Converter Methods (Mobile-First 2026)
+            selectConverterCategory(cat) {
+                this.converterCategory = cat;
+                if (cat === 'doc') this.converterForm.targetFormat = 'docx';
+                else if (cat === 'spreadsheet') this.converterForm.targetFormat = 'xlsx';
+                else if (cat === 'image') this.converterForm.targetFormat = 'png';
+                else if (cat === 'audio') this.converterForm.targetFormat = 'txt';
+                else if (cat === 'archive') this.converterForm.targetFormat = 'zip';
+            },
+
+            async startAudioRecording() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    this.converterForm.mediaRecorder = new MediaRecorder(stream);
+                    this.converterForm.audioChunks = [];
+                    this.converterForm.isRecording = true;
+                    this.converterForm.recordingTime = 0;
+                    this.converterForm.statusText = 'Grabando micrófono nativo...';
+
+                    this.converterForm.recordingTimer = setInterval(() => {
+                        this.converterForm.recordingTime++;
+                    }, 1000);
+
+                    this.converterForm.mediaRecorder.ondataavailable = (e) => {
+                        if (e.data.size > 0) this.converterForm.audioChunks.push(e.data);
+                    };
+
+                    this.converterForm.mediaRecorder.onstop = () => {
+                        clearInterval(this.converterForm.recordingTimer);
+                        this.converterForm.audioBlob = new Blob(this.converterForm.audioChunks, { type: 'audio/wav' });
+                        this.converterForm.isRecording = false;
+                        this.converterForm.statusText = `Audio grabado (${this.converterForm.recordingTime}s). Listo para transcribir.`;
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+
+                    this.converterForm.mediaRecorder.start();
+                } catch (err) {
+                    alert("No se pudo acceder al micrófono: " + err.message);
+                }
+            },
+
+            stopAudioRecording() {
+                if (this.converterForm.mediaRecorder && this.converterForm.isRecording) {
+                    this.converterForm.mediaRecorder.stop();
+                }
+            },
+
+            async submitConversion(fileInputId = 'converterFileInput') {
+                const fileInput = document.getElementById(fileInputId);
+                let files = fileInput ? Array.from(fileInput.files) : [];
+                
+                if (this.converterCategory === 'audio' && this.converterForm.audioBlob) {
+                    const recordedFile = new File([this.converterForm.audioBlob], `dictado_voz_${Date.now()}.wav`, { type: 'audio/wav' });
+                    files = [recordedFile];
+                }
+
+                if (files.length === 0) {
+                    alert("Por favor selecciona un archivo, toma una foto o graba un audio.");
+                    return;
+                }
+
+                this.converterForm.isConverting = true;
+                this.converterForm.statusText = 'Procesando conversión en RAM...';
+
+                const formData = new FormData();
+                files.forEach(f => formData.append('files', f));
+                formData.append('file', files[0]);
+                formData.append('target_format', this.converterForm.targetFormat);
+                formData.append('is_ocr', this.converterForm.isOcr ? 'true' : 'false');
+
+                let endpoint = '/api/convert/doc';
+                if (this.converterCategory === 'spreadsheet') endpoint = '/api/convert/spreadsheet';
+                else if (this.converterCategory === 'image') endpoint = '/api/convert/image';
+                else if (this.converterCategory === 'audio') endpoint = '/api/convert/audio';
+                else if (this.converterCategory === 'archive') endpoint = '/api/convert/archive';
+
+                try {
+                    const res = await fetch(endpoint, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (res.ok) {
+                        const blob = await res.blob();
+                        const disposition = res.headers.get('Content-Disposition');
+                        let filename = 'convertido';
+                        if (disposition && disposition.includes('filename=')) {
+                            filename = disposition.split('filename=')[1].replace(/"/g, '').trim();
+                        }
+                        
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(url);
+                        
+                        this.converterForm.statusText = '¡Conversión exitosa y descargada!';
+                    } else {
+                        const errJson = await res.json().catch(() => ({}));
+                        alert("Error en conversión: " + (errJson.message || 'Fallo de procesamiento'));
+                        this.converterForm.statusText = 'Error en la conversión.';
+                    }
+                } catch (err) {
+                    alert("Error enviando conversión: " + err);
+                    this.converterForm.statusText = 'Error de conexión.';
+                } finally {
+                    this.converterForm.isConverting = false;
+                }
+            },
+
+            triggerCameraOcr() {
+                this.selectConverterCategory('image');
+                this.converterForm.targetFormat = 'docx';
+                this.converterForm.isOcr = true;
+                const camInput = document.getElementById('cameraOcrInput');
+                if (camInput) camInput.click();
+            },
+
+            triggerDictaphone() {
+                this.selectConverterCategory('audio');
+                this.converterForm.targetFormat = 'docx';
+                this.startAudioRecording();
+            },
+
+            triggerHeicConverter() {
+                this.selectConverterCategory('image');
+                this.converterForm.targetFormat = 'jpg';
+                this.converterForm.isOcr = false;
+                const imgInput = document.getElementById('converterFileInput');
+                if (imgInput) imgInput.click();
+            },
+
+            triggerPdfMerger() {
+                this.selectConverterCategory('image');
+                this.converterForm.targetFormat = 'pdf';
+                this.converterForm.isOcr = false;
+                const imgInput = document.getElementById('converterFileInput');
+                if (imgInput) imgInput.click();
+            },
+
 
             // Chart.js Rendering
             renderCharts() {

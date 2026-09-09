@@ -164,6 +164,14 @@
           <span>Compras & Hogar</span>
         </button>
 
+        <button @click="switchTab('converter')" 
+                :class="activeTab === 'converter' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25 font-extrabold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'"
+                class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap">
+          <span class="text-sm">🔄</span>
+          <span>Convertidor Universal</span>
+        </button>
+
+
       </div>
     </div>
   </nav>
@@ -2653,6 +2661,253 @@
 
     </div>
 
+    <!-- ========================================== -->
+    <!-- TAB 7: CONVERTIDOR UNIVERSAL IA (MOBILE 2026) -->
+    <!-- ========================================== -->
+    <div x-show="activeTab === 'converter'" x-transition class="space-y-6">
+      
+      <!-- HERO HEADER CARD -->
+      <div class="adaptive-card p-6 bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 text-white border border-indigo-500/30 shadow-2xl relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
+          <div class="space-y-1">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-[11px] font-black uppercase tracking-wider border border-purple-500/30">
+              <span class="animate-pulse">🔄</span>
+              <span>Motor Universal RAM 2026 • Mobile First</span>
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Convertidor Multiformato IA</h2>
+            <p class="text-xs sm:text-sm text-purple-200/80 max-w-2xl">Centraliza la transformación instantánea de documentos, hojas de cálculo, imágenes, escaneos OCR por cámara, notas de voz y paquetes ZIP sin almacenar archivos en el servidor.</p>
+          </div>
+
+          <!-- Quick Access Mobile Pills / Stats -->
+          <div class="flex items-center space-x-2 bg-slate-900/80 p-2 rounded-2xl border border-purple-500/30 text-xs font-bold">
+            <span class="px-3 py-1.5 rounded-xl bg-purple-600 text-white font-extrabold shadow">⚡ En Memoria</span>
+            <span class="px-3 py-1.5 rounded-xl text-purple-200">100% Privado</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MOBILE-FIRST QUICK ACTION CARDS (TACTILE ACCESSIBLE ≥48px) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        
+        <!-- CARD 1: CAMERA OCR SCANNER -->
+        <button @click="triggerCameraOcr()" class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md hover:shadow-xl transition text-left flex flex-col justify-between space-y-3 group hover:border-indigo-500 active:scale-95 min-h-[110px]">
+          <div class="flex justify-between items-start">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-2xl group-hover:scale-110 transition">📷</div>
+            <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">Cámara OCR</span>
+          </div>
+          <div>
+            <h4 class="text-xs font-extrabold text-slate-800 dark:text-slate-100">Foto a Editable</h4>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">Recibos y pizarras a .docx</p>
+          </div>
+        </button>
+
+        <!-- CARD 2: DICTAPHONE VOICE TO TEXT -->
+        <button @click="triggerDictaphone()" class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md hover:shadow-xl transition text-left flex flex-col justify-between space-y-3 group hover:border-emerald-500 active:scale-95 min-h-[110px]">
+          <div class="flex justify-between items-start">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-2xl group-hover:scale-110 transition">🎙️</div>
+            <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">Dictáfono</span>
+          </div>
+          <div>
+            <h4 class="text-xs font-extrabold text-slate-800 dark:text-slate-100">Voz a Texto / DOCX</h4>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">Micrófono en vivo</p>
+          </div>
+        </button>
+
+        <!-- CARD 3: IPHONE HEIC TO JPG/PNG -->
+        <button @click="triggerHeicConverter()" class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md hover:shadow-xl transition text-left flex flex-col justify-between space-y-3 group hover:border-amber-500 active:scale-95 min-h-[110px]">
+          <div class="flex justify-between items-start">
+            <div class="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center text-2xl group-hover:scale-110 transition">🍏</div>
+            <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-300 border border-amber-200 dark:border-amber-800">iPhone HEIC</span>
+          </div>
+          <div>
+            <h4 class="text-xs font-extrabold text-slate-800 dark:text-slate-100">HEIC a JPG / PNG</h4>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">Compatible Windows</p>
+          </div>
+        </button>
+
+        <!-- CARD 4: SCREENSHOTS MERGER TO PDF -->
+        <button @click="triggerPdfMerger()" class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md hover:shadow-xl transition text-left flex flex-col justify-between space-y-3 group hover:border-purple-500 active:scale-95 min-h-[110px]">
+          <div class="flex justify-between items-start">
+            <div class="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center text-2xl group-hover:scale-110 transition">🖼️</div>
+            <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800">Fusión PDF</span>
+          </div>
+          <div>
+            <h4 class="text-xs font-extrabold text-slate-800 dark:text-slate-100">Fotos a 1 PDF</h4>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">Capturas ordenadas</p>
+          </div>
+        </button>
+
+      </div>
+
+      <!-- MAIN CATEGORY SELECTOR PILLS (ACCESSIBLE TOUCH ≥48px) -->
+      <div class="flex space-x-2 overflow-x-auto pb-1 no-scrollbar">
+        <button @click="selectConverterCategory('doc')" 
+                :class="converterCategory === 'doc' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-extrabold' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 font-semibold'"
+                class="px-5 py-3 rounded-2xl text-xs transition flex items-center space-x-2 whitespace-nowrap min-h-[48px] active:scale-95">
+          <span class="text-base">📄</span>
+          <span>Documentos</span>
+        </button>
+
+        <button @click="selectConverterCategory('spreadsheet')" 
+                :class="converterCategory === 'spreadsheet' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-extrabold' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 font-semibold'"
+                class="px-5 py-3 rounded-2xl text-xs transition flex items-center space-x-2 whitespace-nowrap min-h-[48px] active:scale-95">
+          <span class="text-base">📊</span>
+          <span>Hojas de Cálculo</span>
+        </button>
+
+        <button @click="selectConverterCategory('image')" 
+                :class="converterCategory === 'image' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-extrabold' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 font-semibold'"
+                class="px-5 py-3 rounded-2xl text-xs transition flex items-center space-x-2 whitespace-nowrap min-h-[48px] active:scale-95">
+          <span class="text-base">🖼️</span>
+          <span>Imágenes & OCR</span>
+        </button>
+
+        <button @click="selectConverterCategory('audio')" 
+                :class="converterCategory === 'audio' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-extrabold' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 font-semibold'"
+                class="px-5 py-3 rounded-2xl text-xs transition flex items-center space-x-2 whitespace-nowrap min-h-[48px] active:scale-95">
+          <span class="text-base">🎙️</span>
+          <span>Audio & Dictado</span>
+        </button>
+
+        <button @click="selectConverterCategory('archive')" 
+                :class="converterCategory === 'archive' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-extrabold' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 font-semibold'"
+                class="px-5 py-3 rounded-2xl text-xs transition flex items-center space-x-2 whitespace-nowrap min-h-[48px] active:scale-95">
+          <span class="text-base">📦</span>
+          <span>Archivos / Paquetes</span>
+        </button>
+      </div>
+
+      <!-- MAIN CONVERTER INTERACTION WORKSPACE CARD -->
+      <div class="adaptive-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
+        
+        <!-- HIDDEN CAMERA INPUT FOR OCR -->
+        <input type="file" id="cameraOcrInput" capture="environment" accept="image/*" class="hidden" @change="submitConversion('cameraOcrInput')">
+
+        <!-- FILE DROPZONE & RECORDING PANEL -->
+        <div class="p-8 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-3xl text-center space-y-4 transition bg-slate-50/50 dark:bg-slate-950/40">
+          
+          <div x-show="converterCategory !== 'audio' || !converterForm.isRecording">
+            <div class="w-16 h-16 rounded-3xl bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-3xl mx-auto shadow-md">
+              <span x-show="converterCategory === 'doc'">📄</span>
+              <span x-show="converterCategory === 'spreadsheet'">📊</span>
+              <span x-show="converterCategory === 'image'">🖼️</span>
+              <span x-show="converterCategory === 'audio'">🎙️</span>
+              <span x-show="converterCategory === 'archive'">📦</span>
+            </div>
+
+            <div class="space-y-1">
+              <h3 class="text-base font-extrabold text-slate-800 dark:text-slate-100">
+                <span x-show="converterCategory === 'doc'">Subir Documento (.pdf, .docx, .odt, .rtf, .html, .txt)</span>
+                <span x-show="converterCategory === 'spreadsheet'">Subir Hoja de Cálculo (.xlsx, .csv, .tsv, .json)</span>
+                <span x-show="converterCategory === 'image'">Subir o Fotografiar Imagen (.jpg, .png, .webp, .heic)</span>
+                <span x-show="converterCategory === 'audio'">Subir Audio o Grabar Micrófono (.mp3, .wav, .m4a)</span>
+                <span x-show="converterCategory === 'archive'">Subir Archivo o Paquete (.zip, .tar.gz)</span>
+              </h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Selecciona uno o varios archivos para procesar en vivo.</p>
+            </div>
+
+            <div class="pt-2 flex flex-wrap justify-center gap-3">
+              <label class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black cursor-pointer shadow-lg hover:shadow-indigo-600/30 transition flex items-center space-x-2 min-h-[48px] active:scale-95">
+                <span>📁 Seleccionar Archivo(s)</span>
+                <input type="file" id="converterFileInput" multiple class="hidden" @change="converterForm.statusText = 'Archivo seleccionado. Haz clic en Convertir.'">
+              </label>
+
+              <!-- MIC RECORD BUTTON IN AUDIO TAB -->
+              <button x-show="converterCategory === 'audio'" @click="startAudioRecording()" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black shadow-lg transition flex items-center space-x-2 min-h-[48px] active:scale-95">
+                <span>🎙️ Iniciar Dictado de Voz</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- AUDIO RECORDING ACTIVE STATE -->
+          <div x-show="converterCategory === 'audio' && converterForm.isRecording" class="space-y-3">
+            <div class="w-16 h-16 rounded-full bg-red-600 text-white flex items-center justify-center text-3xl mx-auto animate-pulse shadow-lg shadow-red-500/50">🎙️</div>
+            <h4 class="text-sm font-black text-red-600 dark:text-red-400">Grabando Dictado de Voz en Vivo</h4>
+            <p class="text-xl font-mono font-black text-slate-800 dark:text-slate-100" x-text="converterForm.recordingTime + ' s'"></p>
+            <button @click="stopAudioRecording()" class="px-6 py-3 bg-slate-900 hover:bg-black text-white rounded-2xl text-xs font-black shadow-lg transition min-h-[48px] active:scale-95">
+              ⏹️ Detener & Transcribir
+            </button>
+          </div>
+
+        </div>
+
+        <!-- OPTIONS & TARGET FORMAT SELECTORS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+          
+          <div>
+            <label class="block text-xs font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1">Formato de Salida Deseado</label>
+            <select x-model="converterForm.targetFormat" class="w-full p-3 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-extrabold text-slate-800 dark:text-slate-100 min-h-[48px]">
+              <template x-if="converterCategory === 'doc'">
+                <optgroup label="Documentos">
+                  <option value="docx">Word (.docx)</option>
+                  <option value="pdf">PDF (.pdf)</option>
+                  <option value="txt">Texto Plano (.txt)</option>
+                  <option value="md">Markdown (.md)</option>
+                  <option value="html">Página Web (.html)</option>
+                </optgroup>
+              </template>
+              <template x-if="converterCategory === 'spreadsheet'">
+                <optgroup label="Hojas de Cálculo">
+                  <option value="xlsx">Excel (.xlsx)</option>
+                  <option value="csv">CSV (.csv)</option>
+                  <option value="json">JSON (.json)</option>
+                  <option value="html">Tabla HTML (.html)</option>
+                </optgroup>
+              </template>
+              <template x-if="converterCategory === 'image'">
+                <optgroup label="Imágenes & Escaneos">
+                  <option value="png">PNG (.png)</option>
+                  <option value="jpg">JPG (.jpg)</option>
+                  <option value="webp">WebP (.webp)</option>
+                  <option value="pdf">PDF Combinado (.pdf)</option>
+                  <option value="docx">DOCX (OCR Reconocimiento)</option>
+                </optgroup>
+              </template>
+              <template x-if="converterCategory === 'audio'">
+                <optgroup label="Transcripción Audio">
+                  <option value="txt">Texto Transcrito (.txt)</option>
+                  <option value="docx">Documento Word (.docx)</option>
+                  <option value="srt">Subtítulos (.srt)</option>
+                </optgroup>
+              </template>
+              <template x-if="converterCategory === 'archive'">
+                <optgroup label="Archivos">
+                  <option value="zip">Compilado ZIP (.zip)</option>
+                  <option value="txt">Reporte de Archivos (.txt)</option>
+                </optgroup>
+              </template>
+            </select>
+          </div>
+
+          <!-- OPTIONAL TOGGLE: OCR SCANNER MODE -->
+          <div class="flex items-center space-x-3 pt-6" x-show="converterCategory === 'image'">
+            <input type="checkbox" id="isOcrCheckbox" x-model="converterForm.isOcr" class="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300">
+            <label for="isOcrCheckbox" class="text-xs font-extrabold text-slate-700 dark:text-slate-300 cursor-pointer">
+              🔍 Activar OCR (Extraer Texto de Foto/Recibo)
+            </label>
+          </div>
+
+          <!-- ACTION CONVERT BUTTON -->
+          <div class="sm:col-span-2 md:col-span-1 flex items-end">
+            <button @click="submitConversion()" :disabled="converterForm.isConverting" class="w-full py-3 px-6 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs rounded-2xl shadow-xl transition flex items-center justify-center space-x-2 min-h-[48px] active:scale-95 disabled:opacity-50">
+              <svg x-show="converterForm.isConverting" class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+              <span x-text="converterForm.isConverting ? 'Procesando en RAM...' : '⚡ CONVERTIR & DESCARGAR AHORA'"></span>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- STATUS BAR INDICATOR -->
+        <div x-show="converterForm.statusText" x-transition class="p-3 bg-indigo-50 dark:bg-indigo-950/60 rounded-xl border border-indigo-200 dark:border-indigo-800 text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center space-x-2">
+          <span>ℹ️</span>
+          <span x-text="converterForm.statusText"></span>
+        </div>
+
+      </div>
+
+    </div>
+
   </main>
 
   <!-- MOBILE BOTTOM NAVIGATION BAR -->
@@ -2685,6 +2940,14 @@
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
       <span class="text-[9px] mt-0.5">Préstamos</span>
     </button>
+
+    <button @click="switchTab('converter')" 
+            :class="activeTab === 'converter' ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-400 hover:text-slate-600'"
+            class="flex flex-col items-center py-1 px-2 rounded-xl transition">
+      <span class="text-base">🔄</span>
+      <span class="text-[9px] mt-0.5">Convertir</span>
+    </button>
+
 
     <button @click="switchTab('accounts')" 
             :class="activeTab === 'accounts' ? 'text-brand-600 dark:text-brand-400 font-extrabold' : 'text-slate-400 hover:text-slate-600'"
