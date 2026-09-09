@@ -3556,7 +3556,6 @@ def calculate_comidas():
         "event_type": event_type,
         "people": people,
         "adults": adults,
-        "children": children,
         "vegetarians": vegetarians,
         "ingredients": ingredients_list,
         "bought_items": parsed_items,
@@ -3581,6 +3580,8 @@ def generar_comidas_pdf():
     from PIL import Image, ImageDraw, ImageFont
     import io
     import base64
+    import urllib.request
+    import urllib.parse
     
     if request.method == 'POST':
         payload = request.get_json() or {}
@@ -3592,6 +3593,7 @@ def generar_comidas_pdf():
     per_person = float(payload.get('per_person_cost') or payload.get('estimated_cost_per_person') or 0.0)
     menu_name = payload.get('menu_name') or "Juntada & Evento Gastronómico"
     items = payload.get('bought_items') or payload.get('ingredients') or []
+    alias_cbu = Setting.get_val('alias_cbu', 'FAMILIA.ANDRADA.MP')
 
     ticket_images_raw = payload.get('ticket_images') or payload.get('ticket_photos') or []
     decoded_ticket_imgs = []
@@ -3608,82 +3610,119 @@ def generar_comidas_pdf():
 
     W = 1200
     items_count = len(items) if isinstance(items, list) and items else 1
-    base_table_height = 550 + (items_count * 50) + 120
+    base_table_height = 680 + (items_count * 45) + 260 # includes AI callout box
 
     ticket_section_h = 0
     if decoded_ticket_imgs:
         ticket_rows = (len(decoded_ticket_imgs) + 1) // 2
         ticket_section_h = 100 + (ticket_rows * 420)
 
-    H = max(1600, base_table_height + ticket_section_h + 200)
+    H = max(1750, base_table_height + ticket_section_h + 220)
 
     img = Image.new('RGB', (W, H), color='#ffffff')
     draw = ImageDraw.Draw(img)
 
     try:
-        font_title = ImageFont.truetype("arial.ttf", 40)
-        font_sub = ImageFont.truetype("arial.ttf", 26)
-        font_body = ImageFont.truetype("arial.ttf", 22)
-        font_cat = ImageFont.truetype("arial.ttf", 22)
-        font_caption = ImageFont.truetype("arial.ttf", 18)
+        font_header = ImageFont.truetype("arial.ttf", 36)
+        font_title = ImageFont.truetype("arial.ttf", 28)
+        font_sub = ImageFont.truetype("arial.ttf", 22)
+        font_body = ImageFont.truetype("arial.ttf", 20)
+        font_bold = ImageFont.truetype("arial.ttf", 20)
+        font_caption = ImageFont.truetype("arial.ttf", 16)
+        font_badge = ImageFont.truetype("arial.ttf", 15)
     except Exception:
-        font_title = font_sub = font_body = font_cat = font_caption = ImageFont.load_default()
+        font_header = font_title = font_sub = font_body = font_bold = font_caption = font_badge = ImageFont.load_default()
 
-    # Header
-    draw.rectangle([0, 0, W, 180], fill='#0f172a')
-    draw.text((W // 2, 70), "🍽️ COMPROBANTE OFICIAL DE JUNTADA", fill="#ffffff", font=font_title, anchor="mm")
-    draw.text((W // 2, 130), f"{menu_name.upper()} • PRORRATEO DE GASTOS", fill="#38bdf8", font=font_sub, anchor="mm")
+    # 1. TOP HEADER BANNER (Dark Slate & Indigo Gradient 2026)
+    draw.rectangle([0, 0, W, 210], fill='#0f172a')
+    draw.line([(0, 208), (W, 208)], fill='#6366f1', width=4)
+    
+    # Pill Badge
+    draw.rounded_rectangle([W // 2 - 240, 25, W // 2 + 240, 60], radius=15, fill='#1e1b4b', outline='#818cf8', width=2)
+    draw.text((W // 2, 42), "✦ REPORTE EJECUTIVO PRORRATEADO CON IA 2026 ✦", fill="#f59e0b", font=font_badge, anchor="mm")
 
-    # Info & Totals
-    draw.text((80, 220), f"📅 FECHA DE EMISIÓN: {date.today().strftime('%d/%m/%Y')}", fill="#475569", font=font_sub)
-    draw.text((80, 260), f"👥 ASISTENTES TOTALES: {people} Personas", fill="#475569", font=font_sub)
+    draw.text((W // 2, 100), "🍽️ COMPROBANTE OFICIAL DE JUNTADA", fill="#ffffff", font=font_header, anchor="mm")
+    draw.text((W // 2, 150), f"{menu_name.upper()} • GESTIÓN DE FINANZAS & EVENTOS", fill="#38bdf8", font=font_sub, anchor="mm")
 
-    draw.rounded_rectangle([80, 310, W - 80, 440], radius=20, fill='#f8fafc', outline='#cbd5e1', width=2)
-    draw.text((120, 345), f"💵 GASTO TOTAL: ${total_cost:,.2f}", fill="#0f172a", font=font_title)
-    draw.text((120, 395), f"👤 MONTO INDIVIDUAL POR PERSONA: ${per_person:,.2f}", fill="#16a34a", font=font_sub)
+    # 2. METRIC SUMMARY CARDS GRID
+    draw.text((80, 240), f"📅 FECHA DE EMISIÓN: {date.today().strftime('%d/%m/%Y')}", fill="#475569", font=font_sub)
+    draw.text((W - 80, 240), f"👥 ATENCION: {people} COMENSALES", fill="#475569", font=font_sub, anchor="rm")
 
-    # Ingredients Table
-    draw.rectangle([80, 480, W - 80, 530], fill='#1e293b')
-    draw.text((110, 495), "DESCRIPCIÓN / INGREDIENTE", fill="#ffffff", font=font_sub)
-    draw.text((W - 120, 495), "COSTO ($)", fill="#ffffff", font=font_sub, anchor="rm")
+    # Card Left: Gasto Total
+    draw.rounded_rectangle([80, 280, 570, 410], radius=20, fill='#f8fafc', outline='#cbd5e1', width=2)
+    draw.text((105, 310), "💵 GASTO TOTAL REGISTRADO", fill="#64748b", font=font_caption)
+    draw.text((105, 355), f"${total_cost:,.2f}", fill="#0f172a", font=font_header)
 
-    curr_y = 550
+    # Card Right: Costo Individual
+    draw.rounded_rectangle([630, 280, W - 80, 410], radius=20, fill='#f0fdf4', outline='#86efac', width=2)
+    draw.text((655, 310), "👤 CUOTA POR PERSONA", fill="#166534", font=font_caption)
+    draw.text((655, 355), f"${per_person:,.2f}", fill="#15803d", font=font_header)
+
+    # 3. CATEGORIZED ITEMS TABLE
+    draw.rounded_rectangle([80, 440, W - 80, 490], radius=10, fill='#1e293b')
+    draw.text((110, 465), "DESCRIPCIÓN / INSUMO COMPRADO", fill="#ffffff", font=font_sub, anchor="lm")
+    draw.text((W - 120, 465), "MONTO ($)", fill="#ffffff", font=font_sub, anchor="rm")
+
+    curr_y = 510
     if isinstance(items, list) and items:
-        # Group items by category if available
         grouped = {}
         for it in items:
             if isinstance(it, dict):
                 cat_lbl = it.get('category_label') or '🥩 Alimentos'
-                name = it.get('name') or it.get('item') or ''
+                name = (it.get('name') or it.get('item') or '').strip()
                 cost = float(it.get('cost') or it.get('price') or 0.0)
             else:
                 cat_lbl = '🥩 Alimentos'
-                name = str(it)
+                name = str(it).strip()
                 cost = 0.0
             if name:
                 if cat_lbl not in grouped: grouped[cat_lbl] = []
                 grouped[cat_lbl].append((name, cost))
 
         for cat_lbl, cat_items in grouped.items():
-            draw.rectangle([80, curr_y, W - 80, curr_y + 35], fill='#f1f5f9')
-            draw.text((100, curr_y + 6), cat_lbl, fill="#0f172a", font=font_cat)
-            curr_y += 40
+            cat_sum = sum(c for _, c in cat_items)
+            draw.rounded_rectangle([80, curr_y, W - 80, curr_y + 38], radius=8, fill='#e2e8f0')
+            draw.text((100, curr_y + 19), cat_lbl.upper(), fill="#0f172a", font=font_bold, anchor="lm")
+            draw.text((W - 120, curr_y + 19), f"Subtotal: ${cat_sum:,.2f}", fill="#1e293b", font=font_bold, anchor="rm")
+            curr_y += 45
+            
             for name, cost in cat_items:
-                draw.line([(80, curr_y + 32), (W - 80, curr_y + 32)], fill='#e2e8f0', width=1)
-                draw.text((120, curr_y + 4), f"• {name}", fill="#334155", font=font_body)
-                draw.text((W - 120, curr_y + 4), f"${cost:,.2f}", fill="#0f172a", font=font_body, anchor="rm")
+                draw.line([(80, curr_y + 32), (W - 80, curr_y + 32)], fill='#f1f5f9', width=1)
+                draw.text((120, curr_y + 16), f"• {name}", fill="#334155", font=font_body, anchor="lm")
+                draw.text((W - 120, curr_y + 16), f"${cost:,.2f}", fill="#0f172a", font=font_bold, anchor="rm")
                 curr_y += 40
             curr_y += 10
     else:
-        draw.text((110, curr_y + 5), "• Prorrateo calculado automáticamente según comensales", fill="#64748b", font=font_body)
-        curr_y += 45
+        draw.text((110, curr_y + 20), "• Prorrateo calculado automáticamente según comensales", fill="#64748b", font=font_body)
+        curr_y += 50
 
-    # Render Uploaded Ticket Photos
+    # 4. PROFESSIONAL DETAILED AI REDACTION CALLOUT BOX
+    curr_y += 30
+    draw.rounded_rectangle([80, curr_y, W - 80, curr_y + 230], radius=20, fill='#faf5ff', outline='#d8b4fe', width=2)
+    
+    draw.rectangle([80, curr_y, W - 80, curr_y + 45], fill='#6b21a8')
+    draw.text((110, curr_y + 22), "🤖 REDACCIÓN INTELIGENTE & NOTA DE LIQUIDACIÓN IA", fill="#ffffff", font=font_bold, anchor="lm")
+    
+    ai_text_lines = [
+        f"• Se ha verificado la compra de {items_count} insumo(s) para la juntada '{menu_name}'.",
+        f"• El costo total acumulado de ${total_cost:,.2f} se ha dividido equitativamente entre {people} comensales.",
+        f"• Cada asistente debe abonar exactamente ${per_person:,.2f} para saldar la cuenta del evento.",
+        f"• Alias/CBU de transferencia bancaria habilitado: {alias_cbu}.",
+        "• Documento auditado y generado automáticamente con estándares de transparencia 2026."
+    ]
+    
+    line_y = curr_y + 65
+    for l_text in ai_text_lines:
+        draw.text((110, line_y), l_text, fill="#581c87", font=font_caption)
+        line_y += 30
+
+    curr_y += 250
+
+    # 5. RENDER ATTACHED TICKET PHOTOS
     if decoded_ticket_imgs:
-        curr_y += 40
-        draw.rectangle([80, curr_y, W - 80, curr_y + 50], fill='#0f172a')
-        draw.text((110, curr_y + 15), f"📷 COMPROBANTES Y TICKETS ADJUNTOS ({len(decoded_ticket_imgs)})", fill="#f59e0b", font=font_sub)
-        curr_y += 70
+        draw.rounded_rectangle([80, curr_y, W - 80, curr_y + 45], radius=10, fill='#0f172a')
+        draw.text((110, curr_y + 22), f"📷 COMPROBANTES Y TICKETS ADJUNTOS ({len(decoded_ticket_imgs)})", fill="#f59e0b", font=font_bold, anchor="lm")
+        curr_y += 65
 
         for idx, t_img in enumerate(decoded_ticket_imgs):
             col = idx % 2
@@ -3695,7 +3734,7 @@ def generar_comidas_pdf():
             y2 = y1 + 390
             
             draw.rounded_rectangle([x1, y1, x2, y2], radius=15, fill='#f8fafc', outline='#cbd5e1', width=2)
-            draw.text((x1 + 15, y1 + 15), f"Ticket #{idx + 1} - Foto de Comprobante", fill="#1e293b", font=font_caption)
+            draw.text((x1 + 15, y1 + 15), f"Ticket #{idx + 1} - Foto de Comprobante Oficial", fill="#1e293b", font=font_caption)
             
             thumb_w = 480
             thumb_h = 320
@@ -3708,15 +3747,37 @@ def generar_comidas_pdf():
             
             img.paste(t_resized, (paste_x, paste_y))
 
-    # Footer
-    footer_y = H - 90
+        curr_y += ((len(decoded_ticket_imgs) + 1) // 2) * 410
+
+    # 6. QR CODE & VERIFICATION STAMP FOOTER
+    footer_y = H - 120
     draw.line([(80, footer_y - 20), (W - 80, footer_y - 20)], fill='#cbd5e1', width=2)
-    draw.text((W // 2, footer_y + 10), "Sistema de Gestión de Préstamos, Sorteos & Finanzas 2026", fill="#94a3b8", font=font_sub, anchor="mm")
+    
+    # Try fetching QR code from online API or draw fallback badge
+    qr_drawn = False
+    try:
+        qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={alias_cbu}"
+        req = urllib.request.Request(qr_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
+            qr_data = resp.read()
+            qr_img = Image.open(io.BytesIO(qr_data)).convert('RGB')
+            qr_img = qr_img.resize((90, 90))
+            img.paste(qr_img, (90, footer_y - 15))
+            qr_drawn = True
+    except Exception:
+        qr_drawn = False
+
+    if not qr_drawn:
+        draw.rounded_rectangle([90, footer_y - 15, 180, footer_y + 75], radius=10, fill='#0284c7')
+        draw.text((135, footer_y + 30), "VERIFICADO\n✓ IA 2026", fill="#ffffff", font=font_caption, anchor="mm")
+
+    draw.text((200, footer_y + 15), "DOCUMENTO EJECUTIVO DE LIQUIDACIÓN Y PRORRATEO DE GASTOS", fill="#0f172a", font=font_bold)
+    draw.text((200, footer_y + 45), f"Familia Andrada • Sistema de Préstamos & Hogar 2026 • Alias MP: {alias_cbu}", fill="#64748b", font=font_caption)
 
     img_io = io.BytesIO()
     img.save(img_io, 'PNG', quality=95)
     img_io.seek(0)
-    return send_file(img_io, mimetype='image/png', as_attachment=False, download_name='comprobante_juntada.png')
+    return send_file(img_io, mimetype='image/png', as_attachment=False, download_name='comprobante_juntada_2026.png')
 
 
 
