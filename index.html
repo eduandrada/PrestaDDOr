@@ -2375,11 +2375,11 @@
       </div>
 
       <!-- SUB-TAB 3: ZERO-UI AUDIO PARSER -->
-      <div x-show="shoppingSubTab === 'zeroui'" class="adaptive-card p-6 space-y-5 max-w-2xl mx-auto">
+      <div x-show="shoppingSubTab === 'zeroui'" class="adaptive-card p-6 space-y-6 max-w-2xl mx-auto">
         <div class="text-center space-y-2">
           <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white text-3xl flex items-center justify-center mx-auto shadow-xl">🎙️</div>
-          <h3 class="font-extrabold text-lg text-slate-900 dark:text-white">Procesador por Voz / Texto Zero-UI</h3>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Dicta o escribe notas continuas y el sistema las clasificará automáticamente en Compras, Calendario o Pizarra.</p>
+          <h3 class="font-extrabold text-lg text-slate-900 dark:text-white">Procesador por Voz / Texto Zero-UI & WhatsApp Auto-Agenda</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Dicta o escribe notas continuas o envía un audio por WhatsApp y el sistema las clasificará automáticamente en Compras, Calendario o Pizarra.</p>
         </div>
 
         <textarea x-model="zeroUiText" placeholder="Ejemplo: Comprar 2 kilos de carne y lechuga. Pagar factura de luz el 15 de marzo. Nota recordar vacunar al perro el lunes." class="w-full p-4 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold h-32 focus:ring-2 focus:ring-purple-500 outline-none"></textarea>
@@ -2404,6 +2404,35 @@
             </template>
           </ul>
         </div>
+
+        <!-- WHATSAPP INTEGRATION WEBHOOK CARD -->
+        <div class="p-5 rounded-2xl bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border border-emerald-500/30 text-white space-y-3 shadow-lg">
+          <div class="flex items-center space-x-3 border-b border-emerald-500/20 pb-2">
+            <span class="text-2xl">📱</span>
+            <div>
+              <h4 class="font-extrabold text-sm text-emerald-300">Integración Directa con WhatsApp (Móvil)</h4>
+              <p class="text-[11px] text-slate-300">Cualquier nota o audio enviado a tu bot o webhook se auto-agendará en vivo.</p>
+            </div>
+          </div>
+
+          <div class="space-y-2 text-xs">
+            <div class="text-[10px] uppercase font-bold text-emerald-400">Endpoint Webhook Oficial (Render):</div>
+            <div class="p-2.5 rounded-xl bg-slate-950 border border-emerald-500/30 font-mono text-[11px] text-emerald-200 flex justify-between items-center select-all">
+              <span>https://prestaddor-1.onrender.com/api/whatsapp/webhook</span>
+              <button @click="fallbackCopyText('https://prestaddor-1.onrender.com/api/whatsapp/webhook'); alert('¡URL del Webhook copiado al portapapeles! 📋');" class="text-[10px] bg-emerald-500/20 hover:bg-emerald-500/30 px-2 py-1 rounded text-emerald-300 font-sans font-bold">Copiar</button>
+            </div>
+            
+            <div class="text-[11px] text-slate-300 leading-relaxed space-y-1">
+              <p>💡 <strong>3 Opciones para Conectar tu WhatsApp:</strong></p>
+              <ul class="list-disc list-inside space-y-0.5 text-[10px] opacity-90">
+                <li><strong>Meta WhatsApp Cloud API / Twilio:</strong> Configura la URL como Webhook de mensajes entrantes.</li>
+                <li><strong>AutoResponder (Android) / Tasker:</strong> Reenvía el texto del dictado por voz al Endpoint con un POST.</li>
+                <li><strong>Bot Python Local / n8n / Make:</strong> Transcribe el audio con Whisper y lo envía a esta URL.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <!-- SUB-TAB 4: CALCULADORA DE ASADOS -->

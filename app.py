@@ -3104,15 +3104,12 @@ def delete_home_calendar(event_id):
     return jsonify({"success": True})
 
 # ----------------------------------------------------
-# ZERO-UI VOICE/TEXT AUDIO PARSER & ASADO CALCULATOR
+# ZERO-UI VOICE/TEXT AUDIO PARSER & WHATSAPP WEBHOOK
 # ----------------------------------------------------
-@app.route('/api/hogar/parse-audio', methods=['POST'])
-def parse_audio_note():
-    data = request.get_json() or {}
-    raw_text = (data.get('audio_text') or data.get('text') or data.get('transcript') or '').strip()
-    
+def process_zero_ui_text(raw_text, source="Voz/Zero-UI"):
+    raw_text = (raw_text or '').strip()
     if not raw_text:
-        return jsonify({"success": False, "status": "error", "error": "No se recibió texto o audio para procesar."}), 400
+        return {"success": False, "status": "error", "error": "No se recibió texto o audio para procesar."}
 
     created_items = {"shopping": [], "calendar": [], "notices": []}
 
@@ -3135,7 +3132,7 @@ def parse_audio_note():
             elif any(k in s_lower for k in ['remedio', 'remédio', 'remedios', 'aspirina', 'farmacia']):
                 cat = 'farmacia'
 
-            item = ShoppingItem(store_category=cat, item_name=sentence.capitalize(), quantity="1", added_by="Voz/Zero-UI")
+            item = ShoppingItem(store_category=cat, item_name=sentence.capitalize(), quantity="1", added_by=source)
             db.session.add(item)
             db.session.commit()
             created_items["shopping"].append(item.to_dict())
@@ -3149,29 +3146,103 @@ def parse_audio_note():
             elif any(k in s_lower for k in ['examen', 'prueba', 'colegio', 'escuela']):
                 cat = 'examen'
 
-            ev = HomeCalendarItem(title=sentence.capitalize(), category=cat, due_date=(date.today() + timedelta(days=2)).strftime('%Y-%m-%d'), due_time="17:00", notes="Registrado por nota de voz Zero-UI")
+            ev = HomeCalendarItem(title=sentence.capitalize(), category=cat, due_date=(date.today() + timedelta(days=2)).strftime('%Y-%m-%d'), due_time="17:00", notes=f"Registrado desde {source}")
             db.session.add(ev)
             db.session.commit()
             created_items["calendar"].append(ev.to_dict())
 
         else:
-            n = NoticeBoardItem(author="Zero-UI Voz", message=sentence.capitalize(), is_pinned=False)
+            n = NoticeBoardItem(author=source, message=sentence.capitalize(), is_pinned=False)
             db.session.add(n)
             db.session.commit()
             created_items["notices"].append(n.to_dict())
 
-    return jsonify({
+    return {
         "status": "success",
         "success": True,
         "raw_text": raw_text,
-        "summary": f"Se procesó la nota de voz: {len(created_items['shopping'])} compras, {len(created_items['calendar'])} turnos y {len(created_items['notices'])} avisos.",
+        "summary": f"Se procesó la nota: {len(created_items['shopping'])} compras, {len(created_items['calendar'])} turnos y {len(created_items['notices'])} avisos.",
         "created_items": created_items,
         "result": {
             "shopping": [i["name"] for i in created_items["shopping"]],
             "calendar": [i["title"] for i in created_items["calendar"]],
             "notices": [i["content"] for i in created_items["notices"]]
         }
-    })
+    }
+
+
+@app.route('/api/hogar/parse-audio', methods=['POST'])
+def parse_audio_note():
+    data = request.get_json() or {}
+    raw_text = (data.get('audio_text') or data.get('raw_text') or data.get('text') or data.get('transcript') or '').strip()
+    
+    if not raw_text:
+        return jsonify({"success": False, "status": "error", "error": "No se recibió texto o audio para procesar."}), 400
+
+    result = process_zero_ui_text(raw_text, source="Voz/Zero-UI")
+    return jsonify(result)
+
+
+@app.route('/api/whatsapp/webhook', methods=['GET', 'POST'])
+def whatsapp_webhook():
+    if request.method == 'GET':
+        verify_token = request.args.get('hub.verify_token') or request.args.get('token')
+        challenge = request.args.get('hub.challenge')
+        if challenge:
+            return str(challenge), 200
+        return jsonify({"status": "active", "service": "WhatsApp Webhook Listener", "endpoint": "/api/whatsapp/webhook"}), 200
+
+    payload = request.get_json(silent=True) or {}
+    form_data = request.form.to_dict() or {}
+    
+    raw_text = (
+        form_data.get('Body') or 
+        form_data.get('message') or 
+        payload.get('audio_text') or 
+        payload.get('text') or 
+        payload.get('transcript') or 
+        payload.get('message') or ''
+    ).strip()
+
+    if not raw_text and 'entry' in payload:
+        try:
+            entry = payload['entry'][0]
+            changes = entry['changes'][0]
+            msg = changes['value']['messages'][0]
+            if msg.get('type') == 'text':
+                raw_text = msg['text']['body']
+            elif msg.get('type') == 'audio':
+                raw_text = payload.get('transcript') or "Nota de voz recibida por WhatsApp"
+        except Exception:
+            pass
+
+    if not raw_text:
+        return jsonify({"status": "ignored", "reason": "No text content found in request."}), 200
+
+    result = process_zero_ui_text(raw_text, source="WhatsApp Voz")
+    
+    sh_cnt = len(result.get("created_items", {}).get("shopping", []))
+    cal_cnt = len(result.get("created_items", {}).get("calendar", []))
+    not_cnt = len(result.get("created_items", {}).get("notices", []))
+    
+    reply_msg = f"📱 *¡Agendado Exitosamente en tu App de Préstamos & Hogar!*\n\n" \
+                f"📝 *Texto*: \"{raw_text}\"\n" \
+                f"🛒 *Compras*: {sh_cnt}\n" \
+                f"📅 *Turnos*: {cal_cnt}\n" \
+                f"📌 *Pizarra*: {not_cnt}\n\n" \
+                f"✨ _Auto-agendado desde tu móvil 2026_"
+
+    if 'Body' in form_data:
+        twiml_xml = f"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Message>{reply_msg}</Message></Response>"
+        return Response(twiml_xml, mimetype='application/xml')
+
+    return jsonify({
+        "status": "success",
+        "success": True,
+        "reply_text": reply_msg,
+        "result": result
+    }), 200
+
 
 
 @app.route('/api/asado/calculate', methods=['POST'])
