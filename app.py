@@ -3257,7 +3257,12 @@ if __name__ == '__main__':
         threading.Thread(target=open_browser, daemon=True).start()
     
     try:
-        app.run(host=host, port=port, debug=False, use_reloader=False)
-    except Exception as err:
-        print(f"\n[ERROR AL INICIAR]: {err}")
+        from waitress import serve
+        print(f"[Servidor WSGI Producción Waitress Activo]")
+        serve(app, host=host, port=port)
+    except ImportError:
+        try:
+            app.run(host=host, port=port, debug=False, use_reloader=False)
+        except Exception as err:
+            print(f"\n[ERROR AL INICIAR]: {err}")
 
