@@ -1369,11 +1369,15 @@
             <div class="space-y-3 pt-1">
               <div>
                 <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">👨 Sueldo Eduardo ($)</label>
-                <input type="number" x-model="salaryEduardo" step="5000" class="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-extrabold text-slate-900 dark:text-white">
+                <input type="number" x-model="salaryEduardo" @focus="isEditingSalaries = true" @input="isEditingSalaries = true" step="5000" class="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-extrabold text-slate-900 dark:text-white">
               </div>
               <div>
                 <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">👩 Sueldo Maira ($)</label>
-                <input type="number" x-model="salaryMaira" step="5000" class="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-extrabold text-slate-900 dark:text-white">
+                <input type="number" x-model="salaryMaira" @focus="isEditingSalaries = true" @input="isEditingSalaries = true" step="5000" class="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-extrabold text-slate-900 dark:text-white">
+              </div>
+
+              <div x-show="salarySavedMessage" x-transition class="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold text-center flex items-center justify-center space-x-1">
+                <span x-text="salarySavedMessage"></span>
               </div>
 
               <button @click="saveCoupleSalaries()" class="w-full py-2 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white rounded-xl text-xs font-extrabold transition shadow-sm flex items-center justify-center space-x-1.5">

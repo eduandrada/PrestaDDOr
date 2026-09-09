@@ -62,6 +62,8 @@ function registerPrestamosApp() {
             selectedDolarType: 'oficial', // 'oficial' | 'tarjeta' | 'blue'
             salaryEduardo: 550000,
             salaryMaira: 450000,
+            isEditingSalaries: false,
+            salarySavedMessage: '',
             selectedAccountMonth: 9,
             selectedAccountYear: 2026,
             monthNames: ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"],
@@ -1311,8 +1313,10 @@ function registerPrestamosApp() {
                     const res = await fetch(`/api/personal_accounts?month=${this.selectedAccountMonth}&year=${this.selectedAccountYear}`);
                     const data = await res.json();
                     this.personalBills = data.bills || [];
-                    this.salaryEduardo = data.salary_eduardo;
-                    this.salaryMaira = data.salary_maira;
+                    if (!this.isEditingSalaries) {
+                        this.salaryEduardo = data.salary_eduardo;
+                        this.salaryMaira = data.salary_maira;
+                    }
                     this.personalAccountsMetrics = data.metrics;
                     await this.fetchAiTips();
                     await this.fetchDolarRates();
@@ -1490,11 +1494,19 @@ function registerPrestamosApp() {
                             salary_maira: parseFloat(this.salaryMaira || 0)
                         })
                     });
-                    if (res.ok) {
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        this.isEditingSalaries = false;
+                        this.salaryEduardo = data.salary_eduardo;
+                        this.salaryMaira = data.salary_maira;
+                        this.salarySavedMessage = "✅ ¡Sueldos del hogar guardados correctamente!";
+                        setTimeout(() => { this.salarySavedMessage = ''; }, 3500);
                         await this.fetchPersonalAccounts();
+                    } else {
+                        alert("No se pudo guardar la configuración de sueldos.");
                     }
                 } catch (err) {
-                    alert("Error al actualizar los sueldos de la pareja.");
+                    alert("Error de conexión al actualizar los sueldos de la pareja.");
                 }
             },
 
