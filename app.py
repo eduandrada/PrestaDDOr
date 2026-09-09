@@ -2776,8 +2776,8 @@ def sign_biometric_request(token):
         return jsonify({"success": True, "message": "Esta solicitud ya fue firmada previamente."})
         
     data = request.json or {}
-    signature_data = data.get('signature_data', '').strip()
-    selfie_data = data.get('selfie_data', '').strip()
+    signature_data = (data.get('signature_data') or '').strip()
+    selfie_data = (data.get('selfie_data') or data.get('biometric_photo_data') or '').strip()
     
     if not signature_data or not selfie_data:
         return jsonify({"error": "La firma y la selfie son obligatorias"}), 400

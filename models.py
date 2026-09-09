@@ -17,6 +17,7 @@ class Client(db.Model):
     loans = db.relationship('Loan', backref='client', lazy=True, cascade="all, delete-orphan")
     payments = db.relationship('Payment', backref='client', lazy=True, cascade="all, delete-orphan")
     documents = db.relationship('ClientDocument', backref='client', lazy=True, cascade="all, delete-orphan", order_by="ClientDocument.created_at.desc()")
+    biometric_requests = db.relationship('BiometricRequest', backref='client', lazy=True, cascade="all, delete-orphan")
 
     def calculate_scoring_and_status(self):
         all_installments = []
@@ -482,8 +483,6 @@ class BiometricRequest(db.Model):
     selfie_data = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     signed_at = db.Column(db.DateTime, nullable=True)
-
-    client = db.relationship('Client', backref='biometric_requests', lazy=True)
 
     @property
     def remaining_seconds(self):
