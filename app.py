@@ -80,7 +80,7 @@ def restore_auto_backup():
 
         # Restore Clients
         for c_data in data.get('Client', []):
-            if not Client.query.get(c_data['id']):
+            if not db.session.get(Client, c_data['id']):
                 c = Client(
                     id=c_data['id'],
                     name=c_data['name'],
@@ -94,7 +94,7 @@ def restore_auto_backup():
 
         # Restore Loans
         for l_data in data.get('Loan', []):
-            if not Loan.query.get(l_data['id']):
+            if not db.session.get(Loan, l_data['id']):
                 start_d = datetime.fromisoformat(l_data['start_date']).date() if isinstance(l_data['start_date'], str) else l_data['start_date']
                 l = Loan(
                     id=l_data['id'],
@@ -116,7 +116,7 @@ def restore_auto_backup():
 
         # Restore Installments
         for i_data in data.get('Installment', []):
-            if not Installment.query.get(i_data['id']):
+            if not db.session.get(Installment, i_data['id']):
                 due_d = datetime.fromisoformat(i_data['due_date']).date() if isinstance(i_data['due_date'], str) else i_data['due_date']
                 inst = Installment(
                     id=i_data['id'],
@@ -134,7 +134,7 @@ def restore_auto_backup():
 
         # Restore Payments
         for p_data in data.get('Payment', []):
-            if not Payment.query.get(p_data['id']):
+            if not db.session.get(Payment, p_data['id']):
                 p_date = datetime.fromisoformat(p_data['payment_date']).date() if isinstance(p_data['payment_date'], str) else p_data['payment_date']
                 p = Payment(
                     id=p_data['id'],
@@ -148,7 +148,7 @@ def restore_auto_backup():
 
         # Restore Expenses
         for ex_data in data.get('Expense', []):
-            if not Expense.query.get(ex_data['id']):
+            if not db.session.get(Expense, ex_data['id']):
                 ex_date = datetime.fromisoformat(ex_data['expense_date']).date() if isinstance(ex_data['expense_date'], str) else ex_data['expense_date']
                 ex = Expense(
                     id=ex_data['id'],
@@ -163,7 +163,7 @@ def restore_auto_backup():
 
         # Restore Raffles
         for r_data in data.get('Raffle', []):
-            if not Raffle.query.get(r_data['id']):
+            if not db.session.get(Raffle, r_data['id']):
                 rf = Raffle(
                     id=r_data['id'],
                     title=r_data['title'],
@@ -2288,12 +2288,12 @@ def bulk_delete_history():
         item_id = item.get('id')
         
         if raw_type == 'Loan':
-            obj = Loan.query.get(item_id)
+            obj = db.session.get(Loan, item_id)
             if obj:
                 db.session.delete(obj)
                 deleted_count += 1
         elif raw_type == 'Payment':
-            obj = Payment.query.get(item_id)
+            obj = db.session.get(Payment, item_id)
             if obj:
                 if obj.installment:
                     obj.installment.paid_amount = max(0.0, obj.installment.paid_amount - obj.amount)
@@ -2304,12 +2304,12 @@ def bulk_delete_history():
                 db.session.delete(obj)
                 deleted_count += 1
         elif raw_type == 'Expense':
-            obj = Expense.query.get(item_id)
+            obj = db.session.get(Expense, item_id)
             if obj:
                 db.session.delete(obj)
                 deleted_count += 1
         elif raw_type == 'Client':
-            obj = Client.query.get(item_id)
+            obj = db.session.get(Client, item_id)
             if obj:
                 db.session.delete(obj)
                 deleted_count += 1
@@ -3244,7 +3244,7 @@ def generar_flyer():
     r_obj = None
     if raffle_id:
         try:
-            r_obj = Raffle.query.get(int(raffle_id))
+            r_obj = db.session.get(Raffle, int(raffle_id))
         except Exception:
             pass
 
@@ -3289,12 +3289,11 @@ def generar_flyer():
             encoded_prompt = urllib.parse.quote(prompt_str[:120])
             ai_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1080&height=1350&nologo=true&seed={random.randint(100, 99999)}"
             req = urllib.request.Request(ai_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=3.5) as resp:
+            with urllib.request.urlopen(req, timeout=2.0) as resp:
                 ai_data = resp.read()
                 ai_img = Image.open(io.BytesIO(ai_data)).convert('RGB')
                 ai_img = ai_img.resize((W, H))
-        except Exception as err:
-            print(f"[AI Flyer Image Generator Fallback]: {err}")
+        except Exception:
             ai_img = None
 
     if ai_img:
