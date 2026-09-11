@@ -4346,7 +4346,10 @@
         <img :src="flyerModal.imgUrl" alt="Flyer Sorteo" class="max-h-[60vh] rounded-lg shadow-lg">
       </div>
 
-      <div class="flex justify-center space-x-3">
+      <div class="flex flex-wrap justify-center gap-2.5">
+        <button @click="randomizeFlyerStyle()" class="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-amber-500 hover:from-purple-500 hover:to-amber-400 text-white rounded-xl text-xs font-black shadow flex items-center space-x-1 transition active:scale-95">
+          <span>🎨 Cambiar Plantilla (Canva / Pinterest)</span>
+        </button>
         <a :href="flyerModal.imgUrl" download="flyer_sorteo.png" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow flex items-center space-x-1">
           <span>📥 Descargar Flyer HD</span>
         </a>

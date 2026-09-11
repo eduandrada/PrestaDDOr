@@ -2435,11 +2435,20 @@ function registerPrestamosApp() {
 
             async openFlyerModal(raffle, useAi = false) {
                 const aiParam = useAi ? '&use_ai=1' : '';
-                this.flyerModal = { open: true, imgUrl: `/api/generar-flyer?raffle_id=${raffle.id}${aiParam}`, raffleTitle: raffle.title };
+                const seed = Math.floor(Math.random() * 1000000);
+                this.flyerModal = { open: true, imgUrl: `/api/generar-flyer?raffle_id=${raffle.id}${aiParam}&seed=${seed}&style=random`, raffleTitle: raffle.title };
+            },
+
+            randomizeFlyerStyle() {
+                if (!this.flyerModal || !this.flyerModal.imgUrl) return;
+                const seed = Math.floor(Math.random() * 1000000);
+                const baseUrl = this.flyerModal.imgUrl.split('&seed=')[0];
+                this.flyerModal.imgUrl = `${baseUrl}&seed=${seed}&style=random`;
             },
 
             generateBingoCardsPdf(raffle) {
-                const url = `/api/generar-cartones-bingo?title=${encodeURIComponent(raffle.title)}&mode=${raffle.mode === 'bingo' ? '75' : '90'}&count=4`;
+                const seed = Math.floor(Math.random() * 1000000);
+                const url = `/api/generar-cartones-bingo?title=${encodeURIComponent(raffle.title)}&mode=${raffle.mode === 'bingo' ? '75' : '90'}&count=4&seed=${seed}&style=random`;
                 window.open(url, '_blank');
             },
 

@@ -2915,9 +2915,141 @@ def draw_raffle_winners(raffle_id):
     db.session.commit()
     return jsonify({"success": True, "status": "success", "winners": winners, "raffle": r.to_dict()})
 
+# -------------------------------------------------------------------------
+# CANVA / PINTEREST / TEMPLATE.NET AI FLYER & BINGO DESIGN SYSTEM
+# -------------------------------------------------------------------------
+CANVA_FLYER_THEMES = {
+    'canva_neon': {
+        'name': 'Canva Neon Cyber',
+        'bg_start': (11, 15, 25), 'bg_end': (30, 27, 75),
+        'card_bg': (15, 23, 42, 220), 'card_border': (99, 102, 241),
+        'accent_header': (2, 132, 199), 'accent_border': (56, 189, 248),
+        'text_title': (255, 255, 255), 'text_sub': (56, 189, 248),
+        'prize_header': (245, 158, 11), 'prize_text': (241, 245, 249),
+        'num_bg': (15, 23, 42), 'num_border': (51, 65, 85), 'num_text': (226, 232, 240),
+        'footer_bg': (2, 132, 199), 'badge_text': (254, 240, 138)
+    },
+    'pinterest_emerald': {
+        'name': 'Pinterest Emerald Gold',
+        'bg_start': (4, 47, 46), 'bg_end': (15, 23, 42),
+        'card_bg': (6, 78, 59, 220), 'card_border': (52, 211, 153),
+        'accent_header': (5, 150, 105), 'accent_border': (110, 231, 183),
+        'text_title': (255, 255, 255), 'text_sub': (110, 231, 183),
+        'prize_header': (251, 191, 36), 'prize_text': (240, 253, 244),
+        'num_bg': (6, 78, 59), 'num_border': (16, 185, 129), 'num_text': (236, 253, 245),
+        'footer_bg': (5, 150, 105), 'badge_text': (254, 240, 138)
+    },
+    'template_net_sunset': {
+        'name': 'Template.net AI Sunset',
+        'bg_start': (131, 24, 67), 'bg_end': (15, 23, 42),
+        'card_bg': (88, 28, 135, 220), 'card_border': (244, 63, 94),
+        'accent_header': (225, 29, 72), 'accent_border': (251, 113, 133),
+        'text_title': (255, 255, 255), 'text_sub': (253, 164, 175),
+        'prize_header': (250, 204, 21), 'prize_text': (255, 241, 242),
+        'num_bg': (76, 29, 149), 'num_border': (168, 85, 247), 'num_text': (250, 232, 255),
+        'footer_bg': (225, 29, 72), 'badge_text': (254, 240, 138)
+    },
+    'luxury_gold': {
+        'name': 'VIP Luxury Gold',
+        'bg_start': (9, 9, 11), 'bg_end': (24, 24, 27),
+        'card_bg': (39, 39, 42, 230), 'card_border': (217, 119, 6),
+        'accent_header': (180, 83, 9), 'accent_border': (251, 191, 36),
+        'text_title': (254, 240, 138), 'text_sub': (251, 191, 36),
+        'prize_header': (251, 191, 36), 'prize_text': (250, 250, 250),
+        'num_bg': (24, 24, 27), 'num_border': (217, 119, 6), 'num_text': (254, 240, 138),
+        'footer_bg': (180, 83, 9), 'badge_text': (254, 240, 138)
+    },
+    'cyber_indigo': {
+        'name': 'Cyber Indigo Pink',
+        'bg_start': (30, 16, 53), 'bg_end': (15, 23, 42),
+        'card_bg': (49, 23, 80, 220), 'card_border': (236, 72, 153),
+        'accent_header': (192, 38, 211), 'accent_border': (240, 171, 252),
+        'text_title': (255, 255, 255), 'text_sub': (240, 171, 252),
+        'prize_header': (234, 179, 8), 'prize_text': (253, 244, 255),
+        'num_bg': (49, 23, 80), 'num_border': (217, 70, 239), 'num_text': (253, 242, 248),
+        'footer_bg': (192, 38, 211), 'badge_text': (254, 240, 138)
+    },
+    'minimal_cream': {
+        'name': 'Pinterest Chic Cream',
+        'bg_start': (250, 250, 249), 'bg_end': (231, 229, 228),
+        'card_bg': (255, 255, 255, 240), 'card_border': (194, 65, 12),
+        'accent_header': (194, 65, 12), 'accent_border': (251, 146, 60),
+        'text_title': (28, 25, 23), 'text_sub': (194, 65, 12),
+        'prize_header': (194, 65, 12), 'prize_text': (44, 40, 37),
+        'num_bg': (28, 25, 23), 'num_border': (68, 64, 60), 'num_text': (255, 255, 255),
+        'footer_bg': (194, 65, 12), 'badge_text': (254, 240, 138)
+    }
+}
+
+def _get_flyer_font(size, bold=False):
+    from PIL import ImageFont
+    font_names = ["arialbd.ttf" if bold else "arial.ttf", "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf", "calibrib.ttf" if bold else "calibri.ttf"]
+    for fn in font_names:
+        try:
+            return ImageFont.truetype(fn, size)
+        except Exception:
+            pass
+    try:
+        return ImageFont.load_default(size=size)
+    except Exception:
+        return ImageFont.load_default()
+
+def _draw_gradient_bg(W, H, c1, c2):
+    from PIL import Image, ImageDraw
+    img = Image.new('RGB', (W, H))
+    draw = ImageDraw.Draw(img)
+    for y in range(H):
+        ratio = y / H
+        r = int(c1[0] * (1 - ratio) + c2[0] * ratio)
+        g = int(c1[1] * (1 - ratio) + c2[1] * ratio)
+        b = int(c1[2] * (1 - ratio) + c2[2] * ratio)
+        draw.line([(0, y), (W, y)], fill=(r, g, b))
+    return img
+
+def _generate_90_ball_card_grid():
+    import random
+    for _ in range(500):
+        cols_with_two = set(random.sample(range(9), 6))
+        col_counts = [2 if i in cols_with_two else 1 for i in range(9)]
+        ranges = [(1, 9), (10, 19), (20, 29), (30, 39), (40, 49), (50, 59), (60, 69), (70, 79), (80, 90)]
+        col_numbers = [sorted(random.sample(range(r[0], r[1] + 1), col_counts[i])) for i, r in enumerate(ranges)]
+        grid = [[None]*9 for _ in range(3)]
+        row_counts = [0, 0, 0]
+        possible = True
+        col_order = sorted(range(9), key=lambda c: col_counts[c], reverse=True)
+        for c in col_order:
+            cnt = col_counts[c]
+            avail = [r for r in range(3) if row_counts[r] < 5 and grid[r][c] is None]
+            if len(avail) < cnt:
+                possible = False
+                break
+            selected_rows = sorted(random.sample(avail, cnt))
+            for i_r, r_idx in enumerate(selected_rows):
+                grid[r_idx][c] = col_numbers[c][i_r]
+                row_counts[r_idx] += 1
+        if possible and row_counts == [5, 5, 5]:
+            return grid
+    return [[1, None, 20, None, 40, 50, None, 70, None], [None, 12, None, 32, None, 52, 62, None, 82], [5, 15, None, 35, 45, None, None, 75, 88]]
+
+def _generate_75_ball_card_grid():
+    import random
+    col_ranges = [('B', 1, 15), ('I', 16, 30), ('N', 31, 45), ('G', 46, 60), ('O', 61, 75)]
+    card_cols = []
+    for letter, start, end in col_ranges:
+        count = 4 if letter == 'N' else 5
+        nums = sorted(random.sample(range(start, end + 1), count))
+        if letter == 'N':
+            nums.insert(2, 'FREE')
+        card_cols.append(nums)
+    grid = []
+    for row_i in range(5):
+        grid.append([card_cols[col_i][row_i] for col_i in range(5)])
+    return grid
+
+
 @app.route('/api/generar-flyer', methods=['GET', 'POST'])
 def generar_flyer():
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw
     import io
     import urllib.request
     import urllib.parse
@@ -2953,6 +3085,20 @@ def generar_flyer():
         number_max = int(payload.get('number_max') or 100)
         prizes_str = payload.get('prizes') or "1° Premio: Asado Completo + Vino\n2° Premio: Postre Familiar + Sidra"
 
+    # Select Theme / Style
+    seed_val = payload.get('seed')
+    if seed_val:
+        try:
+            random.seed(int(seed_val))
+        except Exception:
+            pass
+            
+    style_key = payload.get('style') or payload.get('theme') or 'random'
+    if style_key not in CANVA_FLYER_THEMES or style_key == 'random':
+        style_key = random.choice(list(CANVA_FLYER_THEMES.keys()))
+        
+    t = CANVA_FLYER_THEMES[style_key]
+
     use_ai = str(payload.get('use_ai') or payload.get('ai') or '0').lower() in ['1', 'true', 'yes']
     W, H = 1080, 1350
     ai_img = None
@@ -2974,53 +3120,53 @@ def generar_flyer():
     if ai_img:
         overlay = Image.new('RGBA', (W, H), (15, 23, 42, 170))
         img = Image.alpha_composite(ai_img.convert('RGBA'), overlay).convert('RGB')
+        draw = ImageDraw.Draw(img, 'RGBA')
     else:
-        img = Image.new('RGB', (W, H), color='#0f172a')
-        draw_bg = ImageDraw.Draw(img)
-        for y in range(260):
-            r_c = int(15 + (y / 260) * 20)
-            g_c = int(23 + (y / 260) * 100)
-            b_c = int(42 + (y / 260) * 160)
-            draw_bg.line([(0, y), (W, y)], fill=(r_c, g_c, b_c))
+        img = _draw_gradient_bg(W, H, t['bg_start'], t['bg_end'])
+        draw = ImageDraw.Draw(img, 'RGBA')
 
-    draw = ImageDraw.Draw(img)
+    # Fonts
+    f_badge = _get_flyer_font(24, bold=True)
+    f_title = _get_flyer_font(46, bold=True)
+    f_sub = _get_flyer_font(24, bold=False)
+    f_prize_h = _get_flyer_font(26, bold=True)
+    f_body = _get_flyer_font(22, bold=False)
+    f_num = _get_flyer_font(18, bold=True)
+    f_footer = _get_flyer_font(24, bold=True)
 
-    try:
-        font_title = ImageFont.truetype("arial.ttf", 50)
-        font_sub = ImageFont.truetype("arial.ttf", 30)
-        font_body = ImageFont.truetype("arial.ttf", 26)
-        font_num = ImageFont.truetype("arial.ttf", 20)
-    except Exception:
-        font_title = font_sub = font_body = font_num = ImageFont.load_default()
+    # Header Badge
+    draw.rounded_rectangle([60, 35, W - 60, 105], radius=20, fill=t['accent_header'] + (240,), outline=t['accent_border'], width=2)
+    draw.text((W // 2, 70), "✨ CANVA / PINTEREST AI SORTEO OFICIAL ✨", fill=(255, 255, 255), font=f_badge, anchor="mm")
 
-    draw.rounded_rectangle([60, 35, W - 60, 110], radius=20, fill='#0284c7', outline='#38bdf8', width=2)
-    draw.text((W // 2, 72), "🎲 SORTEO EXPRESS & RIFA IA 🎲", fill="#ffffff", font=font_sub, anchor="mm")
+    # Title & Motive
+    draw.text((W // 2, 160), title.upper()[:45], fill=t['text_title'], font=f_title, anchor="mm")
+    draw.text((W // 2, 215), f"📌 {motive[:60]}", fill=t['text_sub'], font=f_sub, anchor="mm")
 
-    draw.text((W // 2, 170), title.upper(), fill="#ffffff", font=font_title, anchor="mm")
-    draw.text((W // 2, 225), f"📌 {motive}", fill="#38bdf8", font=font_sub, anchor="mm")
-
-    draw.rounded_rectangle([60, 270, W - 60, 420], radius=20, fill='#1e293b', outline='#6366f1', width=3)
-    draw.text((80, 295), "🏆 PREMIOS DESTACADOS:", fill="#f59e0b", font=font_sub)
+    # Prizes Card
+    draw.rounded_rectangle([60, 260, W - 60, 410], radius=22, fill=t['card_bg'], outline=t['card_border'], width=3)
+    draw.text((85, 285), "🏆 PREMIOS DESTACADOS:", fill=t['prize_header'], font=f_prize_h)
     
     if isinstance(prizes_str, list):
         prize_lines = [p.get('name', str(p)) if isinstance(p, dict) else str(p) for p in prizes_str]
     else:
         prize_lines = str(prizes_str).split('\n')
         
-    y_p = 340
+    y_p = 325
     for line in prize_lines[:3]:
-        draw.text((90, y_p), f"✨ {line.strip()}", fill="#ffffff", font=font_body)
-        y_p += 35
+        draw.text((95, y_p), f"✨ {line.strip()[:65]}", fill=t['prize_text'], font=f_body)
+        y_p += 32
 
-    draw.text((W // 2, 455), f"SELECCIONÁ TU NÚMERO ({number_min:02d} al {number_max:02d})", fill="#e2e8f0", font=font_sub, anchor="mm")
+    # Grid Header
+    draw.text((W // 2, 440), f"SELECCIONÁ TU NÚMERO ({number_min:02d} al {number_max:02d})", fill=t['text_sub'], font=f_badge, anchor="mm")
 
-    total_nums = min(100, number_max - number_min + 1)
-    cols = 10
+    # Grid Calculation
+    total_nums = max(1, min(100, number_max - number_min + 1))
+    cols = 10 if total_nums > 20 else 5
     rows = (total_nums + cols - 1) // cols
-    grid_top = 490
+    grid_top = 475
     grid_left = 60
     cell_w = (W - 120) // cols
-    cell_h = min(48, 680 // max(1, rows))
+    cell_h = min(62, 630 // max(1, rows))
 
     for idx in range(total_nums):
         num = number_min + idx
@@ -3031,24 +3177,25 @@ def generar_flyer():
         x2 = x1 + cell_w - 6
         y2 = y1 + cell_h - 6
         
-        draw.rounded_rectangle([x1, y1, x2, y2], radius=8, fill='#090d16', outline='#334155', width=1)
-        draw.text(((x1 + x2) // 2, (y1 + y2) // 2), f"{num:02d}", fill="#94a3b8", font=font_num, anchor="mm")
+        draw.rounded_rectangle([x1, y1, x2, y2], radius=10, fill=t['num_bg'] + (230,), outline=t['num_border'], width=1)
+        draw.text(((x1 + x2) // 2, (y1 + y2) // 2), f"{num:02d}", fill=t['num_text'], font=f_num, anchor="mm")
 
-    footer_top = H - 170
-    draw.rounded_rectangle([60, footer_top, W - 60, H - 40], radius=25, fill='#0284c7', outline='#38bdf8', width=3)
-    draw.text((100, footer_top + 40), f"💵 VALOR DEL NÚMERO: ${price:,.2f}", fill="#ffffff", font=font_sub)
-    draw.text((100, footer_top + 85), f"📅 FECHA DE SORTEO: {draw_date}", fill="#e0f2fe", font=font_body)
-    draw.text((W - 90, footer_top + 60), "VERIFICADO ✓", fill="#fef08a", font=font_sub, anchor="rm")
+    # Footer Card
+    footer_top = H - 175
+    draw.rounded_rectangle([60, footer_top, W - 60, H - 45], radius=25, fill=t['footer_bg'] + (240,), outline=t['accent_border'], width=3)
+    draw.text((90, footer_top + 45), f"💵 VALOR DEL NÚMERO: ${price:,.2f}", fill=(255, 255, 255), font=f_footer)
+    draw.text((90, footer_top + 90), f"📅 FECHA DE SORTEO: {draw_date}", fill=(240, 249, 255), font=f_body)
+    draw.text((W - 90, footer_top + 65), "VERIFICADO ✓", fill=t['badge_text'], font=f_footer, anchor="rm")
 
     img_io = io.BytesIO()
     img.save(img_io, 'PNG', quality=95)
     img_io.seek(0)
-    return send_file(img_io, mimetype='image/png', as_attachment=False, download_name='flyer_sorteo_ia.png')
+    return send_file(img_io, mimetype='image/png', as_attachment=False, download_name='flyer_sorteo_canva.png')
 
 
 @app.route('/api/generar-cartones-bingo', methods=['GET', 'POST'])
 def generar_cartones_bingo():
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw
     import random
     import io
     
@@ -3060,22 +3207,34 @@ def generar_cartones_bingo():
     raffle_title = payload.get('title') or "GRAN BINGO FAMILIAR 2026"
     mode = str(payload.get('mode') or '75')
     cards_count = min(10, max(1, int(payload.get('count') or payload.get('quantity') or 2)))
+    
+    seed_val = payload.get('seed')
+    if seed_val:
+        try:
+            random.seed(int(seed_val))
+        except Exception:
+            pass
+
+    style_key = payload.get('style') or payload.get('theme') or 'random'
+    if style_key not in CANVA_FLYER_THEMES or style_key == 'random':
+        style_key = random.choice(list(CANVA_FLYER_THEMES.keys()))
+        
+    t = CANVA_FLYER_THEMES[style_key]
 
     W, H = 1200, 1600
-    img = Image.new('RGB', (W, H), color='#090d16')
-    draw = ImageDraw.Draw(img)
+    img = _draw_gradient_bg(W, H, t['bg_start'], t['bg_end'])
+    draw = ImageDraw.Draw(img, 'RGBA')
 
-    try:
-        font_title = ImageFont.truetype("arial.ttf", 45)
-        font_sub = ImageFont.truetype("arial.ttf", 26)
-        font_num = ImageFont.truetype("arial.ttf", 32)
-        font_header = ImageFont.truetype("arial.ttf", 34)
-    except Exception:
-        font_title = font_sub = font_num = font_header = ImageFont.load_default()
+    f_title = _get_flyer_font(42, bold=True)
+    f_sub = _get_flyer_font(24, bold=False)
+    f_header = _get_flyer_font(30, bold=True)
+    f_num = _get_flyer_font(30, bold=True)
+    f_free = _get_flyer_font(20, bold=True)
 
-    draw.rounded_rectangle([40, 30, W - 40, 120], radius=20, fill='#1e1b4b', outline='#6366f1', width=3)
-    draw.text((W // 2, 75), f"🎱 {raffle_title.upper()} 🎱", fill="#ffffff", font=font_title, anchor="mm")
-    draw.text((W // 2, 145), f"CARTONES OFICIALES DE BINGO (MODO {mode} BOLILLAS) • GENERADO CON IA", fill="#a5b4fc", font=font_sub, anchor="mm")
+    # Header Card
+    draw.rounded_rectangle([40, 30, W - 40, 120], radius=22, fill=t['accent_header'] + (240,), outline=t['accent_border'], width=3)
+    draw.text((W // 2, 75), f"🎱 {raffle_title.upper()[:35]} 🎱", fill=(255, 255, 255), font=f_title, anchor="mm")
+    draw.text((W // 2, 145), f"CARTONES OFICIALES DE BINGO (MODO {mode} BOLILLAS) • PLANTILLA CANVA / PINTEREST AI", fill=t['text_sub'], font=f_sub, anchor="mm")
 
     cards_per_page = min(2, cards_count)
     card_w = W - 120
@@ -3084,11 +3243,13 @@ def generar_cartones_bingo():
     for c_idx in range(cards_per_page):
         top_y = 190 + c_idx * 680
         
-        draw.rounded_rectangle([60, top_y, 60 + card_w, top_y + card_h], radius=25, fill='#0f172a', outline='#f59e0b', width=3)
+        # Outer Card Container
+        draw.rounded_rectangle([60, top_y, 60 + card_w, top_y + card_h], radius=25, fill=t['card_bg'], outline=t['card_border'], width=3)
         
-        draw.rounded_rectangle([75, top_y + 15, 60 + card_w - 15, top_y + 75], radius=15, fill='#d97706', outline='#fbbf24', width=2)
-        card_id_str = f"CARTÓN N° #{c_idx + 1:03d} • HASH: BINGO-{random.randint(1000, 9999)}"
-        draw.text((W // 2, top_y + 45), card_id_str, fill="#ffffff", font=font_header, anchor="mm")
+        # Card ID Bar
+        draw.rounded_rectangle([75, top_y + 15, 60 + card_w - 15, top_y + 75], radius=15, fill=t['accent_header'] + (240,), outline=t['accent_border'], width=2)
+        card_id_str = f"CARTÓN N° #{c_idx + 1:03d} • VERIFICACIÓN HASH: BINGO-{random.randint(1000, 9999)}"
+        draw.text((W // 2, top_y + 45), card_id_str, fill=(255, 255, 255), font=f_header, anchor="mm")
 
         if mode == '75':
             headers = ["B", "I", "N", "G", "O"]
@@ -3099,19 +3260,16 @@ def generar_cartones_bingo():
             grid_left = 80
             grid_top = top_y + 90
             
+            # Header Row B I N G O
             for ci, h_letter in enumerate(headers):
                 cx1 = grid_left + ci * col_w
                 cy1 = grid_top
                 cx2 = cx1 + col_w - 6
                 cy2 = cy1 + row_h - 6
-                draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=10, fill='#4338ca', outline='#818cf8', width=2)
-                draw.text(((cx1 + cx2) // 2, (cy1 + cy2) // 2), h_letter, fill="#ffffff", font=font_header, anchor="mm")
+                draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=12, fill=t['accent_header'] + (230,), outline=t['accent_border'], width=2)
+                draw.text(((cx1 + cx2) // 2, (cy1 + cy2) // 2), h_letter, fill=(255, 255, 255), font=f_header, anchor="mm")
 
-            col_ranges = [(1,15), (16,30), (31,45), (46,60), (61,75)]
-            card_grid = []
-            for col_i in range(5):
-                nums = random.sample(range(col_ranges[col_i][0], col_ranges[col_i][1] + 1), 5)
-                card_grid.append(nums)
+            card_grid = _generate_75_ball_card_grid()
 
             for ri in range(5):
                 for ci in range(5):
@@ -3120,15 +3278,15 @@ def generar_cartones_bingo():
                     cx2 = cx1 + col_w - 6
                     cy2 = cy1 + row_h - 6
                     
-                    if ri == 2 and ci == 2:
-                        draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=12, fill='#b45309', outline='#f59e0b', width=2)
-                        draw.text(((cx1 + cx2) // 2, (cy1 + cy2) // 2), "⭐ LIBRE ⭐", fill="#fef08a", font=font_sub, anchor="mm")
+                    val = card_grid[ri][ci]
+                    if val == 'FREE':
+                        draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=12, fill=t['footer_bg'] + (240,), outline=t['badge_text'], width=2)
+                        draw.text(((cx1 + cx2) // 2, (cy1 + cy2) // 2), "⭐ LIBRE ⭐", fill=t['badge_text'], font=f_free, anchor="mm")
                     else:
-                        num_val = card_grid[ci][ri]
-                        draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=12, fill='#1e293b', outline='#334155', width=1)
-                        draw.text(((cx1 + cx2) // 2, (cy1 + cy2) // 2), f"{num_val:02d}", fill="#ffffff", font=font_num, anchor="mm")
+                        draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=12, fill=t['num_bg'] + (230,), outline=t['num_border'], width=1)
+                        draw.text(((cx1 + cx2) // 2, (cy1 + cy2) // 2), f"{val:02d}", fill=t['num_text'], font=f_num, anchor="mm")
 
-        else: # 90 balls
+        else: # 90 balls mode
             cols = 9
             rows = 3
             col_w = (card_w - 40) // cols
@@ -3136,30 +3294,26 @@ def generar_cartones_bingo():
             grid_left = 80
             grid_top = top_y + 90
             
+            grid_90 = _generate_90_ball_card_grid()
+            
             for ri in range(3):
-                row_nums = random.sample(range(1, 91), 5)
-                row_nums.sort()
-                positions = sorted(random.sample(range(9), 5))
-                pos_idx = 0
-                
                 for ci in range(9):
                     cx1 = grid_left + ci * col_w
                     cy1 = grid_top + ri * row_h
                     cx2 = cx1 + col_w - 4
                     cy2 = cy1 + row_h - 4
                     
-                    if ci in positions:
-                        num_val = row_nums[pos_idx]
-                        pos_idx += 1
-                        draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=10, fill='#1e293b', outline='#475569', width=1)
-                        draw.text(((cx1 + cx2) // 2, (cy1 + cy2) // 2), f"{num_val:02d}", fill="#ffffff", font=font_num, anchor="mm")
+                    val = grid_90[ri][ci]
+                    if val is not None:
+                        draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=10, fill=t['num_bg'] + (230,), outline=t['card_border'], width=1)
+                        draw.text(((cx1 + cx2) // 2, (cy1 + cy2) // 2), f"{val:02d}", fill=t['num_text'], font=f_num, anchor="mm")
                     else:
-                        draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=10, fill='#090d16', outline='#1e293b', width=1)
+                        draw.rounded_rectangle([cx1, cy1, cx2, cy2], radius=10, fill=(15, 23, 42, 160), outline=t['num_border'], width=1)
 
     img_io = io.BytesIO()
     img.save(img_io, 'PNG', quality=95)
     img_io.seek(0)
-    return send_file(img_io, mimetype='image/png', as_attachment=False, download_name='cartones_bingo.png')
+    return send_file(img_io, mimetype='image/png', as_attachment=False, download_name='cartones_bingo_canva.png')
 
 
 # ----------------------------------------------------
