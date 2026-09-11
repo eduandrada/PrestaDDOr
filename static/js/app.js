@@ -454,8 +454,8 @@ function registerPrestamosApp() {
             },
 
             async saveClient() {
-                if (!this.clientForm.name || !this.clientForm.whatsapp) {
-                    alert("Ingrese nombre completo y teléfono de WhatsApp.");
+                if (!this.clientForm || !this.clientForm.name || !this.clientForm.name.trim()) {
+                    alert("Por favor ingrese el nombre completo del cliente.");
                     return;
                 }
                 const isEdit = !!this.clientForm.id;
@@ -469,12 +469,20 @@ function registerPrestamosApp() {
                         body: JSON.stringify(this.clientForm)
                     });
                     if (res.ok) {
+                        const savedClient = await res.json();
                         this.activeModal = null;
                         await this.fetchClients();
                         await this.fetchStats();
+                        if (savedClient && savedClient.id && this.loanForm) {
+                            this.loanForm.client_id = savedClient.id;
+                        }
+                    } else {
+                        const errData = await res.json().catch(() => ({}));
+                        alert(errData.error || "Error al guardar el cliente.");
                     }
                 } catch (err) {
-                    alert("Error al guardar cliente");
+                    console.error("saveClient error:", err);
+                    alert("Error de conexión al guardar cliente.");
                 }
             },
 

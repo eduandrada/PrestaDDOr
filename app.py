@@ -31,8 +31,168 @@ def add_no_cache_headers(response):
 db.init_app(app)
 
 # Helper for initial settings & seed data
+def trigger_auto_backup():
+    try:
+        backup_dir = os.path.abspath('backups')
+        os.makedirs(backup_dir, exist_ok=True)
+        backup_path = os.path.join(backup_dir, 'database_auto_backup.json')
+        models_map = {
+            'Client': Client,
+            'Loan': Loan,
+            'Installment': Installment,
+            'Payment': Payment,
+            'Expense': Expense,
+            'Setting': Setting,
+            'PersonalBill': PersonalBill,
+            'Raffle': Raffle,
+            'ShoppingItem': ShoppingItem,
+            'NoticeBoardItem': NoticeBoardItem,
+            'HomeCalendarItem': HomeCalendarItem
+        }
+        data = {}
+        for name, model in models_map.items():
+            records = model.query.all()
+            rows = []
+            for r in records:
+                row = {}
+                for col in r.__table__.columns:
+                    val = getattr(r, col.name)
+                    if isinstance(val, (datetime, date)):
+                        val = val.isoformat()
+                    row[col.name] = val
+                rows.append(row)
+            data[name] = rows
+        with open(backup_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as err:
+        print(f"[Auto Backup Error]: {err}")
+
+
+def restore_auto_backup():
+    try:
+        backup_path = os.path.abspath('backups/database_auto_backup.json')
+        if not os.path.exists(backup_path):
+            return False
+        with open(backup_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        if not data or not data.get('Client'):
+            return False
+
+        # Restore Clients
+        for c_data in data.get('Client', []):
+            if not Client.query.get(c_data['id']):
+                c = Client(
+                    id=c_data['id'],
+                    name=c_data['name'],
+                    whatsapp=c_data.get('whatsapp', ''),
+                    email=c_data.get('email', ''),
+                    address=c_data.get('address', ''),
+                    notes=c_data.get('notes', '')
+                )
+                db.session.add(c)
+        db.session.commit()
+
+        # Restore Loans
+        for l_data in data.get('Loan', []):
+            if not Loan.query.get(l_data['id']):
+                start_d = datetime.fromisoformat(l_data['start_date']).date() if isinstance(l_data['start_date'], str) else l_data['start_date']
+                l = Loan(
+                    id=l_data['id'],
+                    client_id=l_data['client_id'],
+                    amount=l_data['amount'],
+                    interest_rate=l_data['interest_rate'],
+                    rate_type=l_data.get('rate_type', 'mensual'),
+                    modality=l_data.get('modality', 'mensual'),
+                    installments_count=l_data.get('installments_count', 1),
+                    start_date=start_d,
+                    status=l_data.get('status', 'activo'),
+                    grace_days=l_data.get('grace_days', 3),
+                    late_fee_type=l_data.get('late_fee_type', 'porcentaje'),
+                    late_fee_value=l_data.get('late_fee_value', 1.0),
+                    notes=l_data.get('notes', '')
+                )
+                db.session.add(l)
+        db.session.commit()
+
+        # Restore Installments
+        for i_data in data.get('Installment', []):
+            if not Installment.query.get(i_data['id']):
+                due_d = datetime.fromisoformat(i_data['due_date']).date() if isinstance(i_data['due_date'], str) else i_data['due_date']
+                inst = Installment(
+                    id=i_data['id'],
+                    loan_id=i_data['loan_id'],
+                    installment_number=i_data['installment_number'],
+                    due_date=due_d,
+                    amount=i_data['amount'],
+                    paid_amount=i_data.get('paid_amount', 0.0),
+                    status=i_data.get('status', 'pendiente'),
+                    paid_date=datetime.fromisoformat(i_data['paid_date']).date() if i_data.get('paid_date') else None,
+                    late_fee_amount=i_data.get('late_fee_amount', 0.0)
+                )
+                db.session.add(inst)
+        db.session.commit()
+
+        # Restore Payments
+        for p_data in data.get('Payment', []):
+            if not Payment.query.get(p_data['id']):
+                p_date = datetime.fromisoformat(p_data['payment_date']).date() if isinstance(p_data['payment_date'], str) else p_data['payment_date']
+                p = Payment(
+                    id=p_data['id'],
+                    installment_id=p_data['installment_id'],
+                    amount=p_data['amount'],
+                    payment_date=p_date,
+                    notes=p_data.get('notes', '')
+                )
+                db.session.add(p)
+        db.session.commit()
+
+        # Restore Expenses
+        for ex_data in data.get('Expense', []):
+            if not Expense.query.get(ex_data['id']):
+                ex_date = datetime.fromisoformat(ex_data['expense_date']).date() if isinstance(ex_data['expense_date'], str) else ex_data['expense_date']
+                ex = Expense(
+                    id=ex_data['id'],
+                    category=ex_data['category'],
+                    description=ex_data['description'],
+                    amount=ex_data['amount'],
+                    expense_date=ex_date,
+                    notes=ex_data.get('notes', '')
+                )
+                db.session.add(ex)
+        db.session.commit()
+
+        # Restore Raffles
+        for r_data in data.get('Raffle', []):
+            if not Raffle.query.get(r_data['id']):
+                rf = Raffle(
+                    id=r_data['id'],
+                    title=r_data['title'],
+                    motive=r_data.get('motive', ''),
+                    mode=r_data.get('mode', 'numbers'),
+                    number_min=r_data.get('number_min', 1),
+                    number_max=r_data.get('number_max', 100),
+                    ticket_price=r_data.get('ticket_price', 1500.0),
+                    prizes_json=r_data.get('prizes_json', '[]'),
+                    participants_json=r_data.get('participants_json', '[]'),
+                    winners_json=r_data.get('winners_json', '[]'),
+                    status=r_data.get('status', 'activo'),
+                    draw_date=r_data.get('draw_date', '')
+                )
+                db.session.add(rf)
+        db.session.commit()
+
+        print("[Auto-Restore] Realizado con éxito desde backups/database_auto_backup.json")
+        return True
+    except Exception as err:
+        print(f"[Auto-Restore Exception]: {err}")
+        return False
+
+
 def init_db_and_seeds():
     db.create_all()
+    # Check if there is an auto backup to restore
+    restored = restore_auto_backup()
+
     # Migration: Ensure new columns exist in personal_bills table
     try:
         with db.engine.connect() as conn:
@@ -409,16 +569,26 @@ def get_dashboard_stats():
 @app.route('/api/clients', methods=['GET', 'POST'])
 def handle_clients():
     if request.method == 'POST':
-        data = request.json
+        data = request.get_json(silent=True) or {}
+        name = str(data.get('name') or '').strip()
+        if not name:
+            return jsonify({'error': 'El nombre completo del cliente es obligatorio'}), 400
+            
+        raw_wa = str(data.get('whatsapp') or '').strip()
+        clean_wa = "".join(c for c in raw_wa if c.isdigit())
+        if not clean_wa and raw_wa:
+            clean_wa = raw_wa
+            
         client = Client(
-            name=data['name'].strip(),
-            whatsapp=data['whatsapp'].strip(),
-            email=data.get('email', '').strip(),
-            address=data.get('address', '').strip(),
-            notes=data.get('notes', '').strip()
+            name=name,
+            whatsapp=clean_wa,
+            email=str(data.get('email') or '').strip(),
+            address=str(data.get('address') or '').strip(),
+            notes=str(data.get('notes') or '').strip()
         )
         db.session.add(client)
         db.session.commit()
+        trigger_auto_backup()
         return jsonify(client.to_dict()), 201
     
     clients = Client.query.order_by(Client.name).all()
@@ -431,15 +601,25 @@ def handle_single_client(client_id):
     if request.method == 'DELETE':
         db.session.delete(client)
         db.session.commit()
+        trigger_auto_backup()
         return jsonify({"success": True})
     
-    data = request.json
-    client.name = data.get('name', client.name).strip()
-    client.whatsapp = data.get('whatsapp', client.whatsapp).strip()
-    client.email = data.get('email', client.email).strip()
-    client.address = data.get('address', client.address).strip()
-    client.notes = data.get('notes', client.notes).strip()
+    data = request.get_json(silent=True) or {}
+    if 'name' in data and data['name']:
+        client.name = str(data['name']).strip()
+    if 'whatsapp' in data:
+        raw_wa = str(data['whatsapp'] or '').strip()
+        clean_wa = "".join(c for c in raw_wa if c.isdigit())
+        client.whatsapp = clean_wa if clean_wa else raw_wa
+    if 'email' in data:
+        client.email = str(data['email'] or '').strip()
+    if 'address' in data:
+        client.address = str(data['address'] or '').strip()
+    if 'notes' in data:
+        client.notes = str(data['notes'] or '').strip()
+        
     db.session.commit()
+    trigger_auto_backup()
     return jsonify(client.to_dict())
 
 
