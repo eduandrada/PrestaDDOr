@@ -150,6 +150,54 @@ body.privacy-mode .privacy-hidden {
   letter-spacing: 0.2px;
 }
 
+.fuente-catamarca {
+  background: linear-gradient(135deg, #f39c12, #d35400);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin-right: 8px;
+  font-weight: 800;
+  box-shadow: 0 2px 4px rgba(243,156,18,0.4);
+}
+
+.fuente-reloj {
+  background: linear-gradient(135deg, #8e44ad, #2c3e50);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin-right: 8px;
+  font-weight: 800;
+  box-shadow: 0 2px 4px rgba(142,68,173,0.4);
+}
+
+.fuente-pizarra {
+  background: linear-gradient(135deg, #f1c40f, #e67e22);
+  color: #0f172a;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin-right: 8px;
+  font-weight: 800;
+  box-shadow: 0 2px 4px rgba(241,196,15,0.4);
+}
+
+.fuente-calendar {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin-right: 8px;
+  font-weight: 800;
+  box-shadow: 0 2px 4px rgba(52,152,219,0.4);
+}
+
 .fuente-esquiu {
   background-color: #0076bb;
   color: white;

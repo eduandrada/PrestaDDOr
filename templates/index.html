@@ -108,12 +108,41 @@
     </div>
   </header>
 
-  <!-- BARRA DE NOTICIAS LOCALES CATAMARCA -->
+  <!-- BARRA DE NOTICIAS & INFORMACIÓN EN VIVO (MARQUEE CATAMARCA) -->
   <div class="contenedor-noticias shadow-sm">
     <div class="noticias-movimiento">
-      <span class="noticia-item"><span class="fuente-esquiu">El Esquiú</span> 🏛️ <b>Política:</b> Catamarca On-Chain y otros titulares locales.</span>
+      <!-- Clima en Vivo San Fernando del Valle de Catamarca -->
+      <span class="noticia-item">
+        <span class="fuente-catamarca">📍 Catamarca</span>
+        <span x-text="catamarcaWeather.icon + ' ' + catamarcaWeather.temp + ' (' + catamarcaWeather.condition + ')'"></span>
+      </span>
+      
+      <!-- Fecha & Hora Actual -->
+      <span class="noticia-item">
+        <span class="fuente-reloj">🗓️ Fecha & Hora</span>
+        <b x-text="currentDateTimeStr"></b>
+      </span>
+
+      <!-- Titulares de Prensa Local -->
+      <span class="noticia-item"><span class="fuente-esquiu">El Esquiú</span> 🏛️ <b>Política:</b> Catamarca On-Chain y titulares locales.</span>
       <span class="noticia-item"><span class="fuente-ancasti">El Ancasti</span> 🚧 <b>Obras:</b> Actualidad de infraestructura en la Capital.</span>
       <span class="noticia-item"><span class="fuente-launion">La Unión</span> 🏥 <b>Salud:</b> Campañas y novedades del Valle Central.</span>
+
+      <!-- Novedades de la Pizarra Familiar -->
+      <template x-for="item in noticeItems" :key="'notice-m-' + item.id">
+        <span class="noticia-item">
+          <span class="fuente-pizarra">📌 Pizarra (<span x-text="item.author || 'Familia'"></span>)</span>
+          <span x-text="item.message"></span>
+        </span>
+      </template>
+
+      <!-- Eventos y Recordatorios del Calendario -->
+      <template x-for="evt in calendarItems" :key="'cal-m-' + evt.id">
+        <span class="noticia-item">
+          <span class="fuente-calendar">📅 Calendario (<span x-text="evt.due_date"></span>)</span>
+          <span x-text="evt.title + (evt.due_time ? ' - ' + evt.due_time : '')"></span>
+        </span>
+      </template>
     </div>
   </div>
 

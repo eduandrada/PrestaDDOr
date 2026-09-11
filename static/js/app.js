@@ -243,6 +243,11 @@ function registerPrestamosApp() {
             zeroUiText: '',
             zeroUiResult: null,
             isZeroUiProcessing: false,
+
+            // Marquee Header Live State (Clima Catamarca & Reloj)
+            catamarcaWeather: { temp: '--°C', condition: 'Catamarca', icon: '📍' },
+            currentDateTimeStr: '',
+
             comidasForm: {
                 event_type: 'asado',
                 menu_type: 'asado',
@@ -273,7 +278,7 @@ function registerPrestamosApp() {
                 recordingTimer: null,
                 mediaRecorder: null,
                 audioChunks: [],
-                audioBlob: null,
+                audioBlob: [],
                 statusText: '',
                 isConverting: false
             },
@@ -289,6 +294,8 @@ function registerPrestamosApp() {
                 if (this.privacyMode) document.body.classList.add('privacy-mode');
                 this.loadAllData();
                 this.fetchDolarRates();
+                this.fetchCatamarcaWeather();
+                this.startMarqueeClock();
 
                 window.addEventListener('beforeinstallprompt', (e) => {
                     e.preventDefault();
@@ -299,9 +306,11 @@ function registerPrestamosApp() {
                     this.deferredPwaPrompt = null;
                 });
                 
-                // Real-time synchronization polling (syncs stats live across devices every 4 sec)
+                // Real-time synchronization polling (syncs stats & marquee live across devices every 4 sec)
                 setInterval(() => {
                     this.fetchStats();
+                    this.fetchNotices();
+                    this.fetchCalendarEvents();
                     if (this.activeTab === 'loans') this.fetchLoans();
                     if (this.activeTab === 'expenses' || (this.activeTab === 'accounts' && (this.accountSubSection === 'gastos' || this.accountSubSection === 'todas'))) this.fetchExpenses();
                     if (this.activeTab === 'accounts') this.fetchPersonalAccounts();
@@ -2684,6 +2693,43 @@ function registerPrestamosApp() {
                 } catch(err) {
                     alert("Error al eliminar evento");
                 }
+            },
+
+            async fetchCatamarcaWeather() {
+                try {
+                    const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=-28.4696&longitude=-65.7852&current_weather=true');
+                    const data = await res.json();
+                    if (data && data.current_weather) {
+                        const temp = Math.round(data.current_weather.temperature);
+                        const code = data.current_weather.weathercode;
+                        let cond = 'Despejado';
+                        let icon = '☀️';
+                        if (code >= 1 && code <= 3) { cond = 'Parcialmente Nublado'; icon = '⛅'; }
+                        else if (code >= 45 && code <= 48) { cond = 'Niebla'; icon = '🌫️'; }
+                        else if (code >= 51 && code <= 82) { cond = 'Lluvia'; icon = '🌧️'; }
+                        else if (code >= 95) { cond = 'Tormenta'; icon = '⛈️'; }
+                        this.catamarcaWeather = {
+                            temp: `${temp}°C`,
+                            condition: cond,
+                            icon: icon
+                        };
+                    }
+                } catch(err) {
+                    this.catamarcaWeather = { temp: '24°C', condition: 'Catamarca (Despejado)', icon: '☀️' };
+                }
+            },
+
+            startMarqueeClock() {
+                const updateStr = () => {
+                    const now = new Date();
+                    const optionsDate = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+                    let dateStr = now.toLocaleDateString('es-AR', optionsDate);
+                    dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+                    const timeStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    this.currentDateTimeStr = `${dateStr} | 🕒 ${timeStr} hs`;
+                };
+                updateStr();
+                setInterval(updateStr, 1000);
             },
 
             async parseZeroUiAudio() {
