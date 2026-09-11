@@ -1985,23 +1985,45 @@
     <!-- ========================================== -->
     <div x-show="activeTab === 'raffles'" x-transition class="space-y-6 overflow-y-auto max-h-[calc(100vh-140px)] pb-20">
 
-      <!-- Header Card -->
-      <div class="adaptive-card p-6 bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 text-white border border-amber-500/30 shadow-xl">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div class="flex items-center space-x-3">
-            <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl border border-amber-500/30">🎲</div>
+      <!-- Header Card with Quick Tools -->
+      <div class="adaptive-card p-6 bg-gradient-to-r from-amber-950 via-slate-900 to-indigo-950 text-white border border-amber-500/30 shadow-2xl space-y-4">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-amber-500/20 pb-4">
+          <div class="flex items-center space-x-3.5">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl border border-amber-500/30 shadow-inner">🎲</div>
             <div>
               <h2 class="font-extrabold text-xl text-white tracking-tight flex items-center gap-2">
-                <span>Sorteo Express & Rifas</span>
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase font-black">Estilo 2026</span>
+                <span>Sorteos, Rifas & Bingo IA</span>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase font-black tracking-wider">Edición 2026</span>
               </h2>
-              <p class="text-xs text-amber-200/80">Sorteos de números, listas de nombres, raspadita interactiva en canvas y bolillero 60 FPS con hash de verificación.</p>
+              <p class="text-xs text-amber-200/80 mt-0.5">Plataforma de Sorteos de números, raspadita interactiva, bolillero 60 FPS y generador de cartones de Bingo 75/90 con plantillas Canva / Pinterest.</p>
             </div>
           </div>
-          <div class="flex items-center space-x-3 text-xs">
-            <div class="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 font-bold">
-              <span>Sorteos Activos: </span><span x-text="raffles.length" class="font-black text-white"></span>
+          <div class="flex items-center gap-2 text-xs">
+            <div class="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 font-bold flex items-center space-x-1.5">
+              <span>🎟️ Activos:</span>
+              <span x-text="raffles.length" class="font-black text-white px-1.5 py-0.5 rounded bg-amber-500/30"></span>
             </div>
+            <button @click="fetchRaffles()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold border border-slate-700 transition active:scale-95">
+              🔄 Actualizar
+            </button>
+          </div>
+        </div>
+
+        <!-- FIXED GENERATOR TOOLBAR BAR -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <div class="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
+            <span>⚡ Herramientas Rápidas de Generación Canva & Bingo:</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button @click="generateQuickBingoPdf('75')" class="px-3.5 py-2 rounded-xl bg-purple-600/80 hover:bg-purple-600 text-white text-xs font-bold shadow border border-purple-400/30 transition flex items-center space-x-1.5 active:scale-95">
+              <span>🎱 Cartones Bingo 75 (PDF)</span>
+            </button>
+            <button @click="generateQuickBingoPdf('90')" class="px-3.5 py-2 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold shadow border border-indigo-400/30 transition flex items-center space-x-1.5 active:scale-95">
+              <span>🎱 Cartones Bingo 90 (PDF)</span>
+            </button>
+            <button @click="generateQuickFlyer()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white text-xs font-black shadow border border-amber-300/30 transition flex items-center space-x-1.5 active:scale-95">
+              <span>🎨 Generar Flyer Canva PNG</span>
+            </button>
           </div>
         </div>
       </div>
@@ -2010,12 +2032,15 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         <!-- CREATE NEW RAFFLE FORM -->
-        <div class="adaptive-card p-5 space-y-4 lg:col-span-1">
-          <h3 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
-            <span>⚙️ Crear Nuevo Sorteo</span>
-          </h3>
+        <div class="adaptive-card p-5 space-y-4 lg:col-span-1 border border-slate-200 dark:border-slate-800 shadow-lg">
+          <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-3">
+            <h3 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <span>⚙️ Crear Sorteo / Bingo</span>
+            </h3>
+            <span class="px-2 py-0.5 rounded text-[10px] bg-brand-500/20 text-brand-600 dark:text-brand-300 font-extrabold">Nuevo</span>
+          </div>
 
-          <div class="space-y-3">
+          <div class="space-y-3.5">
             <div>
               <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Título del Sorteo *</label>
               <input type="text" x-model="raffleForm.title" placeholder="ej: Gran Rifa Familiar de Fin de Semana" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
@@ -2040,7 +2065,7 @@
               </div>
 
               <div>
-                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Precio por Ticket ($)</label>
+                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Precio Ticket ($)</label>
                 <input type="number" x-model="raffleForm.ticket_price" placeholder="1000" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
               </div>
             </div>
@@ -2049,8 +2074,8 @@
             <div x-show="raffleForm.mode === 'numbers' || raffleForm.mode === 'bingo' || raffleForm.mode === 'loteria'" class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-2 border border-slate-200 dark:border-slate-700">
               <span class="text-[11px] font-extrabold text-slate-600 dark:text-slate-300">Rango Numeración / Bolillas:</span>
               <div class="grid grid-cols-2 gap-2">
-                <input type="number" x-model="raffleForm.range_min" placeholder="Desde" class="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
-                <input type="number" x-model="raffleForm.range_max" placeholder="Hasta" class="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
+                <input type="number" x-model="raffleForm.range_min" placeholder="Desde (1)" class="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
+                <input type="number" x-model="raffleForm.range_max" placeholder="Hasta (100)" class="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
               </div>
             </div>
 
@@ -2060,7 +2085,7 @@
             </div>
 
             <!-- Dynamic Prizes Section -->
-            <div class="space-y-2">
+            <div class="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">
               <div class="flex justify-between items-center">
                 <label class="block text-xs font-bold uppercase text-slate-500">Premios a Sortear</label>
                 <button type="button" @click="addPrizeToForm()" class="text-[11px] font-extrabold text-brand-600 dark:text-brand-400 hover:underline">+ Agregar Premio</button>
@@ -2074,8 +2099,8 @@
               </template>
             </div>
 
-            <button @click="createRaffle()" class="w-full py-3 bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-700 hover:to-indigo-700 text-white rounded-xl font-extrabold text-xs shadow-lg transition transform hover:scale-[1.01] active:scale-95">
-              🎉 Guardar & Publicar Sorteo / Bingo
+            <button @click="createRaffle()" class="w-full py-3 bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-700 hover:to-indigo-700 text-white rounded-xl font-extrabold text-xs shadow-lg transition transform hover:scale-[1.01] active:scale-95 flex items-center justify-center space-x-1.5">
+              <span>🎉 Guardar & Publicar Sorteo / Bingo</span>
             </button>
           </div>
         </div>
@@ -2083,12 +2108,17 @@
         <!-- RAFFLES CARDS LIST -->
         <div class="lg:col-span-2 space-y-4">
           <div class="flex justify-between items-center">
-            <h3 class="font-extrabold text-base text-slate-900 dark:text-white">Sorteos & Rifas Disponibles</h3>
-            <button @click="fetchRaffles()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">🔄 Actualizar</button>
+            <h3 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <span>Sorteos & Rifas Disponibles</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] bg-slate-200 dark:bg-slate-800 font-bold" x-text="raffles.length"></span>
+            </h3>
+            <button @click="fetchRaffles()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1">
+              <span>🔄 Actualizar</span>
+            </button>
           </div>
 
           <template x-for="r in raffles" :key="r.id">
-            <div class="adaptive-card p-5 space-y-4 border border-slate-200 dark:border-slate-800 hover:border-amber-500/40 transition">
+            <div class="adaptive-card p-5 space-y-4 border border-slate-200 dark:border-slate-800 hover:border-amber-500/40 transition shadow-sm hover:shadow-md">
               
               <!-- Card Header -->
               <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
@@ -2105,7 +2135,7 @@
                   <p class="text-xs text-slate-500 dark:text-slate-400" x-text="r.description"></p>
                 </div>
                 <div class="text-right">
-                  <div class="text-[10px] text-slate-400 font-bold uppercase">Precio por Ticket</div>
+                  <div class="text-[10px] text-slate-400 font-bold uppercase">Precio Ticket</div>
                   <div class="text-sm font-black text-emerald-600 dark:text-emerald-400" x-text="'$' + Number(r.ticket_price || 0).toLocaleString('es-AR')"></div>
                 </div>
               </div>
@@ -2167,23 +2197,23 @@
 
               <!-- Card Action Bar -->
               <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <div class="flex items-center space-x-2">
-                  <button @click="openFlyerModal(r, false)" class="px-3 py-1.5 rounded-xl bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-300 text-xs font-bold border border-indigo-500/20 transition flex items-center space-x-1">
-                    <span>🖼️ Flyer PNG</span>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <button @click="openFlyerModal(r, false)" class="px-2.5 py-1.5 rounded-xl bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-300 text-xs font-bold border border-indigo-500/20 transition flex items-center space-x-1">
+                    <span>🖼️ Flyer Canva</span>
                   </button>
-                  <button @click="openFlyerModal(r, true)" class="px-3 py-1.5 rounded-xl bg-amber-600/10 hover:bg-amber-600/20 text-amber-600 dark:text-amber-300 text-xs font-bold border border-amber-500/20 transition flex items-center space-x-1">
+                  <button @click="openFlyerModal(r, true)" class="px-2.5 py-1.5 rounded-xl bg-amber-600/10 hover:bg-amber-600/20 text-amber-600 dark:text-amber-300 text-xs font-bold border border-amber-500/20 transition flex items-center space-x-1">
                     <span>✨ Arte IA</span>
                   </button>
-                  <button @click="generateBingoCardsPdf(r)" class="px-3 py-1.5 rounded-xl bg-purple-600/10 hover:bg-purple-600/20 text-purple-600 dark:text-purple-300 text-xs font-bold border border-purple-500/20 transition flex items-center space-x-1">
+                  <button @click="generateBingoCardsPdf(r)" class="px-2.5 py-1.5 rounded-xl bg-purple-600/10 hover:bg-purple-600/20 text-purple-600 dark:text-purple-300 text-xs font-bold border border-purple-500/20 transition flex items-center space-x-1">
                     <span>🎱 Cartones Bingo PDF</span>
                   </button>
                 </div>
 
                 <div class="flex items-center space-x-2">
-                  <button @click="drawRaffle(r)" :disabled="r.status === 'completado'" class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white text-xs font-black shadow transition disabled:opacity-40">
+                  <button @click="drawRaffle(r)" :disabled="r.status === 'completado'" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white text-xs font-black shadow transition disabled:opacity-40">
                     <span x-text="r.status === 'completado' ? '✅ Sorteado' : '🎲 Sortear Ganadores'"></span>
                   </button>
-                  <button @click="deleteRaffle(r.id)" class="text-rose-500 hover:text-rose-700 p-1 text-xs font-bold">🗑️</button>
+                  <button @click="deleteRaffle(r.id)" class="text-rose-500 hover:text-rose-700 p-1 text-xs font-bold" title="Eliminar Sorteo">🗑️</button>
                 </div>
               </div>
 
@@ -2194,7 +2224,7 @@
             <div class="adaptive-card p-8 text-center text-slate-400 space-y-2">
               <div class="text-3xl">🎲</div>
               <p class="font-bold text-sm">No hay sorteos registrados aún.</p>
-              <p class="text-xs">Crea tu primer sorteo desde el formulario lateral.</p>
+              <p class="text-xs">Crea tu primer sorteo o genera cartones de bingo usando la barra rápida superior.</p>
             </div>
           </template>
 

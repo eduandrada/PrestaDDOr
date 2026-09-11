@@ -2452,6 +2452,25 @@ function registerPrestamosApp() {
                 window.open(url, '_blank');
             },
 
+            generateQuickBingoPdf(mode = '75') {
+                const title = prompt("Título para los Cartones de Bingo (Canva / Pinterest):", "GRAN BINGO FAMILIAR 2026");
+                if (!title) return;
+                const seed = Math.floor(Math.random() * 1000000);
+                const url = `/api/generar-cartones-bingo?title=${encodeURIComponent(title)}&mode=${mode}&count=4&seed=${seed}&style=random`;
+                window.open(url, '_blank');
+            },
+
+            generateQuickFlyer() {
+                const title = prompt("Título para el Flyer Promocional (Canva / Pinterest):", "GRAN SORTEO Y RIFA FAMILIAR");
+                if (!title) return;
+                const seed = Math.floor(Math.random() * 1000000);
+                this.flyerModal = {
+                    open: true,
+                    imgUrl: `/api/generar-flyer?title=${encodeURIComponent(title)}&motive=Beneficio+Familiar+2026&ticket_price=1500&number_min=1&number_max=100&seed=${seed}&style=random`,
+                    raffleTitle: title
+                };
+            },
+
             addIngredientToForm() {
                 if (!this.comidasForm.bought_items) this.comidasForm.bought_items = [];
                 this.comidasForm.bought_items.push({ name: '', cost: 0 });
