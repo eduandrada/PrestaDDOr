@@ -4569,8 +4569,8 @@ if __name__ == '__main__':
     
     try:
         from waitress import serve
-        print(f"[Servidor WSGI Producción Waitress Activo]")
-        serve(app, host=host, port=port)
+        print(f"[Servidor WSGI Producción Waitress Activo (16 Threads)]")
+        serve(app, host=host, port=port, threads=16, connection_limit=200)
     except ImportError:
         try:
             app.run(host=host, port=port, debug=False, use_reloader=False)

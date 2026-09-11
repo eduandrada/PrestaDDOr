@@ -3089,56 +3089,127 @@
     </div>
   </div>
 
-  <!-- MODAL: HISTORIAL COMPLETO DE CLIENTE -->
-  <div x-cloak x-show="activeModal === 'clientHistory'" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 max-w-xl w-full shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
-      <div class="flex justify-between items-start pb-3 border-b border-slate-100 dark:border-slate-800">
-        <div>
-          <h3 class="text-lg font-black text-slate-900 dark:text-white" x-text="selectedClientHistory ? selectedClientHistory.client.name : ''"></h3>
-          <p class="text-xs text-slate-500" x-text="selectedClientHistory ? '📱 +' + selectedClientHistory.client.whatsapp : ''"></p>
+  <!-- MODAL: PERFIL & HISTORIAL COMPLETO DE CLIENTE (ADAPTATIVO PC & MÓVIL) -->
+  <div x-cloak x-show="activeModal === 'clientHistory'" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-md">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+      
+      <!-- Modal Header & Client Profile Summary -->
+      <div class="flex justify-between items-start pb-3 border-b border-slate-100 dark:border-slate-800 gap-3">
+        <div class="space-y-1 min-w-0">
+          <div class="flex items-center space-x-2 flex-wrap">
+            <h3 class="text-base sm:text-xl font-black text-slate-900 dark:text-white truncate" x-text="selectedClientHistory ? selectedClientHistory.client.name : ''"></h3>
+            
+            <!-- Traffic Light Badge -->
+            <template x-if="selectedClientHistory && selectedClientHistory.metrics">
+              <span :class="{
+                'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300': selectedClientHistory.metrics.traffic_light === 'verde',
+                'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300': selectedClientHistory.metrics.traffic_light === 'amarillo',
+                'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300': selectedClientHistory.metrics.traffic_light === 'rojo'
+              }" class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">
+                <span x-text="selectedClientHistory.metrics.traffic_light === 'verde' ? '🟢 Confiable' : (selectedClientHistory.metrics.traffic_light === 'amarillo' ? '🟡 En Seguimiento' : '🔴 Moroso')"></span>
+              </span>
+            </template>
+          </div>
+
+          <div class="flex items-center space-x-3 text-xs text-slate-500 dark:text-slate-400 flex-wrap gap-y-1">
+            <span x-show="selectedClientHistory && selectedClientHistory.client.whatsapp">
+              📱 +<span x-text="selectedClientHistory ? selectedClientHistory.client.whatsapp : ''"></span>
+            </span>
+            <span x-show="selectedClientHistory && selectedClientHistory.client.email" class="truncate">
+              ✉️ <span x-text="selectedClientHistory.client.email"></span>
+            </span>
+            <span x-show="selectedClientHistory && selectedClientHistory.client.address" class="truncate">
+              📍 <span x-text="selectedClientHistory.client.address"></span>
+            </span>
+          </div>
+
+          <p x-show="selectedClientHistory && selectedClientHistory.client.notes" class="text-xs italic text-slate-400">
+            📝 "<span x-text="selectedClientHistory.client.notes"></span>"
+          </p>
         </div>
-        <button @click="activeModal = null" class="text-slate-400 font-bold text-sm">✕</button>
+
+        <button @click="activeModal = null" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white transition font-bold text-sm">✕</button>
       </div>
 
-      <div class="grid grid-cols-3 gap-3 text-center py-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
-        <div>
+      <!-- Quick Action Toolbar inside Client Profile -->
+      <div x-show="selectedClientHistory" class="flex flex-wrap items-center gap-1.5 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
+        <button @click="openNewLoanModal(selectedClientHistory.client.id); activeModal = 'newLoan';" class="px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1">
+          <span>➕ Préstamo</span>
+        </button>
+        <button @click="openExpressPagareModal(selectedClientHistory.client)" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1">
+          <span>⚡ Pagaré QR</span>
+        </button>
+        <button @click="openQuoteModal({ client_id: selectedClientHistory.client.id, client_name: selectedClientHistory.client.name, whatsapp: selectedClientHistory.client.whatsapp, email: selectedClientHistory.client.email, amount: selectedClientHistory.metrics ? selectedClientHistory.metrics.recommended_limit : 50000 })" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1">
+          <span>🎯 Presupuesto</span>
+        </button>
+        <button @click="downloadVCard(selectedClientHistory.client.id)" class="px-2.5 py-1 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-bold hover:bg-slate-300 transition">
+          <span>📇 vCard</span>
+        </button>
+        <button @click="openEditClientModal(selectedClientHistory.client)" class="px-2.5 py-1 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-bold hover:bg-slate-300 transition">
+          <span>✏️ Editar</span>
+        </button>
+        <button @click="deleteClient(selectedClientHistory.client.id)" class="px-2.5 py-1 bg-rose-100 text-rose-700 rounded-lg text-xs font-bold hover:bg-rose-200 transition">
+          <span>🗑️</span>
+        </button>
+      </div>
+
+      <!-- Financial Metrics Grid (Responsive 2x2 on Mobile, 4x1 on Desktop) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-800">
+        <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
           <p class="text-[10px] text-slate-400 font-bold uppercase">Total Prestado</p>
           <p class="font-black text-sm text-slate-900 dark:text-white">$<span x-text="selectedClientHistory ? selectedClientHistory.total_borrowed.toLocaleString('es-AR') : '0'"></span></p>
         </div>
-        <div>
+        <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
           <p class="text-[10px] text-slate-400 font-bold uppercase">Total Cobrado</p>
           <p class="font-black text-sm text-emerald-600 dark:text-emerald-400">$<span x-text="selectedClientHistory ? selectedClientHistory.total_paid.toLocaleString('es-AR') : '0'"></span></p>
         </div>
-        <div>
-          <p class="text-[10px] text-slate-400 font-bold uppercase">Interés Aportado</p>
+        <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
+          <p class="text-[10px] text-slate-400 font-bold uppercase">Interés Ganado</p>
           <p class="font-black text-sm text-indigo-600 dark:text-indigo-400">$<span x-text="selectedClientHistory ? selectedClientHistory.total_interest_paid.toLocaleString('es-AR') : '0'"></span></p>
+        </div>
+        <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
+          <p class="text-[10px] text-slate-400 font-bold uppercase">Cupo Sugerido</p>
+          <p class="font-black text-sm text-emerald-600 dark:text-emerald-400">
+            <span class="privacy-value">$<span x-text="selectedClientHistory && selectedClientHistory.metrics ? selectedClientHistory.metrics.recommended_limit.toLocaleString('es-AR') : '100.000'"></span></span>
+            <span class="privacy-hidden">$ •••••</span>
+          </p>
         </div>
       </div>
 
+      <!-- Operations History -->
       <div class="space-y-3">
-        <h4 class="font-bold text-xs uppercase text-slate-500">Historial de Operaciones</h4>
-        <template x-for="loan in (selectedClientHistory ? selectedClientHistory.loans : [])" :key="loan.id">
-          <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-1.5">
-            <div class="flex justify-between items-center text-xs">
-              <span class="font-extrabold" x-text="'Préstamo #' + loan.id + ' • ' + loan.start_date"></span>
-              <span :class="{
-                'bg-emerald-100 text-emerald-800': loan.status === 'completado',
-                'bg-blue-100 text-blue-800': loan.status === 'activo',
-                'bg-rose-100 text-rose-800': loan.status === 'en_mora'
-              }" class="px-2 py-0.5 rounded text-[9px] font-black uppercase" x-text="loan.status"></span>
+        <h4 class="font-bold text-xs uppercase text-slate-500 tracking-wider">Historial de Operaciones</h4>
+        
+        <div x-show="selectedClientHistory && selectedClientHistory.loans && selectedClientHistory.loans.length > 0" class="space-y-2">
+          <template x-for="loan in (selectedClientHistory ? selectedClientHistory.loans : [])" :key="loan.id">
+            <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-2 shadow-sm">
+              <div class="flex justify-between items-center text-xs">
+                <span class="font-extrabold text-slate-900 dark:text-white" x-text="'Préstamo #' + loan.id + ' • ' + loan.start_date"></span>
+                <span :class="{
+                  'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300': loan.status === 'completado',
+                  'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300': loan.status === 'activo',
+                  'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300': loan.status === 'en_mora'
+                }" class="px-2 py-0.5 rounded text-[9px] font-black uppercase" x-text="loan.status"></span>
+              </div>
+              
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <div>Capital: <b class="text-slate-900 dark:text-white">$<span x-text="loan.amount.toLocaleString('es-AR')"></span></b></div>
+                <div>Saldo Pendiente: <b class="text-amber-600 dark:text-amber-400">$<span x-text="loan.remaining_balance.toLocaleString('es-AR')"></span></b></div>
+                <div>Modalidad: <b class="uppercase text-[10px]" x-text="loan.modality"></b></div>
+              </div>
             </div>
-            <div class="flex justify-between text-xs text-slate-600 dark:text-slate-300">
-              <span>Monto: $<span x-text="loan.amount.toLocaleString('es-AR')"></span></span>
-              <span>Saldo: $<span x-text="loan.remaining_balance.toLocaleString('es-AR')"></span></span>
-            </div>
-          </div>
-        </template>
+          </template>
+        </div>
+
+        <div x-show="!selectedClientHistory || !selectedClientHistory.loans || selectedClientHistory.loans.length === 0" class="text-center py-4 text-slate-400 text-xs italic">
+          No hay operaciones registradas aún para este cliente.
+        </div>
       </div>
 
       <!-- BÓVEDA Y GALERÍA DE DOCUMENTOS DEL CLIENTE -->
       <div class="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-          <h4 class="font-bold text-xs uppercase text-slate-500 flex items-center gap-1.5">
+          <h4 class="font-bold text-xs uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
             <span>🗂️ Bóveda de Documentos & Resguardos</span>
           </h4>
           
@@ -3159,7 +3230,7 @@
           </div>
         </div>
 
-        <!-- Documents Grid Gallery -->
+        <!-- Documents Grid Gallery (2 cols on mobile, 3 cols on desktop) -->
         <div x-show="selectedClientHistory && selectedClientHistory.documents && selectedClientHistory.documents.length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <template x-for="doc in (selectedClientHistory ? selectedClientHistory.documents : [])" :key="doc.id">
             <div class="relative group rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-800 shadow-sm flex flex-col justify-between">
