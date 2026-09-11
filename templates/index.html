@@ -108,41 +108,58 @@
     </div>
   </header>
 
-  <!-- BARRA DE NOTICIAS & INFORMACIÓN EN VIVO (MARQUEE CATAMARCA) -->
+  <!-- BARRA DE NOTICIAS & INFORMACIÓN EN VIVO (MARQUEE SLOW & RESUMIDO) -->
   <div class="contenedor-noticias shadow-sm">
     <div class="noticias-movimiento">
-      <!-- Clima en Vivo San Fernando del Valle de Catamarca -->
+      
+      <!-- 1. NOTICIAS LOCALES -->
+      <span class="noticia-item">
+        <span class="fuente-esquiu">El Esquiú</span>
+        <span>🏛️ <b>Política:</b> Catamarca On-Chain y titulares regionales</span>
+      </span>
+      <span class="noticia-item">
+        <span class="fuente-ancasti">El Ancasti</span>
+        <span>🚧 <b>Obras:</b> Avances de infraestructura en la Capital</span>
+      </span>
+      <span class="noticia-item">
+        <span class="fuente-launion">La Unión</span>
+        <span>🏥 <b>Salud:</b> Novedades en el Valle Central</span>
+      </span>
+
+      <!-- 2. PIZARRA FAMILIAR (ÚLTIMA NOVEDAD RESUMIDA) -->
+      <template x-if="latestNotice">
+        <span class="noticia-item">
+          <span class="fuente-pizarra">📌 Pizarra (<span x-text="latestNotice.author || 'Familia'"></span>)</span>
+          <b x-text="latestNotice.message"></b>
+        </span>
+      </template>
+
+      <!-- 3. FECHA -->
+      <span class="noticia-item">
+        <span class="fuente-reloj">🗓️ Fecha</span>
+        <b x-text="currentDateStr"></b>
+      </span>
+
+      <!-- 4. HORA -->
+      <span class="noticia-item">
+        <span class="fuente-reloj">🕒 Hora</span>
+        <b x-text="currentTimeStr"></b>
+      </span>
+
+      <!-- 5. TEMPERATURA -->
       <span class="noticia-item">
         <span class="fuente-catamarca">📍 Catamarca</span>
-        <span x-text="catamarcaWeather.icon + ' ' + catamarcaWeather.temp + ' (' + catamarcaWeather.condition + ')'"></span>
-      </span>
-      
-      <!-- Fecha & Hora Actual -->
-      <span class="noticia-item">
-        <span class="fuente-reloj">🗓️ Fecha & Hora</span>
-        <b x-text="currentDateTimeStr"></b>
+        <b x-text="catamarcaWeather.icon + ' ' + catamarcaWeather.temp + ' (' + catamarcaWeather.condition + ')'"></b>
       </span>
 
-      <!-- Titulares de Prensa Local -->
-      <span class="noticia-item"><span class="fuente-esquiu">El Esquiú</span> 🏛️ <b>Política:</b> Catamarca On-Chain y titulares locales.</span>
-      <span class="noticia-item"><span class="fuente-ancasti">El Ancasti</span> 🚧 <b>Obras:</b> Actualidad de infraestructura en la Capital.</span>
-      <span class="noticia-item"><span class="fuente-launion">La Unión</span> 🏥 <b>Salud:</b> Campañas y novedades del Valle Central.</span>
-
-      <!-- Novedades de la Pizarra Familiar -->
-      <template x-for="item in noticeItems" :key="'notice-m-' + item.id">
+      <!-- 6. CALENDARIO (PRÓXIMO EVENTO RESUMIDO) -->
+      <template x-if="latestCalendarEvent">
         <span class="noticia-item">
-          <span class="fuente-pizarra">📌 Pizarra (<span x-text="item.author || 'Familia'"></span>)</span>
-          <span x-text="item.message"></span>
+          <span class="fuente-calendar">📅 Calendario (<span x-text="latestCalendarEvent.due_date"></span>)</span>
+          <b x-text="latestCalendarEvent.title + (latestCalendarEvent.due_time ? ' - ' + latestCalendarEvent.due_time : '')"></b>
         </span>
       </template>
 
-      <!-- Eventos y Recordatorios del Calendario -->
-      <template x-for="evt in calendarItems" :key="'cal-m-' + evt.id">
-        <span class="noticia-item">
-          <span class="fuente-calendar">📅 Calendario (<span x-text="evt.due_date"></span>)</span>
-          <span x-text="evt.title + (evt.due_time ? ' - ' + evt.due_time : '')"></span>
-        </span>
-      </template>
     </div>
   </div>
 

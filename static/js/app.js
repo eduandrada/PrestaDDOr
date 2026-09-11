@@ -244,9 +244,22 @@ function registerPrestamosApp() {
             zeroUiResult: null,
             isZeroUiProcessing: false,
 
-            // Marquee Header Live State (Clima Catamarca & Reloj)
+            // Marquee Header Live State (Clima Catamarca, Reloj & Novedades Únicas)
             catamarcaWeather: { temp: '--°C', condition: 'Catamarca', icon: '📍' },
+            currentDateStr: '',
+            currentTimeStr: '',
             currentDateTimeStr: '',
+
+            get latestNotice() {
+                if (!this.noticeItems || this.noticeItems.length === 0) return null;
+                const pinned = this.noticeItems.find(n => n.is_pinned);
+                return pinned || this.noticeItems[0];
+            },
+
+            get latestCalendarEvent() {
+                if (!this.calendarItems || this.calendarItems.length === 0) return null;
+                return this.calendarItems[0];
+            },
 
             comidasForm: {
                 event_type: 'asado',
@@ -2725,8 +2738,10 @@ function registerPrestamosApp() {
                     const optionsDate = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
                     let dateStr = now.toLocaleDateString('es-AR', optionsDate);
                     dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
-                    const timeStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    this.currentDateTimeStr = `${dateStr} | 🕒 ${timeStr} hs`;
+                    const timeStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' hs';
+                    this.currentDateStr = dateStr;
+                    this.currentTimeStr = timeStr;
+                    this.currentDateTimeStr = `${dateStr} | 🕒 ${timeStr}`;
                 };
                 updateStr();
                 setInterval(updateStr, 1000);

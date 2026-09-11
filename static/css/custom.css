@@ -133,7 +133,7 @@ body.privacy-mode .privacy-hidden {
   display: inline-block;
   white-space: nowrap;
   padding-left: 100%;
-  animation: barraNoticias 45s linear infinite;
+  animation: barraNoticias 95s linear infinite;
   will-change: transform;
 }
 
