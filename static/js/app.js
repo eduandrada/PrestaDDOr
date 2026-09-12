@@ -534,6 +534,15 @@ function registerPrestamosApp() {
                     alert("Por favor ingrese el Domicilio Real / Referencias del cliente.");
                     return;
                 }
+                if (!this.clientForm.cuit || !this.clientForm.cuit.trim()) {
+                    alert("Por favor ingrese el CUIT / CUIL del cliente (11 dígitos numéricos).");
+                    return;
+                }
+                const cleanCuit = this.clientForm.cuit.replace(/\D/g, '');
+                if (cleanCuit.length !== 11) {
+                    alert("El CUIT / CUIL debe contener exactamente 11 dígitos numéricos (ej. 20123456789).");
+                    return;
+                }
 
                 const isEdit = !!this.clientForm.id;
                 const url = isEdit ? `/api/clients/${this.clientForm.id}` : '/api/clients';
@@ -781,11 +790,53 @@ function registerPrestamosApp() {
                 return this.clients.find(c => c.id == this.loanForm.client_id) || null;
             },
 
+            get simulatedLoanSummary() {
+                const amount = parseFloat(this.loanForm.amount || 0);
+                const rate = parseFloat(this.loanForm.interest_rate || 0);
+                const count = parseInt(this.loanForm.installments_count || 1);
+                const rateType = this.loanForm.rate_type || 'mensual';
+                const modality = this.loanForm.modality || 'mensual';
+
+                if (amount <= 0 || count < 1) {
+                    return { capital: 0, interest: 0, total: 0, installment: 0 };
+                }
+
+                let totalInterest = 0;
+                if (rateType === 'directo') {
+                    totalInterest = amount * (rate / 100.0);
+                } else {
+                    let months = count;
+                    if (modality === 'semanal') months = count / 4.0;
+                    else if (modality === 'quincenal') months = count / 2.0;
+                    else if (modality === 'pago_unico') months = 1.0;
+                    totalInterest = amount * (rate / 100.0) * Math.max(0.25, months);
+                }
+
+                const total = amount + totalInterest;
+                const instAmount = total / count;
+
+                return {
+                    capital: amount,
+                    interest: Math.round(totalInterest * 100) / 100,
+                    total: Math.round(total * 100) / 100,
+                    installment: Math.round(instAmount * 100) / 100
+                };
+            },
+
             async saveLoan() {
-                if (!this.loanForm.client_id || !this.loanForm.amount || this.loanForm.amount <= 0) {
-                    alert("Seleccione un cliente y especifique un monto válido.");
+                if (!this.loanForm.client_id) {
+                    alert("Por favor seleccione un cliente para otorgar el préstamo.");
                     return;
                 }
+                if (!this.loanForm.amount || parseFloat(this.loanForm.amount) <= 0) {
+                    alert("Por favor ingrese un monto de préstamo válido mayor a $0.");
+                    return;
+                }
+                if (!this.loanForm.installments_count || parseInt(this.loanForm.installments_count) < 1) {
+                    alert("El número de cuotas debe ser al menos 1.");
+                    return;
+                }
+
                 try {
                     const res = await fetch('/api/loans', {
                         method: 'POST',
@@ -793,11 +844,19 @@ function registerPrestamosApp() {
                         body: JSON.stringify(this.loanForm)
                     });
                     if (res.ok) {
+                        const newLoan = await res.json();
                         this.activeModal = null;
                         await this.loadAllData();
+                        const successMsg = `🎉 ¡Préstamo #${newLoan.id} por $${newLoan.amount.toLocaleString('es-AR')} otorgado exitosamente a ${newLoan.client_name}!`;
+                        this.showToast(successMsg, 'success');
+                        alert(successMsg);
+                    } else {
+                        const errData = await res.json().catch(() => ({}));
+                        alert(errData.error || "Error al registrar el préstamo.");
                     }
                 } catch (err) {
-                    alert("Error al registrar el préstamo.");
+                    console.error("saveLoan error:", err);
+                    alert("Error de conexión al registrar préstamo.");
                 }
             },
 

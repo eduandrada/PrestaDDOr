@@ -79,12 +79,12 @@
 
         <!-- Controls: Privacy Mode & Dark Mode -->
         <div class="flex items-center space-x-2">
-          <!-- Pagaré Express QR Header Quick Access Button -->
-          <button @click="openExpressPagareModal()" 
+          <!-- Asesor IA Header Quick Access Button -->
+          <button @click="openAiAdvisorModal()" 
                   class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-black transition flex items-center space-x-1.5 shadow-md hover:scale-105 active:scale-95 border border-purple-400/30"
-                  title="Generar Pagaré Express QR & Firma Biométrica">
-            <span class="text-sm animate-pulse">⚡</span>
-            <span class="inline">Pagaré QR</span>
+                  title="Consultar Asesor Financiero IA">
+            <span class="text-sm">🤖</span>
+            <span class="inline">Asesor IA</span>
           </button>
 
           <!-- Privacy Mode Eye Toggle -->
@@ -108,10 +108,65 @@
     </div>
   </header>
 
-  <!-- DESKTOP TOP TAB NAVIGATION -->
-  <nav class="hidden md:block bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-16 z-20">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex space-x-2 py-2.5 overflow-x-auto">
+  <!-- BARRA DE NOTICIAS & INFORMACIÓN EN VIVO (MARQUEE SLOW & RESUMIDO) -->
+  <div class="contenedor-noticias shadow-sm">
+    <div class="noticias-movimiento">
+      
+      <!-- 1. NOTICIAS LOCALES -->
+      <span class="noticia-item">
+        <span class="fuente-esquiu">El Esquiú</span>
+        <span>🏛️ <b>Política:</b> Catamarca On-Chain y titulares regionales</span>
+      </span>
+      <span class="noticia-item">
+        <span class="fuente-ancasti">El Ancasti</span>
+        <span>🚧 <b>Obras:</b> Avances de infraestructura en la Capital</span>
+      </span>
+      <span class="noticia-item">
+        <span class="fuente-launion">La Unión</span>
+        <span>🏥 <b>Salud:</b> Novedades en el Valle Central</span>
+      </span>
+
+      <!-- 2. PIZARRA FAMILIAR (ÚLTIMA NOVEDAD RESUMIDA) -->
+      <template x-if="latestNotice">
+        <span class="noticia-item">
+          <span class="fuente-pizarra">📌 Pizarra (<span x-text="latestNotice.author || 'Familia'"></span>)</span>
+          <b x-text="latestNotice.message"></b>
+        </span>
+      </template>
+
+      <!-- 3. FECHA -->
+      <span class="noticia-item">
+        <span class="fuente-reloj">🗓️ Fecha</span>
+        <b x-text="currentDateStr"></b>
+      </span>
+
+      <!-- 4. HORA -->
+      <span class="noticia-item">
+        <span class="fuente-reloj">🕒 Hora</span>
+        <b x-text="currentTimeStr"></b>
+      </span>
+
+      <!-- 5. TEMPERATURA -->
+      <span class="noticia-item">
+        <span class="fuente-catamarca">📍 Catamarca</span>
+        <b x-text="catamarcaWeather.icon + ' ' + catamarcaWeather.temp + ' (' + catamarcaWeather.condition + ')'"></b>
+      </span>
+
+      <!-- 6. CALENDARIO (PRÓXIMO EVENTO RESUMIDO) -->
+      <template x-if="latestCalendarEvent">
+        <span class="noticia-item">
+          <span class="fuente-calendar">📅 Calendario (<span x-text="latestCalendarEvent.due_date"></span>)</span>
+          <b x-text="latestCalendarEvent.title + (latestCalendarEvent.due_time ? ' - ' + latestCalendarEvent.due_time : '')"></b>
+        </span>
+      </template>
+
+    </div>
+  </div>
+
+  <!-- TOP TAB NAVIGATION (RESPONSIVE PC & MÓVIL HORIZONTAL SCROLL) -->
+  <nav class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-16 z-20 shadow-sm overflow-x-auto no-scrollbar">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+      <div class="flex space-x-2 py-2 overflow-x-auto scroll-smooth">
         
         <button @click="switchTab('dashboard')" 
                 :class="activeTab === 'dashboard' ? 'bg-brand-600 text-white shadow-md shadow-brand-500/25' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'"
@@ -800,6 +855,10 @@
             <option value="2027">2027</option>
           </select>
           <input type="text" x-model="loanSearch" placeholder="Buscar cliente..." class="w-full sm:w-48 p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs">
+          <button @click="openNewClientModal()" class="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow transition active:scale-95 whitespace-nowrap flex items-center justify-center space-x-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+            <span>+ Cliente</span>
+          </button>
           <button @click="openExpressPagareModal()" class="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-black shadow flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95">
             <span>⚡ Pagaré Express QR</span>
           </button>
@@ -1979,25 +2038,47 @@
     <!-- ========================================== -->
     <!-- TAB: SORTEO EXPRESS & RIFAS               -->
     <!-- ========================================== -->
-    <div x-show="activeTab === 'raffles'" x-transition class="space-y-6">
+    <div x-show="activeTab === 'raffles'" x-transition class="space-y-6 overflow-y-auto max-h-[calc(100vh-140px)] pb-20">
 
-      <!-- Header Card -->
-      <div class="adaptive-card p-6 bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 text-white border border-amber-500/30 shadow-xl">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div class="flex items-center space-x-3">
-            <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl border border-amber-500/30">🎲</div>
+      <!-- Header Card with Quick Tools -->
+      <div class="adaptive-card p-6 bg-gradient-to-r from-amber-950 via-slate-900 to-indigo-950 text-white border border-amber-500/30 shadow-2xl space-y-4">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-amber-500/20 pb-4">
+          <div class="flex items-center space-x-3.5">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl border border-amber-500/30 shadow-inner">🎲</div>
             <div>
               <h2 class="font-extrabold text-xl text-white tracking-tight flex items-center gap-2">
-                <span>Sorteo Express & Rifas</span>
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase font-black">Estilo 2026</span>
+                <span>Sorteos, Rifas & Bingo IA</span>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase font-black tracking-wider">Edición 2026</span>
               </h2>
-              <p class="text-xs text-amber-200/80">Sorteos de números, listas de nombres, raspadita interactiva en canvas y bolillero 60 FPS con hash de verificación.</p>
+              <p class="text-xs text-amber-200/80 mt-0.5">Plataforma de Sorteos de números, raspadita interactiva, bolillero 60 FPS y generador de cartones de Bingo 75/90 con plantillas Canva / Pinterest.</p>
             </div>
           </div>
-          <div class="flex items-center space-x-3 text-xs">
-            <div class="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 font-bold">
-              <span>Sorteos Activos: </span><span x-text="raffles.length" class="font-black text-white"></span>
+          <div class="flex items-center gap-2 text-xs">
+            <div class="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 font-bold flex items-center space-x-1.5">
+              <span>🎟️ Activos:</span>
+              <span x-text="raffles.length" class="font-black text-white px-1.5 py-0.5 rounded bg-amber-500/30"></span>
             </div>
+            <button @click="fetchRaffles()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold border border-slate-700 transition active:scale-95">
+              🔄 Actualizar
+            </button>
+          </div>
+        </div>
+
+        <!-- FIXED GENERATOR TOOLBAR BAR -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <div class="text-xs font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
+            <span>⚡ Herramientas Rápidas de Generación Canva & Bingo:</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button @click="generateQuickBingoPdf('75')" class="px-3.5 py-2 rounded-xl bg-purple-600/80 hover:bg-purple-600 text-white text-xs font-bold shadow border border-purple-400/30 transition flex items-center space-x-1.5 active:scale-95">
+              <span>🎱 Cartones Bingo 75 (PDF)</span>
+            </button>
+            <button @click="generateQuickBingoPdf('90')" class="px-3.5 py-2 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold shadow border border-indigo-400/30 transition flex items-center space-x-1.5 active:scale-95">
+              <span>🎱 Cartones Bingo 90 (PDF)</span>
+            </button>
+            <button @click="generateQuickFlyer()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white text-xs font-black shadow border border-amber-300/30 transition flex items-center space-x-1.5 active:scale-95">
+              <span>🎨 Generar Flyer Canva PNG</span>
+            </button>
           </div>
         </div>
       </div>
@@ -2006,12 +2087,15 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         <!-- CREATE NEW RAFFLE FORM -->
-        <div class="adaptive-card p-5 space-y-4 lg:col-span-1">
-          <h3 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
-            <span>⚙️ Crear Nuevo Sorteo</span>
-          </h3>
+        <div class="adaptive-card p-5 space-y-4 lg:col-span-1 border border-slate-200 dark:border-slate-800 shadow-lg">
+          <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-3">
+            <h3 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <span>⚙️ Crear Sorteo / Bingo</span>
+            </h3>
+            <span class="px-2 py-0.5 rounded text-[10px] bg-brand-500/20 text-brand-600 dark:text-brand-300 font-extrabold">Nuevo</span>
+          </div>
 
-          <div class="space-y-3">
+          <div class="space-y-3.5">
             <div>
               <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Título del Sorteo *</label>
               <input type="text" x-model="raffleForm.title" placeholder="ej: Gran Rifa Familiar de Fin de Semana" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
@@ -2036,7 +2120,7 @@
               </div>
 
               <div>
-                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Precio por Ticket ($)</label>
+                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Precio Ticket ($)</label>
                 <input type="number" x-model="raffleForm.ticket_price" placeholder="1000" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
               </div>
             </div>
@@ -2045,8 +2129,8 @@
             <div x-show="raffleForm.mode === 'numbers' || raffleForm.mode === 'bingo' || raffleForm.mode === 'loteria'" class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-2 border border-slate-200 dark:border-slate-700">
               <span class="text-[11px] font-extrabold text-slate-600 dark:text-slate-300">Rango Numeración / Bolillas:</span>
               <div class="grid grid-cols-2 gap-2">
-                <input type="number" x-model="raffleForm.range_min" placeholder="Desde" class="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
-                <input type="number" x-model="raffleForm.range_max" placeholder="Hasta" class="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
+                <input type="number" x-model="raffleForm.range_min" placeholder="Desde (1)" class="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
+                <input type="number" x-model="raffleForm.range_max" placeholder="Hasta (100)" class="p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
               </div>
             </div>
 
@@ -2056,7 +2140,7 @@
             </div>
 
             <!-- Dynamic Prizes Section -->
-            <div class="space-y-2">
+            <div class="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">
               <div class="flex justify-between items-center">
                 <label class="block text-xs font-bold uppercase text-slate-500">Premios a Sortear</label>
                 <button type="button" @click="addPrizeToForm()" class="text-[11px] font-extrabold text-brand-600 dark:text-brand-400 hover:underline">+ Agregar Premio</button>
@@ -2070,8 +2154,8 @@
               </template>
             </div>
 
-            <button @click="createRaffle()" class="w-full py-3 bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-700 hover:to-indigo-700 text-white rounded-xl font-extrabold text-xs shadow-lg transition transform hover:scale-[1.01] active:scale-95">
-              🎉 Guardar & Publicar Sorteo / Bingo
+            <button @click="createRaffle()" class="w-full py-3 bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-700 hover:to-indigo-700 text-white rounded-xl font-extrabold text-xs shadow-lg transition transform hover:scale-[1.01] active:scale-95 flex items-center justify-center space-x-1.5">
+              <span>🎉 Guardar & Publicar Sorteo / Bingo</span>
             </button>
           </div>
         </div>
@@ -2079,12 +2163,17 @@
         <!-- RAFFLES CARDS LIST -->
         <div class="lg:col-span-2 space-y-4">
           <div class="flex justify-between items-center">
-            <h3 class="font-extrabold text-base text-slate-900 dark:text-white">Sorteos & Rifas Disponibles</h3>
-            <button @click="fetchRaffles()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">🔄 Actualizar</button>
+            <h3 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <span>Sorteos & Rifas Disponibles</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] bg-slate-200 dark:bg-slate-800 font-bold" x-text="raffles.length"></span>
+            </h3>
+            <button @click="fetchRaffles()" class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1">
+              <span>🔄 Actualizar</span>
+            </button>
           </div>
 
           <template x-for="r in raffles" :key="r.id">
-            <div class="adaptive-card p-5 space-y-4 border border-slate-200 dark:border-slate-800 hover:border-amber-500/40 transition">
+            <div class="adaptive-card p-5 space-y-4 border border-slate-200 dark:border-slate-800 hover:border-amber-500/40 transition shadow-sm hover:shadow-md">
               
               <!-- Card Header -->
               <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
@@ -2101,7 +2190,7 @@
                   <p class="text-xs text-slate-500 dark:text-slate-400" x-text="r.description"></p>
                 </div>
                 <div class="text-right">
-                  <div class="text-[10px] text-slate-400 font-bold uppercase">Precio por Ticket</div>
+                  <div class="text-[10px] text-slate-400 font-bold uppercase">Precio Ticket</div>
                   <div class="text-sm font-black text-emerald-600 dark:text-emerald-400" x-text="'$' + Number(r.ticket_price || 0).toLocaleString('es-AR')"></div>
                 </div>
               </div>
@@ -2163,23 +2252,23 @@
 
               <!-- Card Action Bar -->
               <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <div class="flex items-center space-x-2">
-                  <button @click="openFlyerModal(r, false)" class="px-3 py-1.5 rounded-xl bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-300 text-xs font-bold border border-indigo-500/20 transition flex items-center space-x-1">
-                    <span>🖼️ Flyer PNG</span>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <button @click="openFlyerModal(r, false)" class="px-2.5 py-1.5 rounded-xl bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-300 text-xs font-bold border border-indigo-500/20 transition flex items-center space-x-1">
+                    <span>🖼️ Flyer Canva</span>
                   </button>
-                  <button @click="openFlyerModal(r, true)" class="px-3 py-1.5 rounded-xl bg-amber-600/10 hover:bg-amber-600/20 text-amber-600 dark:text-amber-300 text-xs font-bold border border-amber-500/20 transition flex items-center space-x-1">
+                  <button @click="openFlyerModal(r, true)" class="px-2.5 py-1.5 rounded-xl bg-amber-600/10 hover:bg-amber-600/20 text-amber-600 dark:text-amber-300 text-xs font-bold border border-amber-500/20 transition flex items-center space-x-1">
                     <span>✨ Arte IA</span>
                   </button>
-                  <button @click="generateBingoCardsPdf(r)" class="px-3 py-1.5 rounded-xl bg-purple-600/10 hover:bg-purple-600/20 text-purple-600 dark:text-purple-300 text-xs font-bold border border-purple-500/20 transition flex items-center space-x-1">
+                  <button @click="generateBingoCardsPdf(r)" class="px-2.5 py-1.5 rounded-xl bg-purple-600/10 hover:bg-purple-600/20 text-purple-600 dark:text-purple-300 text-xs font-bold border border-purple-500/20 transition flex items-center space-x-1">
                     <span>🎱 Cartones Bingo PDF</span>
                   </button>
                 </div>
 
                 <div class="flex items-center space-x-2">
-                  <button @click="drawRaffle(r)" :disabled="r.status === 'completado'" class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white text-xs font-black shadow transition disabled:opacity-40">
+                  <button @click="drawRaffle(r)" :disabled="r.status === 'completado'" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-600 hover:to-indigo-700 text-white text-xs font-black shadow transition disabled:opacity-40">
                     <span x-text="r.status === 'completado' ? '✅ Sorteado' : '🎲 Sortear Ganadores'"></span>
                   </button>
-                  <button @click="deleteRaffle(r.id)" class="text-rose-500 hover:text-rose-700 p-1 text-xs font-bold">🗑️</button>
+                  <button @click="deleteRaffle(r.id)" class="text-rose-500 hover:text-rose-700 p-1 text-xs font-bold" title="Eliminar Sorteo">🗑️</button>
                 </div>
               </div>
 
@@ -2190,7 +2279,7 @@
             <div class="adaptive-card p-8 text-center text-slate-400 space-y-2">
               <div class="text-3xl">🎲</div>
               <p class="font-bold text-sm">No hay sorteos registrados aún.</p>
-              <p class="text-xs">Crea tu primer sorteo desde el formulario lateral.</p>
+              <p class="text-xs">Crea tu primer sorteo o genera cartones de bingo usando la barra rápida superior.</p>
             </div>
           </template>
 
@@ -2879,7 +2968,7 @@
 
           <!-- ACTION CONVERT BUTTON -->
           <div class="sm:col-span-2 md:col-span-1 flex items-end">
-            <button @click="submitConversion()" :disabled="converterForm.isConverting" class="w-full py-3 px-6 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs rounded-2xl shadow-xl transition flex items-center justify-center space-x-2 min-h-[48px] active:scale-95 disabled:opacity-50">
+            <button @click="submitConversion()" :disabled="converterForm.isConverting" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex items-center justify-center space-x-2 min-h-[48px] active:scale-95 disabled:opacity-50">
               <svg x-show="converterForm.isConverting" class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
               <span x-text="converterForm.isConverting ? 'Procesando en RAM...' : '⚡ CONVERTIR & DESCARGAR AHORA'"></span>
             </button>
@@ -2899,44 +2988,95 @@
 
   </main>
 
-  <!-- MOBILE BOTTOM NAVIGATION BAR (5 ESSENTIAL BUTTONS - HIGH TOUCH SPACE) -->
-  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-3 py-2 flex justify-around items-center shadow-2xl">
-    
-    <button @click="switchTab('dashboard')" 
-            :class="activeTab === 'dashboard' ? 'text-brand-600 dark:text-brand-400 font-black' : 'text-slate-400 hover:text-slate-600'"
-            class="flex-1 flex flex-col items-center py-1 transition active:scale-95">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-      <span class="text-[10px] font-bold mt-0.5">Inicio</span>
-    </button>
+  <!-- MOBILE BOTTOM NAVIGATION BAR (NATIVE PROFESSIONAL APP DESIGN) -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-4px_25px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_25px_rgba(0,0,0,0.4)] transition-all" style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom));">
+    <div class="flex items-center justify-around px-1 py-1.5 max-w-md mx-auto">
+      
+      <!-- INICIO -->
+      <button @click="switchTab('dashboard')" 
+              :class="activeTab === 'dashboard' ? 'text-brand-600 dark:text-brand-400 font-extrabold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'"
+              class="flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-200 active:scale-90 group select-none">
+        <div class="p-1 rounded-xl transition-colors duration-200" :class="activeTab === 'dashboard' ? 'bg-brand-50 dark:bg-brand-950/70' : 'group-hover:bg-slate-100 dark:group-hover:bg-slate-800/50'">
+          <svg class="w-5 h-5 transition-transform duration-200" :class="activeTab === 'dashboard' ? 'scale-110' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+          </svg>
+        </div>
+        <span class="text-[10px] tracking-tight mt-0.5 truncate w-full text-center">Inicio</span>
+      </button>
 
-    <button @click="switchTab('loans')" 
-            :class="activeTab === 'loans' ? 'text-brand-600 dark:text-brand-400 font-black' : 'text-slate-400 hover:text-slate-600'"
-            class="flex-1 flex flex-col items-center py-1 transition active:scale-95">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-      <span class="text-[10px] font-bold mt-0.5">Préstamos</span>
-    </button>
+      <!-- CLIENTES -->
+      <button @click="switchTab('clients')" 
+              :class="activeTab === 'clients' ? 'text-brand-600 dark:text-brand-400 font-extrabold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'"
+              class="flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-200 active:scale-90 group select-none">
+        <div class="p-1 rounded-xl transition-colors duration-200" :class="activeTab === 'clients' ? 'bg-brand-50 dark:bg-brand-950/70' : 'group-hover:bg-slate-100 dark:group-hover:bg-slate-800/50'">
+          <svg class="w-5 h-5 transition-transform duration-200" :class="activeTab === 'clients' ? 'scale-110' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5-3.512M9 20H4v-2a3 3 0 015-3.512M12 11a4 4 0 100-8 4 4 0 000 8z"/>
+          </svg>
+        </div>
+        <span class="text-[10px] tracking-tight mt-0.5 truncate w-full text-center">Clientes</span>
+      </button>
 
-    <button @click="switchTab('accounts')" 
-            :class="activeTab === 'accounts' ? 'text-brand-600 dark:text-brand-400 font-black' : 'text-slate-400 hover:text-slate-600'"
-            class="flex-1 flex flex-col items-center py-1 transition active:scale-95">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-      <span class="text-[10px] font-bold mt-0.5">Cuentas</span>
-    </button>
+      <!-- PRESTAMOS -->
+      <button @click="switchTab('loans')" 
+              :class="activeTab === 'loans' ? 'text-brand-600 dark:text-brand-400 font-extrabold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'"
+              class="flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-200 active:scale-90 group select-none">
+        <div class="p-1 rounded-xl transition-colors duration-200" :class="activeTab === 'loans' ? 'bg-brand-50 dark:bg-brand-950/70' : 'group-hover:bg-slate-100 dark:group-hover:bg-slate-800/50'">
+          <svg class="w-5 h-5 transition-transform duration-200" :class="activeTab === 'loans' ? 'scale-110' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <span class="text-[10px] tracking-tight mt-0.5 truncate w-full text-center">Préstamos</span>
+      </button>
 
-    <button @click="switchTab('shopping')" 
-            :class="activeTab === 'shopping' ? 'text-brand-600 dark:text-brand-400 font-black' : 'text-slate-400 hover:text-slate-600'"
-            class="flex-1 flex flex-col items-center py-1 transition active:scale-95">
-      <span class="text-base leading-none">🛒</span>
-      <span class="text-[10px] font-bold mt-0.5">Hogar</span>
-    </button>
+      <!-- CUENTAS -->
+      <button @click="switchTab('accounts')" 
+              :class="activeTab === 'accounts' ? 'text-brand-600 dark:text-brand-400 font-extrabold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'"
+              class="flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-200 active:scale-90 group select-none">
+        <div class="p-1 rounded-xl transition-colors duration-200" :class="activeTab === 'accounts' ? 'bg-brand-50 dark:bg-brand-950/70' : 'group-hover:bg-slate-100 dark:group-hover:bg-slate-800/50'">
+          <svg class="w-5 h-5 transition-transform duration-200" :class="activeTab === 'accounts' ? 'scale-110' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <span class="text-[10px] tracking-tight mt-0.5 truncate w-full text-center">Cuentas</span>
+      </button>
 
-    <button @click="switchTab('converter')" 
-            :class="activeTab === 'converter' ? 'text-indigo-600 dark:text-indigo-400 font-black' : 'text-slate-400 hover:text-slate-600'"
-            class="flex-1 flex flex-col items-center py-1 transition active:scale-95">
-      <span class="text-base leading-none">🔄</span>
-      <span class="text-[10px] font-bold mt-0.5">Convertir</span>
-    </button>
+      <!-- SORTEOS -->
+      <button @click="switchTab('raffles')" 
+              :class="activeTab === 'raffles' ? 'text-brand-600 dark:text-brand-400 font-extrabold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'"
+              class="flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-200 active:scale-90 group select-none">
+        <div class="p-1 rounded-xl transition-colors duration-200" :class="activeTab === 'raffles' ? 'bg-brand-50 dark:bg-brand-950/70' : 'group-hover:bg-slate-100 dark:group-hover:bg-slate-800/50'">
+          <svg class="w-5 h-5 transition-transform duration-200" :class="activeTab === 'raffles' ? 'scale-110' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/>
+          </svg>
+        </div>
+        <span class="text-[10px] tracking-tight mt-0.5 truncate w-full text-center">Sorteos</span>
+      </button>
 
+      <!-- HOGAR -->
+      <button @click="switchTab('shopping')" 
+              :class="activeTab === 'shopping' ? 'text-brand-600 dark:text-brand-400 font-extrabold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'"
+              class="flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-200 active:scale-90 group select-none">
+        <div class="p-1 rounded-xl transition-colors duration-200" :class="activeTab === 'shopping' ? 'bg-brand-50 dark:bg-brand-950/70' : 'group-hover:bg-slate-100 dark:group-hover:bg-slate-800/50'">
+          <svg class="w-5 h-5 transition-transform duration-200" :class="activeTab === 'shopping' ? 'scale-110' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+          </svg>
+        </div>
+        <span class="text-[10px] tracking-tight mt-0.5 truncate w-full text-center">Hogar</span>
+      </button>
+
+      <!-- CONVERTIR -->
+      <button @click="switchTab('converter')" 
+              :class="activeTab === 'converter' ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'"
+              class="flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-200 active:scale-90 group select-none">
+        <div class="p-1 rounded-xl transition-colors duration-200" :class="activeTab === 'converter' ? 'bg-indigo-50 dark:bg-indigo-950/70' : 'group-hover:bg-slate-100 dark:group-hover:bg-slate-800/50'">
+          <svg class="w-5 h-5 transition-transform duration-200" :class="activeTab === 'converter' ? 'scale-110' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+          </svg>
+        </div>
+        <span class="text-[10px] tracking-tight mt-0.5 truncate w-full text-center">Convertir</span>
+      </button>
+
+    </div>
   </nav>
 
   <!-- ================================================================= -->
@@ -2946,88 +3086,255 @@
   <!-- MODAL: CLIENTE (Nuevo / Editar) -->
   <div x-cloak x-show="activeModal === 'newClient' || activeModal === 'editClient'" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
     <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 max-w-md w-full shadow-2xl space-y-4">
-      <h3 class="text-base font-black text-slate-900 dark:text-white" x-text="activeModal === 'editClient' ? 'Editar Cliente' : 'Nuevo Cliente'"></h3>
+      <div class="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="text-base font-black text-slate-900 dark:text-white" x-text="activeModal === 'editClient' ? '✏️ Editar Cliente' : '👤 Nuevo Cliente'"></h3>
+        <button @click="activeModal = null" class="text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold text-sm">✕</button>
+      </div>
       
       <div class="space-y-3">
         <div>
-          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Nombre Completo *</label>
-          <input type="text" x-model="clientForm.name" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">Nombre Completo *</label>
+          <input type="text" x-model="clientForm.name" placeholder="Ej. Juan Eduardo Pérez" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brand-500">
         </div>
         <div>
-          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">WhatsApp (con código de país sin +) *</label>
-          <input type="text" x-model="clientForm.whatsapp" placeholder="ej. 5491155443322" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono">
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">WhatsApp / Teléfono *</label>
+          <input type="text" x-model="clientForm.whatsapp" placeholder="ej. 5493834443322" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono focus:ring-2 focus:ring-brand-500">
+          <p class="text-[10px] text-slate-400 mt-0.5">(ej. 5493834443322)</p>
         </div>
         <div>
-          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Email</label>
-          <input type="email" x-model="clientForm.email" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">Domicilio Real / Referencias *</label>
+          <input type="text" x-model="clientForm.address" placeholder="Ej. Av. Güemes 1234, San Fernando de Catamarca" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brand-500">
         </div>
         <div>
-          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Dirección / Referencias</label>
-          <input type="text" x-model="clientForm.address" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">CUIT / CUIL *</label>
+          <input type="text" x-model="clientForm.cuit" placeholder="ej. 20123456789" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono focus:ring-2 focus:ring-brand-500">
+          <p class="text-[10px] text-slate-400 mt-0.5">Utilizado para la consulta automática en la Central de Deudores BCRA</p>
         </div>
         <div>
-          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Notas</label>
-          <textarea x-model="clientForm.notes" rows="2" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"></textarea>
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">Email (Opcional)</label>
+          <input type="email" x-model="clientForm.email" placeholder="cliente@email.com" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brand-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">Notas (Opcional)</label>
+          <textarea x-model="clientForm.notes" rows="2" placeholder="Observaciones o notas de contacto..." class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brand-500"></textarea>
         </div>
       </div>
 
       <div class="flex justify-end space-x-3 pt-2">
-        <button @click="activeModal = null" class="px-4 py-2 text-xs font-bold text-slate-500">Cancelar</button>
-        <button @click="saveClient()" class="px-5 py-2 bg-brand-600 text-white rounded-xl text-xs font-bold shadow">Guardar Cliente</button>
+        <button @click="activeModal = null" class="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-white transition">Cancelar</button>
+        <button @click="saveClient()" class="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-1">
+          <span>💾 Guardar Cliente</span>
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: HISTORIAL COMPLETO DE CLIENTE -->
-  <div x-cloak x-show="activeModal === 'clientHistory'" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 max-w-xl w-full shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
-      <div class="flex justify-between items-start pb-3 border-b border-slate-100 dark:border-slate-800">
-        <div>
-          <h3 class="text-lg font-black text-slate-900 dark:text-white" x-text="selectedClientHistory ? selectedClientHistory.client.name : ''"></h3>
-          <p class="text-xs text-slate-500" x-text="selectedClientHistory ? '📱 +' + selectedClientHistory.client.whatsapp : ''"></p>
+  <!-- MODAL: PERFIL & HISTORIAL COMPLETO DE CLIENTE (ADAPTATIVO PC & MÓVIL) -->
+  <div x-cloak x-show="activeModal === 'clientHistory'" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-md">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+      
+      <!-- Modal Header & Client Profile Summary -->
+      <div class="flex justify-between items-start pb-3 border-b border-slate-100 dark:border-slate-800 gap-3">
+        <div class="space-y-1 min-w-0">
+          <div class="flex items-center space-x-2 flex-wrap">
+            <h3 class="text-base sm:text-xl font-black text-slate-900 dark:text-white truncate" x-text="selectedClientHistory ? selectedClientHistory.client.name : ''"></h3>
+            
+            <!-- Traffic Light Badge -->
+            <template x-if="selectedClientHistory && selectedClientHistory.metrics">
+              <span :class="{
+                'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300': selectedClientHistory.metrics.traffic_light === 'verde',
+                'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300': selectedClientHistory.metrics.traffic_light === 'amarillo',
+                'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300': selectedClientHistory.metrics.traffic_light === 'rojo'
+              }" class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">
+                <span x-text="selectedClientHistory.metrics.traffic_light === 'verde' ? '🟢 Confiable' : (selectedClientHistory.metrics.traffic_light === 'amarillo' ? '🟡 En Seguimiento' : '🔴 Moroso')"></span>
+              </span>
+            </template>
+          </div>
+
+          <div class="flex items-center space-x-3 text-xs text-slate-500 dark:text-slate-400 flex-wrap gap-y-1">
+            <span x-show="selectedClientHistory && selectedClientHistory.client.whatsapp">
+              📱 +<span x-text="selectedClientHistory ? selectedClientHistory.client.whatsapp : ''"></span>
+            </span>
+            <span x-show="selectedClientHistory && selectedClientHistory.client.email" class="truncate">
+              ✉️ <span x-text="selectedClientHistory.client.email"></span>
+            </span>
+            <span x-show="selectedClientHistory && selectedClientHistory.client.address" class="truncate">
+              📍 <span x-text="selectedClientHistory.client.address"></span>
+            </span>
+          </div>
+
+          <p x-show="selectedClientHistory && selectedClientHistory.client.notes" class="text-xs italic text-slate-400">
+            📝 "<span x-text="selectedClientHistory.client.notes"></span>"
+          </p>
         </div>
-        <button @click="activeModal = null" class="text-slate-400 font-bold text-sm">✕</button>
+
+        <button @click="activeModal = null" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white transition font-bold text-sm">✕</button>
       </div>
 
-      <div class="grid grid-cols-3 gap-3 text-center py-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
-        <div>
+      <!-- Quick Action Toolbar inside Client Profile -->
+      <div x-show="selectedClientHistory" class="flex flex-wrap items-center gap-1.5 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
+        <button @click="openNewLoanModal(selectedClientHistory.client.id); activeModal = 'newLoan';" class="px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1">
+          <span>➕ Préstamo</span>
+        </button>
+        <button @click="openExpressPagareModal(selectedClientHistory.client)" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1">
+          <span>⚡ Pagaré QR</span>
+        </button>
+        <button @click="openQuoteModal({ client_id: selectedClientHistory.client.id, client_name: selectedClientHistory.client.name, whatsapp: selectedClientHistory.client.whatsapp, email: selectedClientHistory.client.email, amount: selectedClientHistory.metrics ? selectedClientHistory.metrics.recommended_limit : 50000 })" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1">
+          <span>🎯 Presupuesto</span>
+        </button>
+        <button @click="downloadVCard(selectedClientHistory.client.id)" class="px-2.5 py-1 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-bold hover:bg-slate-300 transition">
+          <span>📇 vCard</span>
+        </button>
+        <button @click="openEditClientModal(selectedClientHistory.client)" class="px-2.5 py-1 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-bold hover:bg-slate-300 transition">
+          <span>✏️ Editar</span>
+        </button>
+        <button @click="deleteClient(selectedClientHistory.client.id)" class="px-2.5 py-1 bg-rose-100 text-rose-700 rounded-lg text-xs font-bold hover:bg-rose-200 transition">
+          <span>🗑️</span>
+        </button>
+      </div>
+
+      <!-- Financial Metrics Grid (Responsive 2x2 on Mobile, 4x1 on Desktop) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-800">
+        <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
           <p class="text-[10px] text-slate-400 font-bold uppercase">Total Prestado</p>
           <p class="font-black text-sm text-slate-900 dark:text-white">$<span x-text="selectedClientHistory ? selectedClientHistory.total_borrowed.toLocaleString('es-AR') : '0'"></span></p>
         </div>
-        <div>
+        <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
           <p class="text-[10px] text-slate-400 font-bold uppercase">Total Cobrado</p>
           <p class="font-black text-sm text-emerald-600 dark:text-emerald-400">$<span x-text="selectedClientHistory ? selectedClientHistory.total_paid.toLocaleString('es-AR') : '0'"></span></p>
         </div>
-        <div>
-          <p class="text-[10px] text-slate-400 font-bold uppercase">Interés Aportado</p>
+        <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
+          <p class="text-[10px] text-slate-400 font-bold uppercase">Interés Ganado</p>
           <p class="font-black text-sm text-indigo-600 dark:text-indigo-400">$<span x-text="selectedClientHistory ? selectedClientHistory.total_interest_paid.toLocaleString('es-AR') : '0'"></span></p>
+        </div>
+        <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800">
+          <p class="text-[10px] text-slate-400 font-bold uppercase">Cupo Sugerido</p>
+          <p class="font-black text-sm text-emerald-600 dark:text-emerald-400">
+            <span class="privacy-value">$<span x-text="selectedClientHistory && selectedClientHistory.metrics ? selectedClientHistory.metrics.recommended_limit.toLocaleString('es-AR') : '100.000'"></span></span>
+            <span class="privacy-hidden">$ •••••</span>
+          </p>
         </div>
       </div>
 
+      <!-- Operations History -->
       <div class="space-y-3">
-        <h4 class="font-bold text-xs uppercase text-slate-500">Historial de Operaciones</h4>
-        <template x-for="loan in (selectedClientHistory ? selectedClientHistory.loans : [])" :key="loan.id">
-          <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-1.5">
-            <div class="flex justify-between items-center text-xs">
-              <span class="font-extrabold" x-text="'Préstamo #' + loan.id + ' • ' + loan.start_date"></span>
-              <span :class="{
-                'bg-emerald-100 text-emerald-800': loan.status === 'completado',
-                'bg-blue-100 text-blue-800': loan.status === 'activo',
-                'bg-rose-100 text-rose-800': loan.status === 'en_mora'
-              }" class="px-2 py-0.5 rounded text-[9px] font-black uppercase" x-text="loan.status"></span>
+        <h4 class="font-bold text-xs uppercase text-slate-500 tracking-wider">Historial de Operaciones</h4>
+        
+        <div x-show="selectedClientHistory && selectedClientHistory.loans && selectedClientHistory.loans.length > 0" class="space-y-2">
+          <template x-for="loan in (selectedClientHistory ? selectedClientHistory.loans : [])" :key="loan.id">
+            <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-2 shadow-sm">
+              <div class="flex justify-between items-center text-xs">
+                <span class="font-extrabold text-slate-900 dark:text-white" x-text="'Préstamo #' + loan.id + ' • ' + loan.start_date"></span>
+                <span :class="{
+                  'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300': loan.status === 'completado',
+                  'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300': loan.status === 'activo',
+                  'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300': loan.status === 'en_mora'
+                }" class="px-2 py-0.5 rounded text-[9px] font-black uppercase" x-text="loan.status"></span>
+              </div>
+              
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <div>Capital: <b class="text-slate-900 dark:text-white">$<span x-text="loan.amount.toLocaleString('es-AR')"></span></b></div>
+                <div>Saldo Pendiente: <b class="text-amber-600 dark:text-amber-400">$<span x-text="loan.remaining_balance.toLocaleString('es-AR')"></span></b></div>
+                <div>Modalidad: <b class="uppercase text-[10px]" x-text="loan.modality"></b></div>
+              </div>
             </div>
-            <div class="flex justify-between text-xs text-slate-600 dark:text-slate-300">
-              <span>Monto: $<span x-text="loan.amount.toLocaleString('es-AR')"></span></span>
-              <span>Saldo: $<span x-text="loan.remaining_balance.toLocaleString('es-AR')"></span></span>
+          </template>
+        </div>
+
+        <div x-show="!selectedClientHistory || !selectedClientHistory.loans || selectedClientHistory.loans.length === 0" class="text-center py-4 text-slate-400 text-xs italic">
+          No hay operaciones registradas aún para este cliente.
+        </div>
+      </div>
+
+      <!-- SECCIÓN: CENTRAL DE DEUDORES BCRA & MOTOR DE DECISIONES (UNDERWRITING) -->
+      <div class="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <h4 class="font-bold text-xs uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
+            <span>🏛️ Central de Deudores BCRA & Motor de Evaluación</span>
+          </h4>
+          <div class="flex items-center space-x-2 w-full sm:w-auto">
+            <input type="text" x-model="bcraSearchCuit" placeholder="CUIT/CUIL (ej. 20123456789)" class="p-1.5 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono w-full sm:w-44">
+            <button @click="checkBcra(bcraSearchCuit || (selectedClientHistory ? selectedClientHistory.client.cuit : ''))" class="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold shadow transition flex items-center space-x-1 whitespace-nowrap">
+              <span>🔍 Consultar BCRA</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- BCRA Loading State -->
+        <div x-show="bcraReport.loading" class="p-4 text-center text-xs text-sky-600 dark:text-sky-400 font-bold bg-sky-50 dark:bg-sky-950/40 rounded-xl border border-sky-200 dark:border-sky-800 animate-pulse">
+          ⏳ Consultando API Oficial de la Central de Deudores del Banco Central (BCRA)...
+        </div>
+
+        <!-- BCRA Error State -->
+        <div x-show="bcraReport.error && !bcraReport.loading" class="p-3 text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-200 dark:border-rose-800" x-text="bcraReport.error">
+        </div>
+
+        <!-- BCRA Report Results -->
+        <div x-show="bcraReport.data && !bcraReport.loading" class="space-y-3">
+          <!-- Motor de Decisiones Card -->
+          <div class="p-3 rounded-xl border" :class="{
+            'bg-emerald-50 border-emerald-300 dark:bg-emerald-950/50 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200': bcraReport.data?.underwriting?.traffic_light === 'verde',
+            'bg-amber-50 border-amber-300 dark:bg-amber-950/50 dark:border-amber-800 text-amber-950 dark:text-amber-200': bcraReport.data?.underwriting?.traffic_light === 'amarillo',
+            'bg-rose-50 border-rose-300 dark:bg-rose-950/50 dark:border-rose-800 text-rose-950 dark:text-rose-200': bcraReport.data?.underwriting?.traffic_light === 'rojo'
+          }">
+            <div class="flex items-center space-x-2 font-black text-xs uppercase tracking-wider mb-1">
+              <span x-text="bcraReport.data?.underwriting?.traffic_light === 'verde' ? '🟢 APROBADO - RIESGO BAJO (SITUACIÓN 1)' : (bcraReport.data?.underwriting?.traffic_light === 'amarillo' ? '🟡 OBSERVADO - RIESGO MODERADO' : '🔴 ALTO RIESGO / RECHAZO RECOMENDADO')"></span>
+            </div>
+            <p class="text-xs font-semibold" x-text="bcraReport.data?.underwriting?.message"></p>
+          </div>
+
+          <!-- Summary Grid -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-center">
+            <div class="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase">Denominación</span>
+              <span class="font-bold truncate block" x-text="bcraReport.data?.denominacion || 'N/A'"></span>
+            </div>
+            <div class="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase">Situación BCRA</span>
+              <span class="font-black text-slate-900 dark:text-white" x-text="bcraReport.data?.max_situacion ? ('Sit. ' + bcraReport.data.max_situacion) : 'N/A'"></span>
+            </div>
+            <div class="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase">Deuda Bancaria</span>
+              <span class="font-black text-sky-600 dark:text-sky-400">$<span x-text="bcraReport.data?.total_deuda_pesos ? bcraReport.data.total_deuda_pesos.toLocaleString('es-AR') : '0'"></span></span>
+            </div>
+            <div class="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase">Cheques Rechazados</span>
+              <span class="font-black" :class="bcraReport.data?.cheques_rechazados > 0 ? 'text-rose-600' : 'text-slate-700 dark:text-slate-300'" x-text="bcraReport.data?.cheques_rechazados || 0"></span>
             </div>
           </div>
-        </template>
+
+          <!-- Entities List Table -->
+          <template x-if="bcraReport.data?.entidades && bcraReport.data.entidades.length > 0">
+            <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+              <table class="w-full text-left text-[11px]">
+                <thead class="bg-slate-100 dark:bg-slate-800 text-slate-500 uppercase">
+                  <tr>
+                    <th class="p-2">Entidad Financiera</th>
+                    <th class="p-2 text-center">Situación</th>
+                    <th class="p-2 text-right">Monto Deuda</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                  <template x-for="ent in bcraReport.data.entidades" :key="ent.entidad">
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                      <td class="p-2 font-bold text-slate-800 dark:text-slate-200" x-text="ent.entidad"></td>
+                      <td class="p-2 text-center">
+                        <span :class="ent.situacion >= 3 ? 'bg-rose-100 text-rose-800 font-black' : (ent.situacion === 2 ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-emerald-100 text-emerald-800 font-bold')" class="px-2 py-0.5 rounded text-[10px]" x-text="'Situación ' + ent.situacion"></span>
+                      </td>
+                      <td class="p-2 text-right font-mono text-slate-900 dark:text-white">$<span x-text="ent.monto_pesos.toLocaleString('es-AR')"></span></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </template>
+        </div>
       </div>
 
       <!-- BÓVEDA Y GALERÍA DE DOCUMENTOS DEL CLIENTE -->
       <div class="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-          <h4 class="font-bold text-xs uppercase text-slate-500 flex items-center gap-1.5">
+          <h4 class="font-bold text-xs uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
             <span>🗂️ Bóveda de Documentos & Resguardos</span>
           </h4>
           
@@ -3048,7 +3355,7 @@
           </div>
         </div>
 
-        <!-- Documents Grid Gallery -->
+        <!-- Documents Grid Gallery (2 cols on mobile, 3 cols on desktop) -->
         <div x-show="selectedClientHistory && selectedClientHistory.documents && selectedClientHistory.documents.length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <template x-for="doc in (selectedClientHistory ? selectedClientHistory.documents : [])" :key="doc.id">
             <div class="relative group rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-800 shadow-sm flex flex-col justify-between">
@@ -3090,7 +3397,13 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="sm:col-span-2">
-          <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Cliente *</label>
+          <div class="flex justify-between items-center mb-1">
+            <label class="block text-xs font-bold uppercase text-slate-500">Cliente *</label>
+            <button type="button" @click="openNewClientModal()" class="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+              <span>+ Nuevo Cliente</span>
+            </button>
+          </div>
           <select x-model="loanForm.client_id" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold">
             <template x-for="c in clients" :key="c.id">
               <option :value="c.id" x-text="c.name + ' (+ ' + c.whatsapp + ')'"></option>
@@ -3134,6 +3447,31 @@
         <div>
           <label class="block text-xs font-bold uppercase text-slate-500 mb-1">N° de Cuotas</label>
           <input type="number" min="1" max="60" x-model="loanForm.installments_count" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold">
+        </div>
+
+        <!-- Tarjeta de Simulación de Amortización en Tiempo Real -->
+        <div class="sm:col-span-2 p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+          <h4 class="text-[11px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1">
+            <span>📊 Simulación de Amortización en Tiempo Real</span>
+          </h4>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+            <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase">Capital</span>
+              <span class="font-black text-slate-900 dark:text-white">$<span x-text="simulatedLoanSummary.capital.toLocaleString('es-AR')"></span></span>
+            </div>
+            <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase">Interés Estimado</span>
+              <span class="font-black text-indigo-600 dark:text-indigo-400">$<span x-text="simulatedLoanSummary.interest.toLocaleString('es-AR')"></span></span>
+            </div>
+            <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase">Total a Devolver</span>
+              <span class="font-black text-emerald-600 dark:text-emerald-400">$<span x-text="simulatedLoanSummary.total.toLocaleString('es-AR')"></span></span>
+            </div>
+            <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase">Valor Cuota</span>
+              <span class="font-black text-brand-600 dark:text-brand-400">$<span x-text="simulatedLoanSummary.installment.toLocaleString('es-AR')"></span></span>
+            </div>
+          </div>
         </div>
 
         <div class="sm:col-span-2 space-y-1">
@@ -4297,7 +4635,10 @@
         <img :src="flyerModal.imgUrl" alt="Flyer Sorteo" class="max-h-[60vh] rounded-lg shadow-lg">
       </div>
 
-      <div class="flex justify-center space-x-3">
+      <div class="flex flex-wrap justify-center gap-2.5">
+        <button @click="randomizeFlyerStyle()" class="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-amber-500 hover:from-purple-500 hover:to-amber-400 text-white rounded-xl text-xs font-black shadow flex items-center space-x-1 transition active:scale-95">
+          <span>🎨 Cambiar Plantilla (Canva / Pinterest)</span>
+        </button>
         <a :href="flyerModal.imgUrl" download="flyer_sorteo.png" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow flex items-center space-x-1">
           <span>📥 Descargar Flyer HD</span>
         </a>

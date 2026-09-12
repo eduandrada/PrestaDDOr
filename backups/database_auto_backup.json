@@ -9,10 +9,215 @@
       "cuit": "20334455669",
       "notes": "Cliente de prueba auditoria",
       "created_at": "2026-09-12T02:55:45.464794"
+    },
+    {
+      "id": 11,
+      "name": "Carlos Perez Test 1789182717",
+      "whatsapp": "5493834482717",
+      "email": "carlos@test.com",
+      "address": "Calle Falsa 123",
+      "cuit": "20178918271",
+      "notes": "Cliente de prueba auditoria",
+      "created_at": "2026-09-12T03:11:57.483200"
+    },
+    {
+      "id": 12,
+      "name": "Carlos Perez Test 1789182742",
+      "whatsapp": "5493834482742",
+      "email": "carlos@test.com",
+      "address": "Calle Falsa 123",
+      "cuit": "20178918274",
+      "notes": "Cliente de prueba auditoria",
+      "created_at": "2026-09-12T03:12:22.291981"
     }
   ],
-  "Loan": [],
-  "Installment": [],
+  "Loan": [
+    {
+      "id": 1,
+      "client_id": 10,
+      "amount": 50000.0,
+      "interest_rate": 15.0,
+      "rate_type": "mensual",
+      "modality": "mensual",
+      "installments_count": 4,
+      "start_date": "2026-09-12",
+      "status": "activo",
+      "grace_days": 3,
+      "late_fee_type": "porcentaje",
+      "late_fee_value": 1.0,
+      "notes": "",
+      "signature_data": "",
+      "created_at": "2026-09-12T03:01:58.194625"
+    },
+    {
+      "id": 2,
+      "client_id": 10,
+      "amount": 50000.0,
+      "interest_rate": 15.0,
+      "rate_type": "mensual",
+      "modality": "mensual",
+      "installments_count": 4,
+      "start_date": "2026-09-12",
+      "status": "activo",
+      "grace_days": 3,
+      "late_fee_type": "porcentaje",
+      "late_fee_value": 1.0,
+      "notes": "",
+      "signature_data": "",
+      "created_at": "2026-09-12T03:02:02.112909"
+    },
+    {
+      "id": 3,
+      "client_id": 10,
+      "amount": 75000.0,
+      "interest_rate": 15.0,
+      "rate_type": "mensual",
+      "modality": "mensual",
+      "installments_count": 3,
+      "start_date": "2026-09-12",
+      "status": "activo",
+      "grace_days": 3,
+      "late_fee_type": "porcentaje",
+      "late_fee_value": 1.0,
+      "notes": "",
+      "signature_data": "",
+      "created_at": "2026-09-12T03:12:22.805612"
+    }
+  ],
+  "Installment": [
+    {
+      "id": 1,
+      "loan_id": 1,
+      "number": 1,
+      "due_date": "2026-10-12",
+      "amount": 20000.0,
+      "capital_portion": 12500.0,
+      "interest_portion": 7500.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 2,
+      "loan_id": 1,
+      "number": 2,
+      "due_date": "2026-11-11",
+      "amount": 20000.0,
+      "capital_portion": 12500.0,
+      "interest_portion": 7500.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 3,
+      "loan_id": 1,
+      "number": 3,
+      "due_date": "2026-12-11",
+      "amount": 20000.0,
+      "capital_portion": 12500.0,
+      "interest_portion": 7500.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 4,
+      "loan_id": 1,
+      "number": 4,
+      "due_date": "2027-01-10",
+      "amount": 20000.0,
+      "capital_portion": 12500.0,
+      "interest_portion": 7500.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 5,
+      "loan_id": 2,
+      "number": 1,
+      "due_date": "2026-10-12",
+      "amount": 20000.0,
+      "capital_portion": 12500.0,
+      "interest_portion": 7500.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 6,
+      "loan_id": 2,
+      "number": 2,
+      "due_date": "2026-11-11",
+      "amount": 20000.0,
+      "capital_portion": 12500.0,
+      "interest_portion": 7500.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 7,
+      "loan_id": 2,
+      "number": 3,
+      "due_date": "2026-12-11",
+      "amount": 20000.0,
+      "capital_portion": 12500.0,
+      "interest_portion": 7500.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 8,
+      "loan_id": 2,
+      "number": 4,
+      "due_date": "2027-01-10",
+      "amount": 20000.0,
+      "capital_portion": 12500.0,
+      "interest_portion": 7500.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 9,
+      "loan_id": 3,
+      "number": 1,
+      "due_date": "2026-10-12",
+      "amount": 36250.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 11250.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 10,
+      "loan_id": 3,
+      "number": 2,
+      "due_date": "2026-11-11",
+      "amount": 36250.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 11250.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 11,
+      "loan_id": 3,
+      "number": 3,
+      "due_date": "2026-12-11",
+      "amount": 36250.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 11250.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    }
+  ],
   "Payment": [],
   "Expense": [
     {
@@ -188,10 +393,17 @@
   "NoticeBoardItem": [
     {
       "id": 1,
+      "author": "Eduardo",
+      "message": "¡Hola! Hoy llego a casa a las 20:00 hs aprox.",
+      "is_pinned": true,
+      "created_at": "2026-09-12T03:11:38.475345"
+    },
+    {
+      "id": 2,
       "author": "Maira",
-      "message": "levanta la ropa alas 17 hrs",
+      "message": "Dejé comida en la heladera para calentar.",
       "is_pinned": false,
-      "created_at": "2026-09-11T17:39:54.361373"
+      "created_at": "2026-09-12T03:11:38.475379"
     }
   ],
   "HomeCalendarItem": [

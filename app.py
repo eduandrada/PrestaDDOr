@@ -715,13 +715,17 @@ def handle_clients():
 
         raw_cuit = str(data.get('cuit') or '').strip()
         clean_cuit = "".join(c for c in raw_cuit if c.isdigit())
-        if clean_cuit and len(clean_cuit) != 11:
-            return jsonify({'error': 'El CUIT/CUIL debe contener exactamente 11 dígitos (ej. 20123456789)'}), 400
+        if not clean_cuit or len(clean_cuit) != 11:
+            return jsonify({'error': 'El CUIT / CUIL es obligatorio y debe contener exactamente 11 dígitos numéricos (ej. 20123456789)'}), 400
 
         # Control de Duplicados
         existing_wa = Client.query.filter_by(whatsapp=clean_wa).first()
         if existing_wa:
             return jsonify({'error': f'Ya existe un cliente registrado con el mismo número de WhatsApp ({clean_wa} - {existing_wa.name})'}), 400
+
+        existing_cuit = Client.query.filter_by(cuit=clean_cuit).first()
+        if existing_cuit:
+            return jsonify({'error': f'Ya existe un cliente registrado con el mismo CUIT/CUIL ({clean_cuit} - {existing_cuit.name})'}), 400
 
         existing_name = Client.query.filter(db.func.lower(Client.name) == name.lower()).first()
         if existing_name:
@@ -795,8 +799,11 @@ def handle_single_client(client_id):
     if 'cuit' in data:
         raw_cuit = str(data['cuit'] or '').strip()
         clean_cuit = "".join(c for c in raw_cuit if c.isdigit())
-        if clean_cuit and len(clean_cuit) != 11:
-            return jsonify({'error': 'El CUIT/CUIL debe contener exactamente 11 dígitos'}), 400
+        if not clean_cuit or len(clean_cuit) != 11:
+            return jsonify({'error': 'El CUIT / CUIL es obligatorio y debe contener exactamente 11 dígitos numéricos'}), 400
+        dup_cuit = Client.query.filter(Client.cuit == clean_cuit, Client.id != client_id).first()
+        if dup_cuit:
+            return jsonify({'error': f'Ya existe otro cliente registrado con el CUIT/CUIL {clean_cuit} ({dup_cuit.name})'}), 400
         client.cuit = clean_cuit[:20]
 
     if 'notes' in data:
@@ -883,37 +890,99 @@ def get_client_history(client_id):
 @app.route('/api/loans', methods=['GET', 'POST'])
 def handle_loans():
     if request.method == 'POST':
-        data = request.json
-        start_d = datetime.strptime(data['start_date'], '%Y-%m-%d').date() if 'start_date' in data and data['start_date'] else date.today()
+        data = request.get_json(silent=True) or {}
         
+        client_id = data.get('client_id')
+        if not client_id:
+            return jsonify({'error': 'Debe seleccionar un cliente para otorgar el préstamo'}), 400
+        
+        client = Client.query.get(client_id)
+        if not client:
+            return jsonify({'error': 'El cliente seleccionado no existe en la base de datos'}), 400
+            
+        try:
+            amount = float(data.get('amount') or 0.0)
+            if amount <= 0:
+                return jsonify({'error': 'El monto / capital otorgado debe ser mayor a $0'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'El monto del préstamo ingresado es inválido'}), 400
+
+        try:
+            installments_count = int(data.get('installments_count') or 1)
+            if installments_count < 1:
+                return jsonify({'error': 'El número de cuotas debe ser al menos 1'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'El número de cuotas ingresado es inválido'}), 400
+
+        try:
+            interest_rate = float(data.get('interest_rate') if data.get('interest_rate') is not None else 0.0)
+            if interest_rate < 0:
+                return jsonify({'error': 'La tasa de interés no puede ser negativa'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'La tasa de interés ingresada es inválida'}), 400
+
+        rate_type = str(data.get('rate_type') or 'mensual').strip().lower()
+        if rate_type not in ['mensual', 'directo']:
+            rate_type = 'mensual'
+
+        modality = str(data.get('modality') or 'mensual').strip().lower()
+        if modality not in ['semanal', 'quincenal', 'mensual', 'pago_unico']:
+            modality = 'mensual'
+
+        try:
+            grace_days = int(data.get('grace_days') or 3)
+            if grace_days < 0: grace_days = 0
+        except (ValueError, TypeError):
+            grace_days = 3
+
+        late_fee_type = str(data.get('late_fee_type') or 'porcentaje').strip()
+        try:
+            late_fee_value = float(data.get('late_fee_value') or 1.0)
+            if late_fee_value < 0: late_fee_value = 0.0
+        except (ValueError, TypeError):
+            late_fee_value = 1.0
+
+        start_d_str = str(data.get('start_date') or '').strip()
+        if start_d_str:
+            try:
+                start_d = datetime.strptime(start_d_str, '%Y-%m-%d').date()
+            except ValueError:
+                start_d = date.today()
+        else:
+            start_d = date.today()
+            
         loan = Loan(
-            client_id=int(data['client_id']),
-            amount=float(data['amount']),
-            interest_rate=float(data['interest_rate']),
-            rate_type=data.get('rate_type', 'mensual'),
-            modality=data.get('modality', 'mensual'),
-            installments_count=int(data.get('installments_count', 1)),
+            client_id=client.id,
+            amount=amount,
+            interest_rate=interest_rate,
+            rate_type=rate_type,
+            modality=modality,
+            installments_count=installments_count,
             start_date=start_d,
-            grace_days=int(data.get('grace_days', 3)),
-            late_fee_type=data.get('late_fee_type', 'porcentaje'),
-            late_fee_value=float(data.get('late_fee_value', 1.0)),
-            notes=data.get('notes', '').strip(),
-            signature_data=data.get('signature_data', '')
+            grace_days=grace_days,
+            late_fee_type=late_fee_type,
+            late_fee_value=late_fee_value,
+            notes=str(data.get('notes') or '').strip(),
+            signature_data=str(data.get('signature_data') or '').strip()
         )
-        db.session.add(loan)
-        db.session.commit()
-
-        # Generate Amortization Schedule
-        schedule = loan.generate_amortization_schedule()
-        db.session.add_all(schedule)
-        db.session.commit()
-
-        # Si el préstamo fue otorgado/activo, eliminar solicitudes de QR Express del cliente
-        if loan.status in ['activo', 'otorgado']:
-            BiometricRequest.query.filter_by(client_id=loan.client_id).delete()
+        try:
+            db.session.add(loan)
             db.session.commit()
 
-        return jsonify(loan.to_dict()), 201
+            # Generate Amortization Schedule
+            schedule = loan.generate_amortization_schedule()
+            db.session.add_all(schedule)
+            db.session.commit()
+
+            if loan.status in ['activo', 'otorgado']:
+                BiometricRequest.query.filter_by(client_id=loan.client_id).delete()
+                db.session.commit()
+
+            trigger_auto_backup()
+            return jsonify(loan.to_dict()), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Error al registrar préstamo en base de datos: {str(e)}'}), 400
 
     loans = Loan.query.order_by(Loan.id.desc()).all()
     return jsonify([l.to_dict() for l in loans])

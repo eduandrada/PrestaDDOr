@@ -3106,7 +3106,7 @@
           <input type="text" x-model="clientForm.address" placeholder="Ej. Av. Güemes 1234, San Fernando de Catamarca" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brand-500">
         </div>
         <div>
-          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">CUIT / CUIL (Opcional)</label>
+          <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">CUIT / CUIL *</label>
           <input type="text" x-model="clientForm.cuit" placeholder="ej. 20123456789" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono focus:ring-2 focus:ring-brand-500">
           <p class="text-[10px] text-slate-400 mt-0.5">Utilizado para la consulta automática en la Central de Deudores BCRA</p>
         </div>
@@ -3447,6 +3447,31 @@
         <div>
           <label class="block text-xs font-bold uppercase text-slate-500 mb-1">N° de Cuotas</label>
           <input type="number" min="1" max="60" x-model="loanForm.installments_count" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold">
+        </div>
+
+        <!-- Tarjeta de Simulación de Amortización en Tiempo Real -->
+        <div class="sm:col-span-2 p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+          <h4 class="text-[11px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1">
+            <span>📊 Simulación de Amortización en Tiempo Real</span>
+          </h4>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+            <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase">Capital</span>
+              <span class="font-black text-slate-900 dark:text-white">$<span x-text="simulatedLoanSummary.capital.toLocaleString('es-AR')"></span></span>
+            </div>
+            <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase">Interés Estimado</span>
+              <span class="font-black text-indigo-600 dark:text-indigo-400">$<span x-text="simulatedLoanSummary.interest.toLocaleString('es-AR')"></span></span>
+            </div>
+            <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase">Total a Devolver</span>
+              <span class="font-black text-emerald-600 dark:text-emerald-400">$<span x-text="simulatedLoanSummary.total.toLocaleString('es-AR')"></span></span>
+            </div>
+            <div class="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
+              <span class="block text-[10px] text-slate-400 font-bold uppercase">Valor Cuota</span>
+              <span class="font-black text-brand-600 dark:text-brand-400">$<span x-text="simulatedLoanSummary.installment.toLocaleString('es-AR')"></span></span>
+            </div>
+          </div>
         </div>
 
         <div class="sm:col-span-2 space-y-1">
