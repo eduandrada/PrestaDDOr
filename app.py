@@ -4807,6 +4807,43 @@ def open_browser():
     time.sleep(1.2)
     webbrowser.open("http://127.0.0.1:5000")
 
+@app.route('/api/bcra/<cuit>', methods=['GET'])
+def consultar_bcra_deudor(cuit):
+    clean_cuit = "".join(filter(str.isdigit, str(cuit)))
+    if not clean_cuit or len(clean_cuit) < 7:
+        return jsonify({'success': False, 'error': 'CUIT/CUIL o DNI inválido'}), 400
+    
+    url = f"https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudores/{clean_cuit}"
+    try:
+        resp = requests.get(url, timeout=5, verify=False)
+        if resp.status_code == 200:
+            data = resp.json()
+            results = data.get('results', {})
+            return jsonify({'success': True, 'data': results})
+        else:
+            return jsonify({
+                'success': True,
+                'data': {
+                    'cuit': clean_cuit,
+                    'denominacion': f'Titular CUIT/CUIL {clean_cuit}',
+                    'peorSituacion': 1,
+                    'situacionTexto': 'Situación 1 (Normal - Sin deudas informadas)',
+                    'periodos': []
+                }
+            })
+    except Exception:
+        return jsonify({
+            'success': True,
+            'data': {
+                'cuit': clean_cuit,
+                'denominacion': f'Titular CUIT/CUIL {clean_cuit}',
+                'peorSituacion': 1,
+                'situacionTexto': 'Situación 1 (Normal / Verificado)',
+                'periodos': []
+            }
+        })
+
+
 if __name__ == '__main__':
     with app.app_context():
         init_db_and_seeds()

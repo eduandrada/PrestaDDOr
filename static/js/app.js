@@ -263,10 +263,47 @@ function registerPrestamosApp() {
             currentTimeStr: '',
             currentDateTimeStr: '',
 
+            // BCRA Sub-section State & Method
+            bcraSearchCuit: '',
+            bcraResult: null,
+            bcraLoading: false,
+
+            async consultarBcraSubSection() {
+                if (!this.bcraSearchCuit || this.bcraSearchCuit.trim().length < 7) {
+                    alert("Por favor ingrese un CUIT/CUIL o DNI válido (ej: 20301234567)");
+                    return;
+                }
+                this.bcraLoading = true;
+                try {
+                    const clean = this.bcraSearchCuit.trim().replace(/-/g, '');
+                    const res = await fetch(`/api/bcra/${clean}`);
+                    const data = await res.json();
+                    if (data.success) {
+                        this.bcraResult = data.data;
+                    } else {
+                        alert(data.error || "No se obtuvieron datos para el CUIT ingresado.");
+                    }
+                } catch (e) {
+                    console.error("Error al consultar BCRA:", e);
+                    alert("Error de comunicación con la Central de Deudores BCRA.");
+                } finally {
+                    this.bcraLoading = false;
+                }
+            },
+
             get latestNotice() {
                 if (!this.noticeItems || this.noticeItems.length === 0) return null;
                 const pinned = this.noticeItems.find(n => n.is_pinned);
                 return pinned || this.noticeItems[0];
+            },
+
+            get top2Notices() {
+                if (!this.noticeItems || !Array.isArray(this.noticeItems)) return [];
+                return this.noticeItems.slice(0, 2);
+            },
+
+            openExternalNews(url) {
+                if (url) window.open(url, '_blank');
             },
 
             get latestCalendarEvent() {
