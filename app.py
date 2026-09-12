@@ -3,6 +3,8 @@ import json
 import csv
 import io
 import uuid
+import re
+import requests
 import urllib.request
 from datetime import datetime, date, timedelta
 from flask import Flask, render_template, render_template_string, request, jsonify, send_file, Response, make_response
@@ -190,6 +192,15 @@ def restore_auto_backup():
 
 def init_db_and_seeds():
     db.create_all()
+
+    # Migration: Ensure cuit column exists in clients table
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(db.text("ALTER TABLE clients ADD COLUMN cuit VARCHAR(20)"))
+            conn.commit()
+    except Exception:
+        pass
+
     # Check if there is an auto backup to restore
     restored = restore_auto_backup()
 
@@ -564,32 +575,175 @@ def get_dashboard_stats():
 
 
 # ----------------------------------------------------
-# API CLIENTS
+# API CLIENTS & INTEGRACIÓN BCRA
 # ----------------------------------------------------
+def query_bcra_api(cuit):
+    clean_cuit = "".join(c for c in str(cuit) if c.isdigit())
+    if len(clean_cuit) != 11:
+        return {"error": "El CUIT/CUIL debe contener exactamente 11 dígitos numéricos."}
+    
+    url_deudores = f"https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudores/{clean_cuit}"
+    url_cheques = f"https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudores/ChequesRechazados/{clean_cuit}"
+    
+    data_bcra = None
+    cheques_data = None
+    
+    try:
+        res = requests.get(url_deudores, timeout=5, headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
+        if res.status_code == 200:
+            data_bcra = res.json()
+    except Exception as e:
+        print(f"BCRA Deudores connection error: {e}")
+
+    try:
+        res_ch = requests.get(url_cheques, timeout=5, headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
+        if res_ch.status_code == 200:
+            cheques_data = res_ch.json()
+    except Exception as e:
+        print(f"BCRA Cheques connection error: {e}")
+
+    entities = []
+    max_situacion = 1
+    total_deuda_miles = 0.0
+    denominacion = "No registrado / Sin deudas en el sistema bancario"
+    
+    if data_bcra and isinstance(data_bcra, dict) and "results" in data_bcra and data_bcra["results"]:
+        res_dict = data_bcra["results"]
+        denominacion = res_dict.get("denominacion") or denominacion
+        periodos = res_dict.get("periodos") or []
+        if periodos:
+            ultimo_periodo = periodos[0]
+            entidades_raw = ultimo_periodo.get("entidades") or []
+            for ent in entidades_raw:
+                sit = int(ent.get("situacion") or 1)
+                monto = float(ent.get("monto") or 0.0)
+                entities.append({
+                    "entidad": ent.get("entidad") or "Entidad Financiera",
+                    "situacion": sit,
+                    "monto_miles": monto,
+                    "monto_pesos": monto * 1000,
+                    "dias_atraso": ent.get("diasAtraso") or 0
+                })
+                if sit > max_situacion:
+                    max_situacion = sit
+                total_deuda_miles += monto
+
+    rejected_cheques_count = 0
+    if cheques_data and isinstance(cheques_data, dict) and "results" in cheques_data and cheques_data["results"]:
+        ch_results = cheques_data["results"]
+        ch_list = ch_results.get("causales") or ch_results.get("cheques") or []
+        rejected_cheques_count = len(ch_list)
+
+    situacion_labels = {
+        1: "Situación 1: Normal (Sin mora o atrasos leves hasta 31 días)",
+        2: "Situación 2: Riesgo Bajo / Seguimiento (Atraso entre 31 y 90 días)",
+        3: "Situación 3: Con Problemas (Atraso entre 91 y 180 días)",
+        4: "Situación 4: Alto Riesgo de Insolvencia (Atraso entre 181 y 365 días)",
+        5: "Situación 5: Irrecuperable (Atraso mayor a 365 días)",
+        6: "Situación 6: Disposición Judicial / Irrecuperable por Disposición Técnica"
+    }
+
+    if max_situacion in [3, 4, 5, 6] or rejected_cheques_count > 0:
+        underwriting_status = "RECHAZADO_ALTO_RIESGO"
+        traffic_light = "rojo"
+        decision_text = f"⚠️ ALERTA MOTOR DE DECISIONES: Cliente registra deudas en {situacion_labels.get(max_situacion, 'Alto Riesgo')} o cheques rechazados en BCRA. Se sugiere rechazar la operación o exigir garante e incrementar tasa por alto riesgo de incobrabilidad."
+    elif max_situacion == 2:
+        underwriting_status = "OBSERVADO_RIESGO_MEDIO"
+        traffic_light = "amarillo"
+        decision_text = "⚠️ ATENCIÓN MOTOR DE DECISIONES: Cliente en Situación 2 (Atrasos leves en sistema bancario). Se sugiere limitar el cupo de crédito otorgado."
+    else:
+        underwriting_status = "APROBADO_NORMAL"
+        traffic_light = "verde"
+        decision_text = "✅ MOTOR DE DECISIONES: Cliente Aprobado. Registra comportamiento normal (Situación 1) en la Central de Deudores del BCRA."
+
+    return {
+        "cuit": clean_cuit,
+        "denominacion": denominacion,
+        "max_situacion": max_situacion,
+        "situacion_label": situacion_labels.get(max_situacion, f"Situación {max_situacion}"),
+        "total_deuda_miles": total_deuda_miles,
+        "total_deuda_pesos": total_deuda_miles * 1000,
+        "entidades": entities,
+        "cheques_rechazados": rejected_cheques_count,
+        "underwriting": {
+            "status": underwriting_status,
+            "traffic_light": traffic_light,
+            "message": decision_text
+        },
+        "consulted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+
+@app.route('/api/bcra/check/<cuit_or_id>', methods=['GET'])
+def check_bcra(cuit_or_id):
+    cuit = str(cuit_or_id).strip()
+    if cuit.isdigit() and len(cuit) < 10:
+        client = Client.query.get(int(cuit))
+        if client and client.cuit:
+            cuit = client.cuit
+        else:
+            return jsonify({'error': 'El cliente no posee un CUIT/CUIL registrado para consultar en BCRA.'}), 400
+            
+    res = query_bcra_api(cuit)
+    if "error" in res:
+        return jsonify(res), 400
+    return jsonify(res)
+
+
 @app.route('/api/clients', methods=['GET', 'POST'])
 def handle_clients():
     if request.method == 'POST':
         data = request.get_json(silent=True) or {}
+        
+        # Validaciones de Campos Obligatorios
         name = str(data.get('name') or '').strip()
         if not name:
-            return jsonify({'error': 'El nombre completo del cliente es obligatorio'}), 400
-            
+            return jsonify({'error': 'El Nombre Completo del cliente es obligatorio'}), 400
+        
         raw_wa = str(data.get('whatsapp') or '').strip()
         clean_wa = "".join(c for c in raw_wa if c.isdigit())
-        if not clean_wa and raw_wa:
-            clean_wa = raw_wa
-            
+        if not clean_wa:
+            return jsonify({'error': 'El WhatsApp / Teléfono es obligatorio y debe contener números'}), 400
+
+        address = str(data.get('address') or '').strip()
+        if not address:
+            return jsonify({'error': 'El Domicilio Real / Referencias es obligatorio'}), 400
+
+        email = str(data.get('email') or '').strip()
+        if email and not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
+            return jsonify({'error': 'El formato de correo electrónico es inválido (ej. usuario@dominio.com)'}), 400
+
+        raw_cuit = str(data.get('cuit') or '').strip()
+        clean_cuit = "".join(c for c in raw_cuit if c.isdigit())
+        if clean_cuit and len(clean_cuit) != 11:
+            return jsonify({'error': 'El CUIT/CUIL debe contener exactamente 11 dígitos (ej. 20123456789)'}), 400
+
+        # Control de Duplicados
+        existing_wa = Client.query.filter_by(whatsapp=clean_wa).first()
+        if existing_wa:
+            return jsonify({'error': f'Ya existe un cliente registrado con el mismo número de WhatsApp ({clean_wa} - {existing_wa.name})'}), 400
+
+        existing_name = Client.query.filter(db.func.lower(Client.name) == name.lower()).first()
+        if existing_name:
+            return jsonify({'error': f'Ya existe un cliente registrado con el nombre "{existing_name.name}"'}), 400
+
+        # Normalización e Inserción
         client = Client(
-            name=name,
-            whatsapp=clean_wa,
-            email=str(data.get('email') or '').strip(),
-            address=str(data.get('address') or '').strip(),
+            name=name.title()[:120],
+            whatsapp=clean_wa[:30],
+            email=email[:120],
+            address=address[:255],
+            cuit=clean_cuit[:20],
             notes=str(data.get('notes') or '').strip()
         )
-        db.session.add(client)
-        db.session.commit()
-        trigger_auto_backup()
-        return jsonify(client.to_dict()), 201
+        try:
+            db.session.add(client)
+            db.session.commit()
+            trigger_auto_backup()
+            return jsonify(client.to_dict()), 201
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Error al guardar en base de datos: {str(e)}'}), 400
     
     clients = Client.query.order_by(Client.name).all()
     return jsonify([c.to_dict() for c in clients])
@@ -605,22 +759,56 @@ def handle_single_client(client_id):
         return jsonify({"success": True})
     
     data = request.get_json(silent=True) or {}
-    if 'name' in data and data['name']:
-        client.name = str(data['name']).strip()
+    
+    if 'name' in data:
+        name = str(data['name'] or '').strip()
+        if not name:
+            return jsonify({'error': 'El Nombre Completo del cliente no puede estar vacío'}), 400
+        # Check duplicate name if changing
+        dup = Client.query.filter(db.func.lower(Client.name) == name.lower(), Client.id != client_id).first()
+        if dup:
+            return jsonify({'error': f'Ya existe otro cliente con el nombre "{dup.name}"'}), 400
+        client.name = name.title()[:120]
+
     if 'whatsapp' in data:
         raw_wa = str(data['whatsapp'] or '').strip()
         clean_wa = "".join(c for c in raw_wa if c.isdigit())
-        client.whatsapp = clean_wa if clean_wa else raw_wa
-    if 'email' in data:
-        client.email = str(data['email'] or '').strip()
+        if not clean_wa:
+            return jsonify({'error': 'El WhatsApp / Teléfono no puede estar vacío'}), 400
+        dup_wa = Client.query.filter(Client.whatsapp == clean_wa, Client.id != client_id).first()
+        if dup_wa:
+            return jsonify({'error': f'Ya existe otro cliente con el WhatsApp {clean_wa} ({dup_wa.name})'}), 400
+        client.whatsapp = clean_wa[:30]
+
     if 'address' in data:
-        client.address = str(data['address'] or '').strip()
+        address = str(data['address'] or '').strip()
+        if not address:
+            return jsonify({'error': 'El Domicilio Real / Referencias no puede estar vacío'}), 400
+        client.address = address[:255]
+
+    if 'email' in data:
+        email = str(data['email'] or '').strip()
+        if email and not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
+            return jsonify({'error': 'El formato de correo electrónico es inválido'}), 400
+        client.email = email[:120]
+
+    if 'cuit' in data:
+        raw_cuit = str(data['cuit'] or '').strip()
+        clean_cuit = "".join(c for c in raw_cuit if c.isdigit())
+        if clean_cuit and len(clean_cuit) != 11:
+            return jsonify({'error': 'El CUIT/CUIL debe contener exactamente 11 dígitos'}), 400
+        client.cuit = clean_cuit[:20]
+
     if 'notes' in data:
         client.notes = str(data['notes'] or '').strip()
         
-    db.session.commit()
-    trigger_auto_backup()
-    return jsonify(client.to_dict())
+    try:
+        db.session.commit()
+        trigger_auto_backup()
+        return jsonify(client.to_dict())
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Error al actualizar cliente: {str(e)}'}), 400
 
 
 @app.route('/api/clients/<int:client_id>/vcard', methods=['GET'])

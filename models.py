@@ -11,6 +11,7 @@ class Client(db.Model):
     whatsapp = db.Column(db.String(30), nullable=False)
     email = db.Column(db.String(120), nullable=True)
     address = db.Column(db.String(255), nullable=True)
+    cuit = db.Column(db.String(20), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -138,6 +139,7 @@ class Client(db.Model):
             "whatsapp": self.whatsapp,
             "email": self.email or "",
             "address": self.address or "",
+            "cuit": self.cuit or "",
             "notes": self.notes or "",
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
             "metrics": metrics,

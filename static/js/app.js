@@ -185,8 +185,21 @@ function registerPrestamosApp() {
                 modality: 'mensual'
             },
 
+            // Toast & Notifications State
+            toastMessage: '',
+            toastType: 'success', // 'success', 'error', 'info'
+            showToast(msg, type = 'success') {
+                this.toastMessage = msg;
+                this.toastType = type;
+                setTimeout(() => { this.toastMessage = ''; }, 4500);
+            },
+
+            // BCRA State
+            bcraSearchCuit: '',
+            bcraReport: { loading: false, data: null, error: null },
+
             // Forms State
-            clientForm: { id: null, name: '', whatsapp: '', email: '', address: '', notes: '' },
+            clientForm: { id: null, name: '', whatsapp: '', address: '', cuit: '', email: '', notes: '' },
             loanForm: { client_id: '', amount: 50000, interest_rate: 15, rate_type: 'mensual', modality: 'mensual', installments_count: 4, start_date: new Date().toISOString().split('T')[0], grace_days: 3, late_fee_type: 'porcentaje', late_fee_value: 1.0, notes: '' },
             editLoanForm: { id: null, notes: '', grace_days: 3, late_fee_type: 'porcentaje', late_fee_value: 1.0, status: 'activo' },
             cashflowDetailData: { total_received: 0, total_capital: 0, total_interest: 0, payments_count: 0, by_method: {}, payments: [] },
@@ -454,14 +467,22 @@ function registerPrestamosApp() {
                 }
             },
 
-            // Client Methods
+            // Client Methods & BCRA Deudores
             openNewClientModal() {
-                this.clientForm = { id: null, name: '', whatsapp: '', email: '', address: '', notes: '' };
+                this.clientForm = { id: null, name: '', whatsapp: '', address: '', cuit: '', email: '', notes: '' };
                 this.activeModal = 'newClient';
             },
 
             openEditClientModal(client) {
-                this.clientForm = { ...client };
+                this.clientForm = {
+                    id: client.id,
+                    name: client.name || '',
+                    whatsapp: client.whatsapp || '',
+                    address: client.address || '',
+                    cuit: client.cuit || '',
+                    email: client.email || '',
+                    notes: client.notes || ''
+                };
                 this.activeModal = 'editClient';
             },
 
@@ -470,16 +491,50 @@ function registerPrestamosApp() {
                     const res = await fetch(`/api/clients/${client.id}/history`);
                     this.selectedClientHistory = await res.json();
                     this.activeModal = 'clientHistory';
+                    if (client.cuit) {
+                        this.checkBcra(client.cuit);
+                    } else {
+                        this.bcraReport = { loading: false, data: null, error: null };
+                    }
                 } catch (err) {
                     alert("Error al cargar historial del cliente.");
                 }
             },
 
-            async saveClient() {
-                if (!this.clientForm || !this.clientForm.name || !this.clientForm.name.trim()) {
-                    alert("Por favor ingrese el nombre completo del cliente.");
+            async checkBcra(cuitOrId) {
+                const targetCuit = cuitOrId || (this.selectedClientHistory && this.selectedClientHistory.client ? this.selectedClientHistory.client.cuit : this.bcraSearchCuit);
+                if (!targetCuit) {
+                    this.bcraReport = { loading: false, data: null, error: 'Por favor ingrese o asegúrese de que el cliente posea un CUIT/CUIL válido.' };
                     return;
                 }
+                this.bcraReport = { loading: true, data: null, error: null };
+                try {
+                    const res = await fetch(`/api/bcra/check/${targetCuit}`);
+                    const data = await res.json();
+                    if (res.ok) {
+                        this.bcraReport = { loading: false, data: data, error: null };
+                    } else {
+                        this.bcraReport = { loading: false, data: null, error: data.error || 'Error al consultar Central de Deudores del BCRA.' };
+                    }
+                } catch (err) {
+                    this.bcraReport = { loading: false, data: null, error: 'Error de conexión con el servidor del BCRA.' };
+                }
+            },
+
+            async saveClient() {
+                if (!this.clientForm || !this.clientForm.name || !this.clientForm.name.trim()) {
+                    alert("Por favor ingrese el Nombre Completo del cliente.");
+                    return;
+                }
+                if (!this.clientForm.whatsapp || !this.clientForm.whatsapp.trim()) {
+                    alert("Por favor ingrese el WhatsApp / Teléfono del cliente.");
+                    return;
+                }
+                if (!this.clientForm.address || !this.clientForm.address.trim()) {
+                    alert("Por favor ingrese el Domicilio Real / Referencias del cliente.");
+                    return;
+                }
+
                 const isEdit = !!this.clientForm.id;
                 const url = isEdit ? `/api/clients/${this.clientForm.id}` : '/api/clients';
                 const method = isEdit ? 'PUT' : 'POST';
@@ -498,6 +553,11 @@ function registerPrestamosApp() {
                         if (savedClient && savedClient.id && this.loanForm) {
                             this.loanForm.client_id = savedClient.id;
                         }
+                        const successMsg = isEdit 
+                            ? `✅ Cliente "${savedClient.name}" actualizado correctamente.`
+                            : `🎉 ¡Cliente "${savedClient.name}" registrado satisfactoriamente en el sistema!`;
+                        this.showToast(successMsg, 'success');
+                        alert(successMsg);
                     } else {
                         const errData = await res.json().catch(() => ({}));
                         alert(errData.error || "Error al guardar el cliente.");
