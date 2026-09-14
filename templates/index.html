@@ -705,6 +705,7 @@
           <button @click="openNewClientModal()" class="bg-slate-800 hover:bg-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow transition active:scale-95 whitespace-nowrap">
             <span>+ Nuevo Cliente</span>
           </button> <button @click="generateClientRegistrationQr()" class="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black shadow-lg shadow-purple-600/20 transition flex items-center gap-1.5" title="Generar QR para Registro Express Remoto de Cliente"><span>📱 Cliente Express QR</span></button>
+          <button @click="openAiContadorModal()" class="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5" title="Contador Virtual IA & Arqueo Contable"><span>🧮 Contador IA</span></button>
         </div>
       </div>
 
@@ -3520,6 +3521,9 @@
         <button @click="openClientVaultModal(selectedClientHistory.client)" class="px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1" title="Ver Bóveda de Documentos del Cliente">
           <span>🗂️ Ver Bóveda</span>
         </button>
+        <button @click="openAiContadorModal(selectedClientHistory.client)" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1" title="Consultar Contador IA sobre este cliente">
+          <span>🧮 Contador IA</span>
+        </button>
         <button @click="openQuoteModal({ client_id: selectedClientHistory.client.id, client_name: selectedClientHistory.client.name, whatsapp: selectedClientHistory.client.whatsapp, email: selectedClientHistory.client.email, amount: selectedClientHistory.metrics ? selectedClientHistory.metrics.recommended_limit : 50000 })" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1">
           <span>🎯 Presupuesto</span>
         </button>
@@ -6257,7 +6261,131 @@
         </div>
       </template>
 
-      <p class="text-[10px] text-slate-500">Este QR expira automáticamente al completarse el registro o transcurrido el tiempo límite.</p>
+  <!-- MODAL: CONTADOR VIRTUAL IA & AUDITORÍA CONTABLE -->
+  <div x-show="showAiContadorModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div @click.away="closeAiContadorModal()" class="max-w-3xl w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 relative">
+      <button @click="closeAiContadorModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm">✕</button>
+
+      <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-2xl shadow-lg shadow-emerald-500/20">
+          🧮
+        </div>
+        <div>
+          <h2 class="text-base font-black text-white flex items-center gap-2">
+            <span>Contador Virtual IA & Auditoría Contable</span>
+            <span class="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30 font-bold">Inteligencia Financiera</span>
+          </h2>
+          <p class="text-xs text-slate-400">Balance General, Flujo de Caja, Arqueo de Caja, Agenda y Consultas por Cliente</p>
+        </div>
+      </div>
+
+      <!-- TABS NAVEGACIÓN MODAL -->
+      <div class="flex items-center gap-2 border-b border-slate-800 pb-3">
+        <button @click="aiContadorTab = 'balance'" :class="aiContadorTab === 'balance' ? 'bg-emerald-600 text-white font-black' : 'bg-slate-800 text-slate-400 font-bold hover:bg-slate-700'" class="px-3.5 py-1.5 rounded-xl text-xs transition flex items-center gap-1.5">
+          <span>📊 Balance & Flujo de Caja</span>
+        </button>
+        <button @click="aiContadorTab = 'calendario'" :class="aiContadorTab === 'calendario' ? 'bg-emerald-600 text-white font-black' : 'bg-slate-800 text-slate-400 font-bold hover:bg-slate-700'" class="px-3.5 py-1.5 rounded-xl text-xs transition flex items-center gap-1.5">
+          <span>📅 Calendario & Vencimientos</span>
+        </button>
+        <button @click="aiContadorTab = 'chat'" :class="aiContadorTab === 'chat' ? 'bg-emerald-600 text-white font-black' : 'bg-slate-800 text-slate-400 font-bold hover:bg-slate-700'" class="px-3.5 py-1.5 rounded-xl text-xs transition flex items-center gap-1.5">
+          <span>💬 Preguntar al Contador IA</span>
+        </button>
+      </div>
+
+      <!-- CONTENIDO TAB 1: BALANCE & FLUJO DE CAJA -->
+      <div x-show="aiContadorTab === 'balance'" class="space-y-4">
+        <template x-if="aiContadorData">
+          <div class="space-y-4">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 font-bold block">Capital en Calle</span>
+                <span class="text-sm font-black text-emerald-400" x-text="'$' + Number(aiContadorData.capital_en_calle || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})"></span>
+              </div>
+              <div class="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 font-bold block">Fondo Inviolable</span>
+                <span class="text-sm font-black text-indigo-400" x-text="'$' + Number(aiContadorData.capital_inviolable || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})"></span>
+              </div>
+              <div class="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 font-bold block">Ganancia Neta Mes</span>
+                <span class="text-sm font-black text-purple-400" x-text="'$' + Number(aiContadorData.net_liquid_profit || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})"></span>
+              </div>
+              <div class="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 font-bold block">Gastos Hormiga</span>
+                <span class="text-sm font-black text-amber-400" x-text="'$' + Number(aiContadorData.ant_expenses_month || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})"></span>
+              </div>
+            </div>
+
+            <div class="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-black text-white">💡 Recomendaciones del Contador Virtual</h4>
+                <button @click="downloadAiContadorPdf('Balance General & Arqueo de Caja', 'Balance General de Cartera y Resumen de Flujo de Caja')" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[11px] font-extrabold shadow transition flex items-center gap-1">
+                  <span>📄 Exportar Arqueo PDF</span>
+                </button>
+              </div>
+              <div class="space-y-1 text-xs text-slate-300">
+                <template x-for="rec in (aiContadorData.recommendations || [])" :key="rec">
+                  <p class="leading-relaxed" x-html="rec"></p>
+                </template>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- CONTENIDO TAB 2: CALENDARIO & VENCIMIENTOS -->
+      <div x-show="aiContadorTab === 'calendario'" class="space-y-4">
+        <template x-if="aiContadorData && aiContadorData.calendar_summary">
+          <div class="space-y-3">
+            <h4 class="text-xs font-black text-white">📅 Servicios & Compromisos de la Agenda</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto">
+              <template x-for="item in aiContadorData.calendar_summary" :key="item.id">
+                <div class="p-3 bg-slate-950 rounded-2xl border border-slate-800 text-xs space-y-1">
+                  <div class="flex items-center justify-between font-bold text-white">
+                    <span x-text="item.title"></span>
+                    <span class="text-[10px] px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded-full" x-text="item.category"></span>
+                  </div>
+                  <p class="text-[11px] text-slate-400" x-text="'🗓️ Vence: ' + item.due_date + ' ' + (item.due_time || '')"></p>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- CONTENIDO TAB 3: CHAT INTERACTIVO CON EL CONTADOR IA -->
+      <div x-show="aiContadorTab === 'chat'" class="space-y-4">
+        <div class="p-4 bg-slate-950 rounded-2xl border border-slate-800 max-h-72 overflow-y-auto space-y-3">
+          <template x-for="(msg, idx) in aiContadorMessages" :key="idx">
+            <div :class="msg.role === 'user' ? 'text-right' : 'text-left'" class="space-y-1">
+              <div :class="msg.role === 'user' ? 'bg-indigo-600 text-white inline-block text-left' : 'bg-slate-900 border border-slate-800 text-slate-200 inline-block text-left'" class="p-3 rounded-2xl text-xs max-w-xl shadow">
+                <p class="whitespace-pre-line" x-text="msg.text"></p>
+                <template x-if="msg.pdf_export_available">
+                  <div class="mt-2 pt-2 border-t border-slate-800 text-right">
+                    <button @click="downloadAiContadorPdf(msg.title || 'Informe Contable IA', msg.text)" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[11px] font-extrabold shadow transition flex items-center gap-1.5 ml-auto">
+                      <span>📄 Descargar este Informe en PDF</span>
+                    </button>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+          <template x-if="aiContadorMessages.length === 0">
+            <p class="text-center text-xs text-slate-500 py-6">Hazle cualquier consulta al Contador IA: sobre un cliente, quién otorgó un préstamo, montos adeudados, arqueo o agenda.</p>
+          </template>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="text" x-model="aiContadorQuery" @keydown.enter="sendAiContadorQuery()" placeholder="Ej: ¿Quién otorgó el préstamo a Juan? / ¿Cuánto debe María?..." class="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500">
+          <button @click="sendAiContadorQuery()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition shadow">
+            💬 Consultar
+          </button>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+        <p class="text-[10px] text-slate-500">Auditoría contable y financiera impulsada por Inteligencia Artificial.</p>
+        <button @click="closeAiContadorModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition">Cerrar</button>
+      </div>
     </div>
   </div>
 

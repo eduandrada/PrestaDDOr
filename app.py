@@ -47,6 +47,10 @@ with app.app_context():
                 conn.execute(text("ALTER TABLE biometric_requests ADD COLUMN bank_holder VARCHAR(100)"))
                 conn.commit()
             except Exception: pass
+            try:
+                conn.execute(text("ALTER TABLE loans ADD COLUMN created_by VARCHAR(100) DEFAULT 'Administración'"))
+                conn.commit()
+            except Exception: pass
     except Exception: pass
 
 # Helper for initial settings & seed data
@@ -822,6 +826,7 @@ def handle_clients():
             address=address[:255],
             cuit=clean_cuit[:20],
             notes=str(data.get('notes') or '').strip(),
+            bank_alias=str(data.get('bank_alias') or '').strip(),
             has_guarantor=has_guarantor,
             guarantor_name=guarantor_name.title()[:120] if has_guarantor else None,
             guarantor_address=guarantor_address[:255] if has_guarantor else None,
@@ -1362,6 +1367,8 @@ def handle_loans():
         else:
             start_d = date.today()
             
+        created_by_val = str(data.get('created_by') or data.get('otorgado_por') or 'Administración').strip() or 'Administración'
+
         loan = Loan(
             client_id=client.id,
             amount=amount,
@@ -1374,7 +1381,8 @@ def handle_loans():
             late_fee_type=late_fee_type,
             late_fee_value=late_fee_value,
             notes=str(data.get('notes') or '').strip(),
-            signature_data=str(data.get('signature_data') or '').strip()
+            signature_data=str(data.get('signature_data') or '').strip(),
+            created_by=created_by_val
         )
         try:
             db.session.add(loan)
@@ -3989,19 +3997,193 @@ def get_ai_financial_advisor():
     cash_income_month = sum(p.amount for p in payments_month if (p.payment_method or '').lower() == 'efectivo')
     transfer_income_month = sum(p.amount for p in payments_month if (p.payment_method or '').lower() != 'efectivo')
 
+    # Calendar items summary
+    calendar_items = HomeCalendarItem.query.filter_by(is_completed=False).all()
+    calendar_summary = [item.to_dict() for item in calendar_items]
+
+    # Detailed loan & client summary for accounting audit
+    clients_summary = []
+    clients = Client.query.all()
+    for c in clients:
+        c_loans = [l for l in c.loans if l.status == 'activo']
+        if not c_loans: continue
+        loans_detail = []
+        for l in c_loans:
+            pending_insts = [inst for inst in l.installments if inst.status != 'pagado']
+            next_due = min(pending_insts, key=lambda x: x.due_date) if pending_insts else None
+            loans_detail.append({
+                "loan_id": l.id,
+                "created_by": getattr(l, 'created_by', 'Administración') or 'Administración',
+                "start_date": l.start_date.strftime("%Y-%m-%d"),
+                "created_at": l.created_at.strftime("%Y-%m-%d %H:%M:%S") if l.created_at else "",
+                "amount": l.amount,
+                "remaining_balance": l.remaining_balance,
+                "next_due_date": next_due.due_date.strftime("%Y-%m-%d") if next_due else "N/A",
+                "next_due_amount": next_due.amount if next_due else 0.0
+            })
+        clients_summary.append({
+            "client_id": c.id,
+            "name": c.name,
+            "cuit": c.cuit or "",
+            "whatsapp": c.whatsapp or "",
+            "bank_alias": c.bank_alias or "",
+            "active_loans": loans_detail
+        })
+
     return jsonify({
         "status": "active",
         "capital_inviolable": round(capital_inviolable, 2),
+        "capital_en_calle": round(capital_en_calle, 2),
         "safe_withdrawable_amount": round(safe_withdrawable_amount, 2),
         "reinvestment_portion": round(reinvestment_portion, 2),
         "net_liquid_profit": round(net_liquid, 2),
         "ant_expenses_month": round(ant_expenses_month, 2),
+        "expenses_month_total": round(expenses_month_total, 2),
         "cash_income_month": round(cash_income_month, 2),
         "transfer_income_month": round(transfer_income_month, 2),
         "mora_percentage": round(mora_pct, 1),
         "alerts": alerts,
-        "recommendations": recommendations
+        "recommendations": recommendations,
+        "calendar_summary": calendar_summary,
+        "clients_summary": clients_summary
     })
+
+
+@app.route('/api/ai_financial_advisor/chat', methods=['POST'])
+def ai_financial_advisor_chat():
+    data = request.json or {}
+    user_query = str(data.get('query') or '').strip().lower()
+    client_id = data.get('client_id')
+    
+    today = date.today()
+    
+    client = None
+    if client_id:
+        client = Client.query.get(client_id)
+    elif user_query:
+        all_clients = Client.query.all()
+        for c in all_clients:
+            if c.name and c.name.lower() in user_query:
+                client = c
+                break
+
+    if client:
+        active_loans = [l for l in client.loans if l.status == 'activo']
+        if not active_loans:
+            reply = f"👤 Informe de Cliente: {client.name}\n\nEl cliente no posee préstamos activos en este momento.\n• CUIT: {client.cuit or 'N/A'}\n• WhatsApp: {client.whatsapp or 'N/A'}\n• Alias Bancario: {client.bank_alias or 'No registrado'}"
+        else:
+            lines = [f"👤 Informe Detallado de Crédito: {client.name}\n"]
+            lines.append(f"• CUIT/CUIL: {client.cuit or 'N/A'}")
+            lines.append(f"• Contacto: {client.whatsapp or 'N/A'}")
+            lines.append(f"• Alias Bancario: {client.bank_alias or 'No registrado'}")
+            lines.append(f"• Scoring Crédito: {client.calculate_scoring_and_status()['score_stars']} Stars")
+            lines.append(f"\n📋 Préstamos Activos ({len(active_loans)}):\n")
+            
+            for idx, l in enumerate(active_loans, 1):
+                otorgante = getattr(l, 'created_by', 'Administración') or 'Administración'
+                pending = [inst for inst in l.installments if inst.status != 'pagado']
+                next_inst = min(pending, key=lambda x: x.due_date) if pending else None
+                lines.append(f"Préstamo #{idx} (ID {l.id}):")
+                lines.append(f"  • Otorgado por: {otorgante}")
+                lines.append(f"  • Fecha de Solicitud / Otorgamiento: {l.start_date.strftime('%d/%m/%Y')}")
+                lines.append(f"  • Monto Prestado: ${l.amount:,.2f}")
+                lines.append(f"  • Saldo Pendiente a Pagar: ${l.remaining_balance:,.2f}")
+                if next_inst:
+                    lines.append(f"  • Próximo Vencimiento: Cuota {next_inst.number} de ${next_inst.amount:,.2f} el {next_inst.due_date.strftime('%d/%m/%Y')}")
+                lines.append("")
+                
+            reply = "\n".join(lines)
+            
+        return jsonify({
+            "success": True,
+            "reply": reply,
+            "title": f"Informe Contable - {client.name}",
+            "pdf_export_available": True
+        })
+
+    if any(k in user_query for k in ['calendario', 'vencimiento', 'agenda', 'recordatorio', 'servicio']):
+        cal_items = HomeCalendarItem.query.filter_by(is_completed=False).all()
+        installments = Installment.query.filter(Installment.status != 'pagado', Installment.due_date <= today + timedelta(days=7)).all()
+        
+        lines = ["📅 Agenda del Asesor IA & Vencimientos Próximos (7 Días)\n"]
+        if cal_items:
+            lines.append("Servicios & Compromisos del Calendario:")
+            for ci in cal_items:
+                lines.append(f"  • [{ci.category.upper()}] {ci.title} - Vence: {ci.due_date} {ci.due_time or ''}")
+            lines.append("")
+            
+        if installments:
+            lines.append("Cuotas de Préstamos a Cobrar:")
+            for inst in installments[:10]:
+                c_name = inst.loan.client.name if inst.loan and inst.loan.client else 'N/A'
+                lines.append(f"  • Cliente: {c_name} - Cuota ${inst.amount:,.2f} (Vence: {inst.due_date.strftime('%d/%m/%Y')})")
+        else:
+            lines.append("No hay cuotas pendientes con vencimiento en los próximos 7 días.")
+            
+        return jsonify({
+            "success": True,
+            "reply": "\n".join(lines),
+            "title": "Agenda de Vencimientos & Servicios",
+            "pdf_export_available": True
+        })
+
+    loans = Loan.query.all()
+    active_loans = [l for l in loans if l.status == 'activo']
+    payments = Payment.query.all()
+    expenses = Expense.query.all()
+    first_day = date(today.year, today.month, 1)
+    payments_month = [p for p in payments if p.payment_date.date() >= first_day]
+    expenses_month = [e for e in expenses if e.date >= first_day]
+
+    capital_en_calle = sum(
+        sum(max(0.0, inst.capital_portion - min(inst.capital_portion, inst.paid_amount)) for inst in l.installments if inst.status != 'pagado')
+        for l in active_loans
+    )
+    interest_month = sum((p.installment.interest_portion if p.installment else p.amount * 0.2) for p in payments_month)
+    expenses_month_total = sum(e.amount for e in expenses_month)
+    ant_expenses_month = sum(e.amount for e in expenses_month if e.is_ant_expense)
+    net_liquid = interest_month - expenses_month_total
+    
+    cash_income = sum(p.amount for p in payments_month if (p.payment_method or '').lower() == 'efectivo')
+    transfer_income = sum(p.amount for p in payments_month if (p.payment_method or '').lower() != 'efectivo')
+
+    reply = f"""📊 Balance General & Informe de Flujo de Dinero (Contador IA)
+
+• Capital Total en Calle (Activo Principal): ${capital_en_calle:,.2f}
+• Cobros del Mes en Efectivo: ${cash_income:,.2f}
+• Cobros del Mes por Transferencia: ${transfer_income:,.2f}
+• Gastos Operativos del Mes: ${expenses_month_total:,.2f} (Gastos Hormiga: ${ant_expenses_month:,.2f})
+• Ganancia Neta Líquida del Mes: ${net_liquid:,.2f}
+• Préstamos Activos Auditados: {len(active_loans)} préstamos
+
+Sugerencia del Contador: Puedes consultar por un cliente en específico indicando su nombre o exportar este arqueo completo en PDF."""
+
+    return jsonify({
+        "success": True,
+        "reply": reply,
+        "title": "Balance General & Flujo de Dinero",
+        "pdf_export_available": True
+    })
+
+
+@app.route('/api/ai_financial_advisor/export_pdf', methods=['POST'])
+def export_ai_financial_advisor_pdf():
+    try:
+        from pdf_utils import create_custom_ai_report_pdf
+        data = request.json or {}
+        title = str(data.get('title') or 'Informe Oficial de Auditoría Contable IA').strip()
+        text_body = str(data.get('text_body') or 'Sin contenido disponible.').strip()
+        company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+        
+        pdf_bytes = create_custom_ai_report_pdf(title, text_body, company_name=company)
+        
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'inline; filename=Informe_IA_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf'
+        return response
+    except Exception as e:
+        return jsonify({"error": f"Error al generar PDF: {str(e)}"}), 500
+
 
 
 # ----------------------------------------------------

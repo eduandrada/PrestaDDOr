@@ -177,6 +177,7 @@ class Loan(db.Model):
     late_fee_value = db.Column(db.Float, default=1.0)
     notes = db.Column(db.Text, nullable=True)
     signature_data = db.Column(db.Text, nullable=True)
+    created_by = db.Column(db.String(100), default='Administración')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     installments = db.relationship('Installment', backref='loan', lazy=True, cascade="all, delete-orphan", order_by="Installment.number")
@@ -239,10 +240,16 @@ class Loan(db.Model):
         
         return installments_list
 
+    @property
+    def remaining_balance(self):
+        total_paid = sum(i.paid_amount for i in self.installments)
+        total_loan_amount = sum(i.amount for i in self.installments)
+        return round(total_loan_amount - total_paid, 2)
+
     def to_dict(self):
         total_paid = sum(i.paid_amount for i in self.installments)
         total_loan_amount = sum(i.amount for i in self.installments)
-        remaining_balance = round(total_loan_amount - total_paid, 2)
+        remaining_balance = self.remaining_balance
         
         today = date.today()
         is_overdue = any(i.status != 'pagado' and i.due_date < today and (today - i.due_date).days > (self.grace_days or 0) for i in self.installments)
@@ -265,6 +272,8 @@ class Loan(db.Model):
             "installments_count": self.installments_count,
             "start_date": self.start_date.strftime("%Y-%m-%d"),
             "status": calculated_status,
+            "created_by": getattr(self, 'created_by', 'Administración') or 'Administración',
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S") if self.created_at else "",
             "grace_days": self.grace_days,
             "late_fee_type": self.late_fee_type,
             "late_fee_value": self.late_fee_value,
