@@ -612,6 +612,9 @@ function registerPrestamosApp() {
                     const res = await fetch('/api/settings');
                     const data = await res.json();
                     this.settings = { ...this.settings, ...data };
+                    if (this.settingsForm) {
+                        this.settingsForm = { ...this.settingsForm, ...data };
+                    }
                     this.loanForm.grace_days = parseInt(this.settings.default_grace_days || '3');
                     this.loanForm.late_fee_value = parseFloat(this.settings.default_late_fee || '1.0');
                 } catch (err) {
@@ -1309,7 +1312,9 @@ function registerPrestamosApp() {
                     whatsapp_auto_include_cbu: this.settings.whatsapp_auto_include_cbu !== undefined ? String(this.settings.whatsapp_auto_include_cbu) : '1',
                     auto_generate_pagare: this.settings.auto_generate_pagare !== undefined ? String(this.settings.auto_generate_pagare) : '1',
 
-                    // 5. Sueldos Familiares
+                    // 5. Sueldos Familiares & Nombres Personalizados
+                    salary_name_1: this.settings.salary_name_1 || '👨‍💻 Eduardo',
+                    salary_name_2: this.settings.salary_name_2 || '👩‍💼 Maira',
                     user_salary_eduardo: this.settings.user_salary_eduardo || '550000',
                     user_salary_maira: this.settings.user_salary_maira || '450000',
 
@@ -1391,15 +1396,126 @@ function registerPrestamosApp() {
                         body: JSON.stringify(this.settingsForm)
                     });
                     if (res.ok) {
+                        this.settings = { ...this.settings, ...this.settingsForm };
                         await this.fetchSettings();
                         await this.fetchNews();
-                        this.showToast("✅ Ajustes guardados correctamente.", "success");
-                        alert("✅ Ajustes del sistema guardados correctamente.");
+                        this.showToast("✅ Ajustes guardados correctamente en la base de datos.", "success");
+                        alert("✅ Ajustes del sistema guardados correctamente en la base de datos.");
                     } else {
                         alert("Error al guardar ajustes.");
                     }
                 } catch (e) {
                     alert("Error de conexión al guardar ajustes.");
+                }
+            },
+
+            // Bóveda Global & Legajos Digitales
+            selectedVaultDocIds: [],
+
+            toggleVaultDocSelection(docId) {
+                const idx = this.selectedVaultDocIds.indexOf(docId);
+                if (idx > -1) {
+                    this.selectedVaultDocIds.splice(idx, 1);
+                } else {
+                    this.selectedVaultDocIds.push(docId);
+                }
+            },
+
+            isVaultDocSelected(docId) {
+                return this.selectedVaultDocIds.includes(docId);
+            },
+
+            selectAllVaultDocs() {
+                const docs = this.filteredGlobalVaultDocs();
+                this.selectedVaultDocIds = docs.map(d => d.id);
+            },
+
+            clearVaultDocsSelection() {
+                this.selectedVaultDocIds = [];
+            },
+
+            viewVaultDocument(doc) {
+                if (!doc) return;
+                if (doc.id) {
+                    window.open(`/api/documents/${doc.id}/view`, '_blank');
+                } else if (doc.image_data) {
+                    const win = window.open();
+                    if (win) {
+                        win.document.write(`<iframe src="${doc.image_data}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+                    }
+                }
+            },
+
+            async deleteSelectedVaultDocs() {
+                if (!this.selectedVaultDocIds || this.selectedVaultDocIds.length === 0) {
+                    alert("Selecciona al menos un documento para eliminar.");
+                    return;
+                }
+                if (!confirm(`⚠️ ¿Deseas eliminar definitivamente los ${this.selectedVaultDocIds.length} documentos seleccionados?`)) {
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/documents/delete_batch', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ doc_ids: this.selectedVaultDocIds })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        this.selectedVaultDocIds = [];
+                        await this.loadGlobalVault();
+                        alert(`✅ ${data.count} documento(s) eliminado(s) exitosamente.`);
+                    } else {
+                        alert(data.error || "Error al eliminar documentos.");
+                    }
+                } catch (e) {
+                    alert("Error de conexión al eliminar documentos.");
+                }
+            },
+
+            async resetAppComplete() {
+                const conf1 = confirm("⚠️ ATENCIÓN MÁXIMA: Esta acción borrará TODOS los datos de la aplicación (clientes, préstamos, gastos, sueldos, sorteos, listas y pizarra).\n\n¿Estás seguro de que deseas reiniciar de cero todo el sistema?");
+                if (!conf1) return;
+                const conf2 = prompt("Para confirmar el borrado total, escribe BORRAR TODO en el cuadro de texto:");
+                if (conf2 !== "BORRAR TODO") {
+                    alert("Confirmación incorrecta. Se canceló el restablecimiento.");
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/settings/reset_all_data', { method: 'POST' });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert("✅ El sistema se ha restablecido a cero exitosamente.");
+                        await this.loadAllData();
+                        this.activeModal = null;
+                    } else {
+                        alert(data.error || "Error al restablecer la aplicación.");
+                    }
+                } catch (e) {
+                    alert("Error al conectar con el servidor para reiniciar datos.");
+                }
+            },
+
+            async updateClientScore(client, newScore) {
+                if (!client) return;
+                try {
+                    const res = await fetch(`/api/clients/${client.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ custom_score: newScore })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        await this.fetchClients();
+                        if (this.selectedClientHistory && this.selectedClientHistory.client.id === client.id) {
+                            this.selectedClientHistory.client = data;
+                        }
+                        this.showToast(`✅ Score actualizado a ${newScore}/100`, "success");
+                    } else {
+                        alert(data.error || "Error al actualizar score.");
+                    }
+                } catch (e) {
+                    alert("Error de conexión al actualizar el score.");
                 }
             },
 

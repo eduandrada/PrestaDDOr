@@ -280,6 +280,13 @@ def init_db_and_seeds():
         except Exception:
             pass
 
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(db.text("ALTER TABLE clients ADD COLUMN custom_score INTEGER"))
+            conn.commit()
+    except Exception:
+        pass
+
 
     # Default settings if empty or update default company name
     if not Setting.query.filter_by(key='company_name').first():
@@ -926,6 +933,15 @@ def handle_single_client(client_id):
         client.bank_alias = str(data['bank_alias'] or '').strip()[:100]
     if 'notes' in data:
         client.notes = str(data['notes'] or '').strip()
+    if 'custom_score' in data:
+        cs = data['custom_score']
+        if cs is None or cs == '':
+            client.custom_score = None
+        else:
+            try:
+                client.custom_score = max(0, min(100, int(cs)))
+            except (ValueError, TypeError):
+                pass
 
     if 'has_guarantor' in data:
         has_g = bool(data['has_guarantor'])
@@ -4456,6 +4472,8 @@ def get_all_documents():
         d_dict = d.to_dict()
         d_dict['client_name'] = d.client.name if d.client else 'Cliente Desconocido'
         d_dict['client_whatsapp'] = d.client.whatsapp if d.client else ''
+        d_dict['client_cuit'] = d.client.cuit if d.client else ''
+        d_dict['client_dni'] = d.client.dni if d.client else ''
         res.append(d_dict)
     return jsonify({"success": True, "documents": res})
 
@@ -7291,6 +7309,99 @@ def delete_client_registration_request(token):
         db.session.delete(req_item)
         db.session.commit()
     return jsonify({"success": True})
+
+
+# ----------------------------------------------------
+# VISUALIZACIÓN DE BÓVEDA & OPERACIONES BATCH
+# ----------------------------------------------------
+@app.route('/api/documents/<int:doc_id>/view', methods=['GET'])
+def view_single_document(doc_id):
+    doc = ClientDocument.query.get_or_404(doc_id)
+    img_data = doc.image_data or ''
+    if img_data.startswith('data:'):
+        try:
+            header, base64_str = img_data.split(',', 1)
+            mime_type = header.split(';')[0].replace('data:', '')
+            import base64, io
+            file_bytes = base64.b64decode(base64_str)
+            return send_file(io.BytesIO(file_bytes), mimetype=mime_type, as_attachment=False)
+        except Exception as e:
+            return jsonify({"error": f"Error al procesar el documento: {str(e)}"}), 400
+    return jsonify({"error": "Formato de documento no soportado para previsualización"}), 400
+
+
+@app.route('/api/documents/delete_batch', methods=['POST'])
+def delete_documents_batch():
+    data = request.get_json(silent=True) or {}
+    doc_ids = data.get('doc_ids', [])
+    if not doc_ids:
+        return jsonify({"error": "No se enviaron identificadores de documentos para eliminar"}), 400
+    try:
+        ClientDocument.query.filter(ClientDocument.id.in_(doc_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        trigger_auto_backup()
+        return jsonify({"success": True, "count": len(doc_ids)})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/settings/reset_all_data', methods=['POST'])
+def reset_all_data():
+    try:
+        Payment.query.delete()
+        Installment.query.delete()
+        Loan.query.delete()
+        ClientDocument.query.delete()
+        BiometricRequest.query.delete()
+        ClientRegistrationRequest.query.delete()
+        Client.query.delete()
+        Expense.query.delete()
+        PersonalBill.query.delete()
+        Raffle.query.delete()
+        ShoppingItem.query.delete()
+        NoticeBoardItem.query.delete()
+        HomeCalendarItem.query.delete()
+        db.session.commit()
+        trigger_auto_backup()
+        return jsonify({"success": True, "message": "Todos los datos se han restablecido a cero correctamente."})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Error al reiniciar datos: {str(e)}"}), 500
+
+
+# ----------------------------------------------------
+# GENERADOR DE CV PREMIUM
+# ----------------------------------------------------
+@app.route('/formulario-cv', methods=['GET'])
+@app.route('/formulario', methods=['GET'])
+def render_formulario_cv():
+    return render_template('Formulario.html')
+
+
+@app.route('/generar-cv', methods=['POST'])
+def generar_cv():
+    plantilla = request.form.get('plantilla', 'minimalista')
+    data = {
+        'nombre': request.form.get('nombre', ''),
+        'puesto': request.form.get('puesto', ''),
+        'email': request.form.get('email', ''),
+        'telefono': request.form.get('telefono', ''),
+        'linkedin': request.form.get('linkedin', ''),
+        'sobre_mi': request.form.get('sobre_mi', ''),
+        'experiencia': request.form.get('experiencia', ''),
+        'educacion': request.form.get('educacion', ''),
+        'habilidades': request.form.get('habilidades', '')
+    }
+    
+    template_map = {
+        'minimalista': 'cv_templates/minimalista.html',
+        'ejecutivo': 'cv_templates/ejecutivo.html',
+        'creativa': 'cv_templates/creativa.html',
+        'tecnologica': 'cv_templates/tecnologica.html'
+    }
+    target_template = template_map.get(plantilla, 'cv_templates/minimalista.html')
+    return render_template(target_template, **data)
 
 
 if __name__ == '__main__':

@@ -21,12 +21,58 @@ class Client(db.Model):
     guarantor_phone = db.Column(db.String(30), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    custom_score = db.Column(db.Integer, nullable=True)
+
     loans = db.relationship('Loan', backref='client', lazy=True, cascade="all, delete-orphan")
     payments = db.relationship('Payment', backref='client', lazy=True, cascade="all, delete-orphan")
     documents = db.relationship('ClientDocument', backref='client', lazy=True, cascade="all, delete-orphan", order_by="ClientDocument.created_at.desc()")
     biometric_requests = db.relationship('BiometricRequest', backref='client', lazy=True, cascade="all, delete-orphan")
 
+    @property
+    def formatted_cuit(self):
+        if not self.cuit:
+            return ""
+        c = "".join(ch for ch in self.cuit if ch.isdigit())
+        if len(c) == 11:
+            return f"{c[:2]}-{c[2:10]}-{c[10]}"
+        return self.cuit
+
+    @property
+    def dni(self):
+        if not self.cuit:
+            return ""
+        c = "".join(ch for ch in self.cuit if ch.isdigit())
+        if len(c) == 11:
+            return c[2:10]
+        return c
+
     def calculate_scoring_and_status(self):
+        if self.custom_score is not None:
+            score_pts = max(0, min(100, int(self.custom_score)))
+            if score_pts >= 85:
+                stars, risk_level, rec_limit, traffic_light, label = 5, "Bajo", 250000.0, "verde", "Cliente Confiable (Puntaje Personalizado)"
+            elif score_pts >= 70:
+                stars, risk_level, rec_limit, traffic_light, label = 4, "Bajo-Medio", 150000.0, "verde", "Perfil Regular (Puntaje Personalizado)"
+            elif score_pts >= 50:
+                stars, risk_level, rec_limit, traffic_light, label = 3, "Medio", 80000.0, "amarillo", "Riesgo Moderado (Puntaje Personalizado)"
+            elif score_pts >= 30:
+                stars, risk_level, rec_limit, traffic_light, label = 2, "Alto", 40000.0, "amarillo", "Riesgo Alto (Puntaje Personalizado)"
+            else:
+                stars, risk_level, rec_limit, traffic_light, label = 1, "Muy Alto", 15000.0, "rojo", "Mora / Riesgo Elevado (Puntaje Personalizado)"
+            
+            return {
+                "score_stars": stars,
+                "score_points": score_pts,
+                "risk_level": risk_level,
+                "recommended_limit": rec_limit,
+                "traffic_light": traffic_light,
+                "traffic_light_label": label,
+                "total_loans": len(self.loans),
+                "active_loans": len([l for l in self.loans if l.status == 'activo']),
+                "completed_loans": len([l for l in self.loans if l.status == 'completado']),
+                "on_time_rate": score_pts
+            }
+
         all_installments = []
         for loan in self.loans:
             all_installments.extend(loan.installments)
@@ -36,16 +82,16 @@ class Client(db.Model):
 
         if not all_installments:
             return {
-                "score_stars": 5,
-                "score_points": 100,
-                "risk_level": "Bajo",
-                "recommended_limit": 150000.0,
+                "score_stars": 1,
+                "score_points": 0,
+                "risk_level": "Inicial",
+                "recommended_limit": 100000.0,
                 "traffic_light": "verde",
-                "traffic_light_label": "Sin historial (Nuevo - Crédito Inicial)",
+                "traffic_light_label": "Sin historial (Nuevo - Inicio 0 pts)",
                 "total_loans": len(self.loans),
                 "active_loans": active_loans_count,
                 "completed_loans": completed_loans_count,
-                "on_time_rate": 100.0
+                "on_time_rate": 0.0
             }
         
         total_paid_installments = 0
@@ -78,20 +124,20 @@ class Client(db.Model):
         total_evaluated = total_paid_installments + late_paid_or_overdue
         if total_evaluated == 0:
             return {
-                "score_stars": 5,
-                "score_points": 100,
-                "risk_level": "Bajo",
-                "recommended_limit": 150000.0,
+                "score_stars": 1,
+                "score_points": 0,
+                "risk_level": "Inicial",
+                "recommended_limit": 100000.0,
                 "traffic_light": "verde",
-                "traffic_light_label": "Al día",
+                "traffic_light_label": "Sin historial evaluado (Inicio 0 pts)",
                 "total_loans": len(self.loans),
                 "active_loans": active_loans_count,
                 "completed_loans": completed_loans_count,
-                "on_time_rate": 100.0
+                "on_time_rate": 0.0
             }
 
         on_time_percentage = ((on_time_paid + (grace_paid * 0.7)) / max(1, total_evaluated)) * 100.0
-        score_pts = min(100, max(10, int(on_time_percentage + (completed_loans_count * 5) - (late_paid_or_overdue * 10))))
+        score_pts = min(100, max(0, int(on_time_percentage + (completed_loans_count * 5) - (late_paid_or_overdue * 15))))
 
         if score_pts >= 85:
             stars = 5
@@ -116,13 +162,13 @@ class Client(db.Model):
 
         if late_paid_or_overdue > 1 or (total_evaluated > 0 and late_paid_or_overdue / total_evaluated > 0.3):
             traffic_light = "rojo"
-            label = f"Mora Reincidente (Riesgo {risk_level} - Limitar Cupo)"
+            label = f"Mora Reincidente (Riesgo {risk_level} - Puntaje: {score_pts}/100)"
         elif grace_paid > 0 or late_paid_or_overdue == 1:
             traffic_light = "amarillo"
-            label = f"Pagos en gracia / Demoras leves (Riesgo {risk_level})"
+            label = f"Pagos en gracia / Demoras leves (Riesgo {risk_level} - Puntaje: {score_pts}/100)"
         else:
             traffic_light = "verde"
-            label = f"Cliente Confiable (Riesgo {risk_level})"
+            label = f"Cliente Confiable (Riesgo {risk_level} - Puntaje: {score_pts}/100)"
 
         return {
             "score_stars": stars,
@@ -147,8 +193,11 @@ class Client(db.Model):
             "email": self.email or "",
             "address": self.address or "",
             "cuit": self.cuit or "",
+            "formatted_cuit": self.formatted_cuit,
+            "dni": self.dni,
             "notes": self.notes or "",
             "bank_alias": getattr(self, 'bank_alias', '') or "",
+            "custom_score": getattr(self, 'custom_score', None),
             "has_pending_qr": has_pending_qr,
             "has_guarantor": bool(self.has_guarantor),
             "guarantor_name": self.guarantor_name or "",

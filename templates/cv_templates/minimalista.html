@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: A4; margin: 20mm 15mm 20mm 15mm; }
+        body { font-family: 'Georgia', serif; color: #2d3748; line-height: 1.6; margin: 0; }
+        .header { border-bottom: 2px solid #0f766e; padding-bottom: 15px; margin-bottom: 25px; }
+        .name { font-size: 28px; font-weight: bold; color: #111827; letter-spacing: -0.5px; }
+        .title { font-size: 16px; color: #0f766e; text-transform: uppercase; font-family: sans-serif; font-weight: bold; margin-top: 2px; }
+        .contact-bar { font-family: sans-serif; font-size: 12px; color: #6b7280; margin-top: 8px; }
+        .section-title { font-family: sans-serif; font-size: 14px; font-weight: bold; uppercase; color: #0f766e; letter-spacing: 1px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; margin-top: 25px; margin-bottom: 10px; text-transform: uppercase; }
+        p { margin: 0 0 10px 0; font-size: 14px; }
+        .content-block { margin-bottom: 15px; white-space: pre-line; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="name">{{ nombre }}</div>
+        <div class="title">{{ puesto }}</div>
+        <div class="contact-bar">✉ {{ email }} | 📱 {{ telefono }} {% if linkedin %} | 🔗 {{ linkedin }}{% endif %}</div>
+    </div>
+    
+    {% if sobre_mi %}
+    <div class="section-title">Perfil Profesional</div>
+    <div class="content-block">{{ sobre_mi }}</div>
+    {% endif %}
+
+    {% if experiencia %}
+    <div class="section-title">Experiencia Laboral</div>
+    <div class="content-block">{{ experiencia }}</div>
+    {% endif %}
+
+    {% if educacion %}
+    <div class="section-title">Educación</div>
+    <div class="content-block">{{ educacion }}</div>
+    {% endif %}
+
+    {% if habilidades %}
+    <div class="section-title">Competencias Clave</div>
+    <p>{{ habilidades }}</p>
+    {% endif %}
+</body>
+</html>

@@ -746,14 +746,31 @@
             <div class="flex justify-between items-start">
               <div>
                 <h3 class="font-extrabold text-base text-slate-900 dark:text-white" x-text="client.name"></h3>
-                <p class="text-xs text-slate-500 font-mono">📱 +<span x-text="client.whatsapp"></span></p>
+                <p class="text-[11px] font-mono text-brand-600 dark:text-brand-400 font-bold" x-show="client.cuit || client.dni">
+                  🪪 Legajo / DNI: <span x-text="client.formatted_cuit || client.dni || client.cuit"></span>
+                </p>
+                <div class="flex items-center gap-2 mt-0.5">
+                  <p class="text-xs text-slate-500 font-mono">📱 +<span x-text="client.whatsapp"></span></p>
+                  <a :href="'https://wa.me/' + client.whatsapp" target="_blank" class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-black shadow-sm transition inline-flex items-center gap-1">
+                    💬 WhatsApp
+                  </a>
+                </div>
+                <p class="text-[11px] text-slate-400 font-mono mt-0.5" x-show="client.cuit">
+                  🏢 CUIT/CUIL: <span x-text="client.formatted_cuit || client.cuit"></span>
+                </p>
               </div>
 
-              <span :class="{
-                'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300': client.metrics.traffic_light === 'verde',
-                'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300': client.metrics.traffic_light === 'amarillo',
-                'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300': client.metrics.traffic_light === 'rojo'
-              }" class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase" x-text="client.metrics.traffic_light"></span>
+              <div class="flex flex-col items-end gap-1">
+                <span :class="{
+                  'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300': client.metrics.traffic_light === 'verde',
+                  'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300': client.metrics.traffic_light === 'amarillo',
+                  'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300': client.metrics.traffic_light === 'rojo'
+                }" class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase" x-text="client.metrics.traffic_light"></span>
+
+                <button type="button" @click="const ns = prompt('Puntaje manual para ' + client.name + ' (0 a 100). Deja vacío para automático:', client.custom_score !== null ? client.custom_score : ''); if(ns !== null) updateClientScore(client, ns);" class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-bold" title="Gestionar Puntaje / Score">
+                  ⚙️ Score
+                </button>
+              </div>
             </div>
 
             <!-- Scoring 1-100 Pts & Stars -->
@@ -765,7 +782,7 @@
                   </template>
                 </div>
                 <span class="px-2 py-0.5 rounded-full text-xs font-black bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
-                  Score: <span x-text="client.metrics.score_points || 100"></span>/100
+                  Score: <span x-text="client.metrics.score_points !== undefined ? client.metrics.score_points : 0"></span>/100
                 </span>
               </div>
               <div class="flex justify-between items-center text-[11px]">
@@ -1263,12 +1280,12 @@
 
       <!-- SUB-SECTIONS FILTER BAR (Sticky, Mobile & PC Friendly) -->
       <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none sticky top-16 z-20 bg-slate-100/95 dark:bg-slate-950/95 backdrop-blur-md py-2 px-1 rounded-2xl border border-slate-200/60 dark:border-slate-800/60">
+        <button @click="accountSubSection = 'sueldos'" :class="accountSubSection === 'sueldos' ? 'bg-indigo-600 text-white font-black shadow-md shadow-indigo-500/20' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold'" class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition flex items-center space-x-1.5">
+          <span>📊 Ingresos & Sueldos</span>
+        </button>
         <button @click="accountSubSection = 'cuentas'" :class="accountSubSection === 'cuentas' ? 'bg-indigo-600 text-white font-black shadow-md shadow-indigo-500/20' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold'" class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition flex items-center space-x-1.5">
           <span>💳 Cuentas & Tarjetas</span>
           <span class="px-1.5 py-0.5 rounded-full text-[9px] bg-indigo-500 text-white font-black" x-text="filteredBills ? filteredBills.length : 0"></span>
-        </button>
-        <button @click="accountSubSection = 'sueldos'" :class="accountSubSection === 'sueldos' ? 'bg-indigo-600 text-white font-black shadow-md shadow-indigo-500/20' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold'" class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition flex items-center space-x-1.5">
-          <span>📊 Ingresos & Sueldos</span>
         </button>
         <button @click="accountSubSection = 'gastos'" :class="accountSubSection === 'gastos' ? 'bg-rose-600 text-white font-black shadow-md shadow-rose-500/20' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold'" class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition flex items-center space-x-1.5">
           <span>💸 Gastos Operativos & Hormiga</span>
@@ -2989,7 +3006,7 @@
       </div>
 
       <!-- MOBILE-FIRST QUICK ACTION CARDS (TACTILE ACCESSIBLE ≥48px) -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
         
         <!-- CARD 1: CAMERA OCR SCANNER -->
         <button @click="triggerCameraOcr()" class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md hover:shadow-xl transition text-left flex flex-col justify-between space-y-3 group hover:border-indigo-500 active:scale-95 min-h-[110px]">
@@ -3038,6 +3055,18 @@
             <p class="text-[10px] text-slate-500 dark:text-slate-400">Capturas ordenadas</p>
           </div>
         </button>
+
+        <!-- CARD 5: GENERATE CV -->
+        <a href="/formulario-cv" target="_blank" class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md hover:shadow-xl transition text-left flex flex-col justify-between space-y-3 group hover:border-blue-500 active:scale-95 min-h-[110px]">
+          <div class="flex justify-between items-start">
+            <div class="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center text-2xl group-hover:scale-110 transition">📄</div>
+            <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800">Diseño CV</span>
+          </div>
+          <div>
+            <h4 class="text-xs font-extrabold text-slate-800 dark:text-slate-100">📄 Generar CV</h4>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">4 Plantillas Pro</p>
+          </div>
+        </a>
 
       </div>
 
@@ -5603,11 +5632,7 @@
         </button>
         <button type="button" @click="settingsTab = 'backup'" :class="settingsTab === 'backup' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'" class="px-3 py-2 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
           <span>💾</span>
-          <span>Copias de Seguridad</span>
-        </button>
-        <button type="button" @click="settingsTab = 'pwa'" :class="settingsTab === 'pwa' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'" class="px-3 py-2 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
-          <span>📱</span>
-          <span>Instalar PWA / Favoritos</span>
+          <span>Backup & PWA</span>
         </button>
         <button type="button" @click="settingsTab = 'boveda'; loadGlobalVault();" :class="settingsTab === 'boveda' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'" class="px-3 py-2 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
           <span>🗂️</span>
@@ -5632,75 +5657,60 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Nombre Comercial / Razón Social</label>
-                <input type="text" x-model="settingsForm.company_name" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold focus:ring-1 focus:ring-brand-500" required>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Nombre de la Empresa / Financiera</label>
+                <input type="text" x-model="settingsForm.company_name" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
               </div>
               <div>
                 <label class="block text-[11px] font-bold text-slate-500 mb-1">CUIT / CUIL de la Empresa</label>
                 <input type="text" x-model="settingsForm.company_cuit" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono" placeholder="20-xxxxxxxx-x">
               </div>
-              <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">WhatsApp Oficial de Cobranzas</label>
-                <input type="text" x-model="settingsForm.company_phone" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold" placeholder="+54 9 383 4xxxxxx">
-              </div>
-              <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Email de Contacto Oficial</label>
-                <input type="email" x-model="settingsForm.company_email" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
-              </div>
-              <div class="sm:col-span-2">
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Domicilio Comercial</label>
-                <input type="text" x-model="settingsForm.company_address" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
-              </div>
+            </div>
 
-              <!-- Logo de la Empresa para PDFs e Impresiones -->
-              <div class="sm:col-span-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">🖼️ Logo Oficial de la Empresa (Para Ficha, Pagaré, Mutuo & PDFs)</label>
-                <p class="text-[10px] text-slate-400 mb-2">Medidas recomendadas: 400x120px (horizontal) o 300x300px (cuadrado). Formatos: PNG, JPG, WebP, SVG (Máx. 1MB).</p>
-                <div class="flex items-center space-x-3">
-                  <div class="w-28 h-12 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden p-1 shadow-inner">
-                    <template x-if="settingsForm.company_logo_data">
-                      <img :src="settingsForm.company_logo_data" alt="Logo Previsualización" class="max-h-full max-w-full object-contain">
-                    </template>
-                    <template x-if="!settingsForm.company_logo_data">
-                      <span class="text-[10px] text-slate-400 font-bold">Sin Logo</span>
-                    </template>
-                  </div>
-                  <label class="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-sm flex items-center space-x-1">
-                    <span>📤 Subir Logo...</span>
-                    <input type="file" accept="image/*" class="hidden" @change="onLogoSelected($event)">
-                  </label>
-                  <button type="button" x-show="settingsForm.company_logo_data" @click="settingsForm.company_logo_data = ''" class="px-3 py-2 bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-bold hover:bg-rose-200 transition">Quitar Logo</button>
-                </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Alias CBU Principal</label>
+                <input type="text" x-model="settingsForm.alias_cbu" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono font-bold">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Número de CBU / CVU</label>
+                <input type="text" x-model="settingsForm.company_cbu" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Banco / Entidad Financiera</label>
+                <input type="text" x-model="settingsForm.company_bank" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold">
               </div>
             </div>
-          </div>
 
-          <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
-            <div class="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700/50 pb-2">
-              <span class="text-sm">💳</span>
-              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Datos Bancarios para Transferencias de Cuotas</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60 dark:border-slate-700/40">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Titular de la Cuenta</label>
+                <input type="text" x-model="settingsForm.company_titular" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Teléfono WhatsApp de Contacto</label>
+                <input type="text" x-model="settingsForm.company_phone" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono">
+              </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Titular de la Cuenta Bancaria</label>
-                <input type="text" x-model="settingsForm.company_titular" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold">
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Domicilio Comercial</label>
+                <input type="text" x-model="settingsForm.company_address" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium">
               </div>
               <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Banco / Billetera Virtual</label>
-                <input type="text" x-model="settingsForm.company_bank" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white" placeholder="Ej: Mercado Pago / Santander">
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Correo Electrónico Institucional</label>
+                <input type="email" x-model="settingsForm.company_email" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium">
               </div>
-              <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Alias CBU / CVU</label>
-                <input type="text" x-model="settingsForm.alias_cbu" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 font-mono uppercase font-bold">
-              </div>
-              <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">CBU / CVU Oficial (22 dígitos)</label>
-                <input type="text" x-model="settingsForm.company_cbu" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono">
-              </div>
-              <div class="sm:col-span-2">
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Texto de Pago / Datos Adicionales QR</label>
-                <input type="text" x-model="settingsForm.qr_text" placeholder="Instrucciones al transferir (ej: Enviar comprobante por WhatsApp)" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+            </div>
+
+            <!-- Upload Logo de la Empresa -->
+            <div class="pt-2 border-t border-slate-200/60 dark:border-slate-700/40">
+              <label class="block text-[11px] font-bold text-slate-500 mb-1">Logo Institucional de la Empresa (PNG/JPG)</label>
+              <div class="flex items-center space-x-3">
+                <input type="file" @change="onLogoSelected($event)" accept="image/*" class="text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-brand-100 file:text-brand-700 dark:file:bg-brand-950 dark:file:text-brand-300 hover:file:bg-brand-200">
+                <template x-if="settingsForm.company_logo_data">
+                  <img :src="settingsForm.company_logo_data" class="h-8 w-auto rounded border border-slate-200 dark:border-slate-700" alt="Logo Previsualización">
+                </template>
               </div>
             </div>
           </div>
@@ -5711,79 +5721,54 @@
           <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
             <div class="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700/50 pb-2">
               <span class="text-sm">⚡</span>
-              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Condiciones de Préstamos Predeterminadas</h4>
+              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Tasas de Interés & Reglas Operativas</h4>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Tasa de Interés Sugerida</label>
-                <div class="relative">
-                  <input type="number" step="0.5" x-model="settingsForm.default_interest_rate" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
-                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-bold">%</span>
-                </div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Tasa de Interés Por Defecto (%)</label>
+                <input type="number" step="0.1" x-model="settingsForm.default_interest_rate" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
               </div>
               <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Modalidad Habitual</label>
-                <select x-model="settingsForm.default_modality" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
-                  <option value="diario">Diario</option>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Modalidad de Cobro Habitual</label>
+                <select x-model="settingsForm.default_modality" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold">
+                  <option value="diario">Diario (Lunes a Viernes)</option>
                   <option value="semanal">Semanal</option>
                   <option value="quincenal">Quincenal</option>
                   <option value="mensual">Mensual</option>
                 </select>
               </div>
               <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Cuotas Sugeridas</label>
-                <input type="number" min="1" x-model="settingsForm.default_installments_count" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
-              </div>
-              <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Días de Gracia por Defecto</label>
-                <div class="relative">
-                  <input type="number" min="0" max="30" x-model="settingsForm.default_grace_days" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
-                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-bold">días</span>
-                </div>
-              </div>
-              <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Recargo Punitorio Diario</label>
-                <div class="relative">
-                  <input type="number" step="0.1" min="0" max="50" x-model="settingsForm.default_late_fee" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
-                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-bold">%</span>
-                </div>
-              </div>
-              <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Alerta Anticipada Vencimiento</label>
-                <div class="relative">
-                  <input type="number" min="1" max="15" x-model="settingsForm.overdue_alert_days" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
-                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-bold">días</span>
-                </div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Cantidad de Cuotas Sugerida</label>
+                <input type="number" min="1" max="60" x-model="settingsForm.default_installments_count" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
               </div>
             </div>
-          </div>
 
-          <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
-            <div class="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700/50 pb-2">
-              <span class="text-sm">🛡️</span>
-              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Límites Financieros, Umbrales & Garantes</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200/60 dark:border-slate-700/40">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Días de Gracia sin Interés Punitorio</label>
+                <input type="number" min="0" max="15" x-model="settingsForm.default_grace_days" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Recargo Punitorio Diario por Mora (%)</label>
+                <input type="number" step="0.1" x-model="settingsForm.default_late_fee" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Límite Máximo de Crédito Sugerido ($)</label>
+                <input type="number" step="5000" x-model="settingsForm.default_max_loan_limit" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+              </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60 dark:border-slate-700/40">
               <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Límite Préstamo Sugerido ($)</label>
-                <input type="number" step="1000" x-model="settingsForm.default_max_loan_limit" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Monto Exigido para Pedir Garante ($)</label>
+                <input type="number" step="10000" x-model="settingsForm.guarantor_required_threshold" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+                <span class="text-[10px] text-slate-400">Préstamos mayores a este monto sugerirán la carga de un garante.</span>
               </div>
               <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Exigir Garante a partir de ($)</label>
-                <input type="number" step="1000" x-model="settingsForm.guarantor_required_threshold" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
-              </div>
-              <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Umbral Gasto Hormiga ($)</label>
-                <input type="number" step="100" x-model="settingsForm.ant_expense_threshold" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
-              </div>
-              <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">⏰ Validez QR / Enlace Biométrico (min)</label>
-                <div class="relative">
-                  <input type="number" min="5" max="1440" x-model="settingsForm.qr_biometric_expiry_minutes" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
-                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-bold">min</span>
-                </div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Umbral de Alerta de Gastos Hormiga ($)</label>
+                <input type="number" step="500" x-model="settingsForm.ant_expense_threshold" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+                <span class="text-[10px] text-slate-400">Gastos menores a esta cifra se clasificarán automáticamente como Hormiga.</span>
               </div>
             </div>
           </div>
@@ -6015,36 +6000,41 @@
           <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
             <div class="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700/50 pb-2">
               <span class="text-sm">👥</span>
-              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Sueldos Familiares Mensuales</h4>
+              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Sueldos Familiares & Personalización de Titulares</h4>
             </div>
-            <p class="text-xs text-slate-500">Estos montos alimentan los cálculos de solvencia del Módulo de Finanzas Personales del Hogar.</p>
+            <p class="text-xs text-slate-500">Configura los nombres con emojis y montos mensuales de los integrantes del hogar. El Asesor IA detectará automáticamente estos nombres para los análisis financieros.</p>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Ingreso Mensual Eduardo ($)</label>
+              <div class="p-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                <label class="block text-[11px] font-bold text-slate-500">Nombre / Titular 1 (con Emoji)</label>
+                <input type="text" x-model="settingsForm.salary_name_1" placeholder="👨‍💻 Eduardo" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-bold text-slate-900 dark:text-white">
+                <label class="block text-[11px] font-bold text-slate-500 mt-2">Sueldo / Ingreso Mensual ($)</label>
                 <input type="number" step="1000" x-model="settingsForm.user_salary_eduardo" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
               </div>
-              <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">Ingreso Mensual Maira ($)</label>
+
+              <div class="p-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                <label class="block text-[11px] font-bold text-slate-500">Nombre / Titular 2 (con Emoji)</label>
+                <input type="text" x-model="settingsForm.salary_name_2" placeholder="👩‍💼 Maira" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-bold text-slate-900 dark:text-white">
+                <label class="block text-[11px] font-bold text-slate-500 mt-2">Sueldo / Ingreso Mensual ($)</label>
                 <input type="number" step="1000" x-model="settingsForm.user_salary_maira" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
               </div>
             </div>
 
             <!-- Resumen Total Familiar -->
-            <div class="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800 flex justify-between items-center">
-              <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300">Total Ingresos Familiares Proyectados:</span>
+            <div class="p-3.5 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800 flex justify-between items-center">
+              <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300">Total Ingresos Familiares Mensuales Proyectados:</span>
               <span class="text-sm font-black text-indigo-900 dark:text-indigo-200" x-text="'$' + (parseFloat(settingsForm.user_salary_eduardo || 0) + parseFloat(settingsForm.user_salary_maira || 0)).toLocaleString('es-AR')"></span>
             </div>
           </div>
         </div>
 
-        <!-- PESTAÑA 6: COPIAS DE SEGURIDAD & BASE DE DATOS -->
+        <!-- PESTAÑA 6: BACKUP & RESTABLECIMIENTO TOTAL -->
         <div x-show="settingsTab === 'backup'" class="space-y-4">
           <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/50 pb-2">
               <div class="flex items-center space-x-2">
                 <span class="text-sm">💾</span>
-                <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Copias de Seguridad (Backup & Restore)</h4>
+                <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Backup, PWA & Restablecimiento de Sistema</h4>
               </div>
               <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400">
                 🟢 Auto-Backup Activo
@@ -6052,7 +6042,7 @@
             </div>
 
             <p class="text-xs text-slate-500">
-              El sistema realiza una copia espejo automática en formato JSON ante cada operación. Además podés descargar tu respaldo o restaurarlo en cualquier momento.
+              El sistema realiza una copia espejo automática en formato JSON ante cada operación. Podés descargar tu respaldo, restaurarlo o instalar la app PWA en tu pantalla de inicio.
             </p>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
@@ -6081,49 +6071,33 @@
                 </button>
               </div>
             </div>
-          </div>
-        </div>
 
-        <!-- PESTAÑA PWA / FAVORITOS -->
-        <div x-show="settingsTab === 'pwa'" class="space-y-4">
-          <div class="p-5 bg-gradient-to-br from-brand-900 via-slate-900 to-indigo-950 text-white rounded-2xl shadow-lg border border-brand-500/30 space-y-4">
-            <div class="flex items-center space-x-3">
-              <div class="w-12 h-12 rounded-2xl bg-brand-500/30 flex items-center justify-center text-2xl">📱</div>
-              <div>
-                <h4 class="font-extrabold text-base">Instalar Aplicación en Pantalla de Inicio (PWA)</h4>
-                <p class="text-xs text-brand-200">Acceso rápido e instantáneo desde tu Celular o Computadora como App Nativa.</p>
+            <!-- PWA APP INSTALLATION PANEL -->
+            <div class="p-4 bg-gradient-to-br from-slate-900 via-slate-850 to-indigo-950 text-white rounded-2xl shadow-lg border border-brand-500/30 space-y-3 mt-3">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-500/30 flex items-center justify-center text-xl">📱</div>
+                <div>
+                  <h4 class="font-extrabold text-xs sm:text-sm">Instalar Aplicación en Pantalla de Inicio (PWA)</h4>
+                  <p class="text-[11px] text-brand-200">Acceso rápido e instantáneo desde tu Celular o Computadora como App Nativa.</p>
+                </div>
               </div>
-            </div>
-
-            <!-- Botón Principal de Instalación PWA -->
-            <div class="pt-2">
-              <button type="button" @click="installPwa()" class="w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-600 active:scale-98 text-white rounded-xl font-extrabold text-sm shadow-lg flex items-center justify-center space-x-2 transition cursor-pointer">
+              <button type="button" @click="installPwa()" class="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 active:scale-98 text-white rounded-xl font-extrabold text-xs shadow-lg flex items-center justify-center space-x-2 transition cursor-pointer">
                 <span>📲 Instalar Aplicación Ahora en este Dispositivo</span>
               </button>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-brand-800/80 text-xs">
-              <div class="p-3 bg-white/10 rounded-xl space-y-1">
-                <div class="font-bold text-amber-300 flex items-center space-x-1">
-                  <span>🤖 Android (Chrome/Edge/Brave)</span>
-                </div>
-                <p class="text-[11px] text-slate-200">1. Toca los 3 puntos superiores (⋮).</p>
-                <p class="text-[11px] text-slate-200">2. Elige "Agregar a la pantalla principal" o "Instalar aplicación".</p>
+            <!-- RESTABLECER APP COMPLETA (BORRAR TODO) -->
+            <div class="p-4 bg-rose-50 dark:bg-rose-950/40 rounded-2xl border border-rose-200 dark:border-rose-900/60 space-y-2 mt-4">
+              <div class="flex items-center space-x-2 text-rose-700 dark:text-rose-300">
+                <span class="text-lg">💥</span>
+                <span class="text-xs font-black uppercase tracking-wider">Restablecer App Completa (Borrar Datos y Empezar de Cero)</span>
               </div>
-              <div class="p-3 bg-white/10 rounded-xl space-y-1">
-                <div class="font-bold text-sky-300 flex items-center space-x-1">
-                  <span>🍏 iPhone / iPad (Safari)</span>
-                </div>
-                <p class="text-[11px] text-slate-200">1. Toca el botón Compartir (cuadrado con flecha ⎋).</p>
-                <p class="text-[11px] text-slate-200">2. Selecciona "Agregar a inicio" (+).</p>
-              </div>
-              <div class="p-3 bg-white/10 rounded-xl space-y-1">
-                <div class="font-bold text-purple-300 flex items-center space-x-1">
-                  <span>💻 PC / Mac (Chrome/Edge)</span>
-                </div>
-                <p class="text-[11px] text-slate-200">1. Haz clic en el ícono de instalar (⊕) en la barra de navegación.</p>
-                <p class="text-[11px] text-slate-200">2. O presiona (Ctrl + D) para añadir a Favoritos.</p>
-              </div>
+              <p class="text-[11px] text-rose-600 dark:text-rose-300/80">
+                Esta opción eliminará de forma permanente todos los registros del sistema (clientes, préstamos, gastos, sueldos, sorteos, listas y pizarra) para iniciar la app completamente limpia.
+              </p>
+              <button type="button" @click="resetAppComplete()" class="w-full py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
+                <span>🗑️ Borrar Todos los Datos y Restablecer de Cero</span>
+              </button>
             </div>
           </div>
         </div>
@@ -6134,7 +6108,7 @@
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/50 pb-2">
               <div class="flex items-center space-x-2">
                 <span class="text-sm">🗂️</span>
-                <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Bóveda de Documentos & Resguardos Digitales</h4>
+                <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Bóveda de Documentos & Resguardos Digitales (Archivo de Legajos)</h4>
               </div>
               <button type="button" @click="loadGlobalVault()" class="px-2.5 py-1 bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 rounded-lg text-xs font-bold hover:bg-brand-200 transition">🔄 Actualizar</button>
             </div>
@@ -6156,21 +6130,40 @@
                 </select>
               </div>
               <div>
-                <label class="block text-[10px] font-bold text-slate-500 mb-1">Buscar por Nombre de Cliente</label>
-                <input type="text" x-model="globalVaultSearch" placeholder="Buscar cliente..." class="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium">
+                <label class="block text-[10px] font-bold text-slate-500 mb-1">Buscar por Nombre, DNI / Legajo o CUIT</label>
+                <input type="text" x-model="globalVaultSearch" placeholder="Buscar por Nombre, DNI o CUIT..." class="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium">
               </div>
+            </div>
+
+            <!-- Acciones por Lote / Selección Múltiple -->
+            <div class="flex items-center justify-between bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+              <div class="flex items-center gap-2">
+                <button type="button" @click="selectAllVaultDocs()" class="px-2 py-1 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-[10px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200">
+                  ☑️ Seleccionar Todos
+                </button>
+                <button type="button" @click="clearVaultDocsSelection()" class="px-2 py-1 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-[10px] font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200">
+                  ⬛ Limpiar Selección
+                </button>
+                <span class="text-[11px] font-bold text-slate-500" x-show="selectedVaultDocIds.length > 0" x-text="selectedVaultDocIds.length + ' seleccionado(s)'"></span>
+              </div>
+              <button type="button" @click="deleteSelectedVaultDocs()" :disabled="selectedVaultDocIds.length === 0" class="px-3 py-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg text-xs font-black transition flex items-center gap-1 shadow">
+                🗑️ Eliminar Seleccionados (<span x-text="selectedVaultDocIds.length"></span>)
+              </button>
             </div>
 
             <!-- Grid de Documentos -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto pt-2 pr-1">
               <template x-for="doc in filteredGlobalVaultDocs()" :key="doc.id">
-                <div class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 shadow-sm flex flex-col justify-between">
+                <div class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 shadow-sm flex flex-col justify-between" :class="isVaultDocSelected(doc.id) ? 'ring-2 ring-indigo-500 bg-indigo-50/20 dark:bg-indigo-950/20' : ''">
                   <div>
                     <div class="flex items-center justify-between">
-                      <span class="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 uppercase" x-text="doc.doc_type"></span>
+                      <div class="flex items-center gap-1.5">
+                        <input type="checkbox" :checked="isVaultDocSelected(doc.id)" @change="toggleVaultDocSelection(doc.id)" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer">
+                        <span class="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 uppercase" x-text="doc.doc_type"></span>
+                      </div>
                       <span class="text-[10px] text-slate-400 font-mono" x-text="doc.created_at"></span>
                     </div>
-                    <h5 class="text-xs font-bold text-slate-900 dark:text-white mt-1 line-clamp-1" x-text="doc.title"></h5>
+                    <h5 class="text-xs font-bold text-slate-900 dark:text-white mt-1.5 line-clamp-1" x-text="doc.title"></h5>
                     <p class="text-[11px] text-slate-500 dark:text-slate-400 font-semibold" x-text="'👤 ' + doc.client_name"></p>
                   </div>
 
