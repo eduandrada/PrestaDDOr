@@ -1038,19 +1038,19 @@
     <!-- TAB 4: PRÉSTAMOS & AMORTIZACIÓN            -->
     <!-- ========================================== -->
     <div x-show="activeTab === 'loans'" x-transition class="space-y-6">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
         <div>
           <h2 class="text-2xl font-black text-slate-900 dark:text-white">Gestión de Préstamos</h2>
           <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Tabla de amortización y cobranzas</p>
         </div>
-        <div class="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full sm:w-auto">
-          <select x-model="loanStatusFilter" class="w-full sm:w-36 p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
+        <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+          <select x-model="loanStatusFilter" class="p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
             <option value="todos">Todos los Estados</option>
             <option value="activo">Activos</option>
             <option value="en_mora">En Mora</option>
             <option value="completado">Completados</option>
           </select>
-          <select x-model="selectedMonthFilter" class="w-full sm:w-36 p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
+          <select x-model="selectedMonthFilter" class="p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
             <option value="todos">Todos los Meses</option>
             <option value="1">Enero</option>
             <option value="2">Febrero</option>
@@ -1065,31 +1065,31 @@
             <option value="11">Noviembre</option>
             <option value="12">Diciembre</option>
           </select>
-          <select x-model="selectedYearFilter" class="w-full sm:w-28 p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
+          <select x-model="selectedYearFilter" class="p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
             <option value="todos">Todos Años</option>
             <option value="2024">2024</option>
             <option value="2025">2025</option>
             <option value="2026">2026</option>
             <option value="2027">2027</option>
           </select>
-          <input type="text" x-model="loanSearch" placeholder="Buscar cliente..." class="w-full sm:w-48 p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs">
-          <button @click="openNewClientModal()" class="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95">
+          <input type="text" x-model="loanSearch" placeholder="Buscar cliente..." class="p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs">
+          <button @click="openNewClientModal()" class="bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white px-3 py-2.5 rounded-xl text-xs font-bold shadow flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
             <span>+ Cliente</span>
           </button>
-          <button @click="generateClientRegistrationQr()" class="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-purple-500/20 flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95" title="Generar QR para Registro Express Remoto de Cliente">
+          <button @click="generateClientRegistrationQr()" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-3 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-purple-500/20 flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95" title="Generar QR para Registro Express Remoto de Cliente">
             <span>📱 Cliente Express QR</span>
           </button>
-          <button @click="openExpressPagareModal()" class="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-purple-500/20 flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95">
+          <button @click="openExpressPagareModal()" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-3 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-purple-500/20 flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95">
             <span>⚡ Pagaré Express QR</span>
           </button>
-          <button @click="openAiContadorModal()" class="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20 flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95" title="Contador Virtual IA & Arqueo Contable">
+          <button @click="openAiContadorModal()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-3 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20 flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95" title="Contador Virtual IA & Arqueo Contable">
             <span>🧮 Contador IA</span>
           </button>
-          <button @click="openDocumentTemplatesModal()" class="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95">
+          <button @click="openDocumentTemplatesModal()" class="bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white px-3 py-2.5 rounded-xl text-xs font-bold shadow flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95">
             <span>📄 Documentos</span>
           </button>
-          <button @click="openNewLoanModal()" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95">
+          <button @click="openNewLoanModal()" class="bg-brand-600 hover:bg-brand-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
             <span>+ Registrar Préstamo</span>
           </button>
@@ -1685,7 +1685,7 @@
           </div>
           
           <!-- Expense Filters & Register Button -->
-          <div class="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full lg:w-auto">
+          <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
             <select x-model="selectedExpenseCategoryFilter" class="w-full sm:w-36 p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold">
               <option value="todos">Categorías (Todas)</option>
               <option value="Fijo">Fijo</option>
