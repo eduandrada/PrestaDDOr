@@ -6000,9 +6000,9 @@
           <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
             <div class="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700/50 pb-2">
               <span class="text-sm">👥</span>
-              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Sueldos Familiares & Personalización de Titulares</h4>
+              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Sueldos Familiares & Ingresos Extras Personalizables</h4>
             </div>
-            <p class="text-xs text-slate-500">Configura los nombres con emojis y montos mensuales de los integrantes del hogar. El Asesor IA detectará automáticamente estos nombres para los análisis financieros.</p>
+            <p class="text-xs text-slate-500">Configura los nombres con emojis y montos mensuales de los integrantes del hogar, además de ingresos extras (freelance, rentas, negocios). El Asesor IA detectará automáticamente estos ingresos para los análisis financieros.</p>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="p-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
@@ -6020,10 +6020,31 @@
               </div>
             </div>
 
-            <!-- Resumen Total Familiar -->
+            <!-- Seccion de Ingresos Extras Dinámicos -->
+            <div class="space-y-2.5 pt-2 border-t border-slate-200 dark:border-slate-700/60">
+              <div class="flex justify-between items-center">
+                <span class="text-xs font-black uppercase text-indigo-600 dark:text-indigo-400">💼 Ingresos Extras & Trabajos Adicionales</span>
+                <button type="button" @click="addExtraSalary()" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center space-x-1 shadow">
+                  <span>+ Agregar Ingreso Extra</span>
+                </button>
+              </div>
+
+              <template x-for="(extra, idx) in settingsForm.extra_salaries" :key="extra.id || idx">
+                <div class="p-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center gap-2 shadow-sm">
+                  <input type="text" x-model="extra.name" placeholder="ej: 💼 Freelance / Renta / Venta" class="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-bold text-slate-900 dark:text-white">
+                  <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <span class="text-xs font-bold text-slate-400">$</span>
+                    <input type="number" step="1000" x-model="extra.amount" placeholder="100000" class="w-32 px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+                    <button type="button" @click="removeExtraSalary(idx)" class="p-2 text-rose-500 hover:text-rose-700 font-bold text-xs" title="Eliminar Ingreso Extra">🗑️</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Resumen Total Familiar Proyectado -->
             <div class="p-3.5 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800 flex justify-between items-center">
               <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300">Total Ingresos Familiares Mensuales Proyectados:</span>
-              <span class="text-sm font-black text-indigo-900 dark:text-indigo-200" x-text="'$' + (parseFloat(settingsForm.user_salary_eduardo || 0) + parseFloat(settingsForm.user_salary_maira || 0)).toLocaleString('es-AR')"></span>
+              <span class="text-sm font-black text-indigo-900 dark:text-indigo-200" x-text="'$' + getTotalFamilySalary().toLocaleString('es-AR')"></span>
             </div>
           </div>
         </div>

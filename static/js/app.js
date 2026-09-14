@@ -1317,12 +1317,52 @@ function registerPrestamosApp() {
                     salary_name_2: this.settings.salary_name_2 || '👩‍💼 Maira',
                     user_salary_eduardo: this.settings.user_salary_eduardo || '550000',
                     user_salary_maira: this.settings.user_salary_maira || '450000',
+                    extra_salaries: this.parseExtraSalaries(),
 
                     // 6. Base de Datos & Sistema
                     auto_backup_enabled: this.settings.auto_backup_enabled !== undefined ? String(this.settings.auto_backup_enabled) : '1'
                 };
                 this.activeModal = 'settingsModal';
                 this.fetchSettings().catch(() => {});
+            },
+
+            parseExtraSalaries() {
+                try {
+                    const raw = this.settings.extra_salaries_json || this.settingsForm?.extra_salaries_json;
+                    if (!raw) return [];
+                    if (typeof raw === 'string') return JSON.parse(raw);
+                    if (Array.isArray(raw)) return raw;
+                } catch (e) {
+                    return [];
+                }
+                return [];
+            },
+
+            addExtraSalary() {
+                if (!this.settingsForm.extra_salaries) this.settingsForm.extra_salaries = [];
+                this.settingsForm.extra_salaries.push({
+                    id: Date.now(),
+                    name: '💼 Ingreso Extra / Freelance',
+                    amount: 100000
+                });
+            },
+
+            removeExtraSalary(idx) {
+                if (this.settingsForm.extra_salaries && this.settingsForm.extra_salaries.length > idx) {
+                    this.settingsForm.extra_salaries.splice(idx, 1);
+                }
+            },
+
+            getTotalFamilySalary() {
+                let total = (parseFloat(this.settingsForm?.user_salary_eduardo || this.settings?.user_salary_eduardo) || 0) +
+                            (parseFloat(this.settingsForm?.user_salary_maira || this.settings?.user_salary_maira) || 0);
+                const extras = this.settingsForm?.extra_salaries || this.parseExtraSalaries();
+                if (Array.isArray(extras)) {
+                    extras.forEach(ex => {
+                        total += (parseFloat(ex.amount) || 0);
+                    });
+                }
+                return total;
             },
 
             downloadBackupFile() {
@@ -1390,6 +1430,10 @@ function registerPrestamosApp() {
 
             async saveSettings() {
                 try {
+                    if (Array.isArray(this.settingsForm.extra_salaries)) {
+                        this.settingsForm.extra_salaries_json = JSON.stringify(this.settingsForm.extra_salaries);
+                        this.settings.extra_salaries_json = JSON.stringify(this.settingsForm.extra_salaries);
+                    }
                     const payload = { ...this.settingsForm, ...this.settings };
                     const res = await fetch('/api/settings', {
                         method: 'POST',

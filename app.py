@@ -7383,19 +7383,62 @@ def render_formulario_cv():
     return render_template('Formulario.html')
 
 
-@app.route('/generar-cv', methods=['POST'])
+@app.route('/api/cv/ai_enhance', methods=['POST'])
+def ai_enhance_cv():
+    data = request.json or {}
+    action = data.get('action') # 'profile', 'experience', 'skills'
+    position = str(data.get('puesto') or 'Profesional').strip()
+    user_text = str(data.get('text') or '').strip()
+
+    if action == 'profile':
+        if not user_text:
+            result = f"Profesional altamente enfocado en {position}, orientado a la consecución de resultados sostenibles y la optimización de procesos operativos. Con sólidas habilidades analíticas, capacidad de liderazgo estratégico y adaptación ágil a entornos corporativos de alto desempeño."
+        else:
+            result = f"Perfil Profesional en {position}: {user_text}. Especialista enfocado en la entrega de soluciones de alto valor, mejora continua y alineación con objetivos estratégicos en equipos multidisciplinarios."
+    elif action == 'experience':
+        if not user_text:
+            result = f"• Lideré proyectos clave de gestión y desarrollo en el área de {position}, incrementando la eficiencia operativa un 30%.\n• Diseñé e implementé metodologías de trabajo ágil orientadas al cumplimiento de metas cuantitativas.\n• Coordiné la comunicación directa con clientes y directivos, resolviendo contingencias críticas en tiempo récord."
+        else:
+            lines = [l.strip() for l in user_text.split('\n') if l.strip()]
+            enhanced_lines = []
+            for line in lines:
+                clean_l = line.lstrip('•*- ').strip()
+                enhanced_lines.append(f"• {clean_l} — Optimización orientada a resultados y valor cuantificable.")
+            result = "\n".join(enhanced_lines)
+    elif action == 'skills':
+        result = "Pensamiento Crítico & Resolutivo, Comunicación Efectiva, Gestión de Proyectos, Herramientas Digitales 2026, Análisis de Datos, Trabajo en Equipo Multidisciplinario, Liderazgo Proactivo"
+    else:
+        return jsonify({"success": False, "error": "Acción no válida"}), 400
+
+    return jsonify({"success": True, "result": result})
+
+
+@app.route('/generar-cv', methods=['GET', 'POST'])
 def generar_cv():
-    plantilla = request.form.get('plantilla', 'minimalista')
+    req_data = request.get_json(silent=True) or (request.form.to_dict() if request.form else {})
+    if not req_data and request.args:
+        req_data = request.args.to_dict()
+
+    plantilla = req_data.get('plantilla', 'minimalista')
     data = {
-        'nombre': request.form.get('nombre', ''),
-        'puesto': request.form.get('puesto', ''),
-        'email': request.form.get('email', ''),
-        'telefono': request.form.get('telefono', ''),
-        'linkedin': request.form.get('linkedin', ''),
-        'sobre_mi': request.form.get('sobre_mi', ''),
-        'experiencia': request.form.get('experiencia', ''),
-        'educacion': request.form.get('educacion', ''),
-        'habilidades': request.form.get('habilidades', '')
+        'nombre': req_data.get('nombre', 'Tu Nombre Completo'),
+        'puesto': req_data.get('puesto', 'Tu Puesto Profesional'),
+        'email': req_data.get('email', 'correo@ejemplo.com'),
+        'telefono': req_data.get('telefono', '+54 9 11 1234-5678'),
+        'ubicacion': req_data.get('ubicacion', 'Catamarca, Argentina'),
+        'foto_url': req_data.get('foto_url', ''),
+        'linkedin': req_data.get('linkedin', ''),
+        'github': req_data.get('github', ''),
+        'web': req_data.get('web', ''),
+        'sobre_mi': req_data.get('sobre_mi', ''),
+        'experiencia': req_data.get('experiencia', ''),
+        'educacion': req_data.get('educacion', ''),
+        'certificaciones': req_data.get('certificaciones', ''),
+        'habilidades': req_data.get('habilidades', ''),
+        'idiomas': req_data.get('idiomas', ''),
+        'proyectos': req_data.get('proyectos', ''),
+        'referencias': req_data.get('referencias', ''),
+        'accent_color': req_data.get('accent_color', '#0f766e')
     }
     
     template_map = {
@@ -7406,6 +7449,7 @@ def generar_cv():
     }
     target_template = template_map.get(plantilla, 'cv_templates/minimalista.html')
     return render_template(target_template, **data)
+
 
 
 if __name__ == '__main__':

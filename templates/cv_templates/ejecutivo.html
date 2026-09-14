@@ -2,50 +2,86 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <title>Curriculum Vitae - {{ nombre }}</title>
     <style>
         @page { size: A4; margin: 0; }
-        body { font-family: sans-serif; color: #334155; margin: 0; padding: 0; display: flex; min-height: 297mm; }
-        .sidebar { width: 30%; background-color: #1e293b; color: #f8fafc; padding: 30px 20px; box-sizing: border-box; }
-        .main { width: 70%; padding: 40px 30px; box-sizing: border-box; }
-        .sb-title { font-size: 13px; font-weight: bold; text-transform: uppercase; tracking: 1px; color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 5px; margin-top: 25px; margin-bottom: 12px; }
-        .sb-text { font-size: 12px; color: #cbd5e1; margin-bottom: 8px; word-break: break-all; }
-        .name { font-size: 32px; font-weight: 800; color: #0f172a; margin: 0; }
-        .title { font-size: 16px; color: #0284c7; font-weight: 600; margin-bottom: 25px; text-transform: uppercase; }
-        .section-title { font-size: 15px; font-weight: 700; uppercase; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; margin-top: 25px; margin-bottom: 12px; text-transform: uppercase; }
-        .content { font-size: 13.5px; line-height: 1.5; white-space: pre-line; color: #475569; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; margin: 0; padding: 0; background: #ffffff; }
+        .wrapper { width: 100%; border-collapse: collapse; }
+        .sidebar { width: 30%; background: #0f172a; color: #f8fafc; padding: 25px 15px; vertical-align: top; }
+        .main { width: 70%; padding: 25px 25px; vertical-align: top; }
+        .sidebar-title { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #38bdf8; letter-spacing: 1px; border-bottom: 1px solid #334155; padding-bottom: 4px; margin-top: 20px; margin-bottom: 10px; }
+        .sidebar-item { font-size: 11px; margin-bottom: 8px; color: #cbd5e1; word-break: break-all; }
+        .name { font-size: 24px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -0.5px; }
+        .title { font-size: 14px; font-weight: 700; color: #0284c7; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; margin-bottom: 15px; }
+        .section-title { font-size: 12px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #0284c7; padding-bottom: 4px; margin-top: 20px; margin-bottom: 10px; }
+        .content-block { font-size: 12px; color: #334155; line-height: 1.5; white-space: pre-line; margin-bottom: 12px; }
+        .avatar { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 3px solid #38bdf8; display: block; margin: 0 auto 15px auto; }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="sb-title" style="margin-top:0;">Contacto</div>
-        <div class="sb-text"><b>M:</b> {{ telefono }}</div>
-        <div class="sb-text"><b>E:</b> {{ email }}</div>
-        {% if linkedin %}<div class="sb-text"><b>L:</b> {{ linkedin }}</div>{% endif %}
+    <table class="wrapper">
+        <tr>
+            <!-- SIDEBAR -->
+            <td class="sidebar">
+                {% if foto_url %}
+                <img src="{{ foto_url }}" class="avatar" alt="Foto">
+                {% endif %}
+                
+                <div class="sidebar-title">Contacto</div>
+                <div class="sidebar-item">✉ {{ email }}</div>
+                <div class="sidebar-item">📱 {{ telefono }}</div>
+                {% if ubicacion %}<div class="sidebar-item">📍 {{ ubicacion }}</div>{% endif %}
+                {% if linkedin %}<div class="sidebar-item">🔗 {{ linkedin }}</div>{% endif %}
+                {% if github %}<div class="sidebar-item">💻 {{ github }}</div>{% endif %}
+                {% if web %}<div class="sidebar-item">🌐 {{ web }}</div>{% endif %}
 
-        {% if habilidades %}
-        <div class="sb-title">Aptitudes</div>
-        <div class="sb-text" style="line-height:1.4;">{{ habilidades }}</div>
-        {% endif %}
-    </div>
-    
-    <div class="main">
-        <div class="name">{{ nombre }}</div>
-        <div class="title">{{ puesto }}</div>
-        
-        {% if sobre_mi %}
-        <div class="section-title">Resumen Ejecutivo</div>
-        <div class="content">{{ sobre_mi }}</div>
-        {% endif %}
+                {% if habilidades %}
+                <div class="sidebar-title">Habilidades Clave</div>
+                <div class="sidebar-item" style="white-space: pre-line;">{{ habilidades }}</div>
+                {% endif %}
 
-        {% if experiencia %}
-        <div class="section-title">Trayectoria Profesional</div>
-        <div class="content">{{ experiencia }}</div>
-        {% endif %}
+                {% if idiomas %}
+                <div class="sidebar-title">Idiomas</div>
+                <div class="sidebar-item" style="white-space: pre-line;">{{ idiomas }}</div>
+                {% endif %}
+            </td>
 
-        {% if educacion %}
-        <div class="section-title">Formación Académica</div>
-        <div class="content">{{ educacion }}</div>
-        {% endif %}
-    </div>
+            <!-- MAIN CONTENT -->
+            <td class="main">
+                <div class="name">{{ nombre }}</div>
+                <div class="title">{{ puesto }}</div>
+
+                {% if sobre_mi %}
+                <div class="section-title">Perfil Profesional</div>
+                <div class="content-block">{{ sobre_mi }}</div>
+                {% endif %}
+
+                {% if experiencia %}
+                <div class="section-title">Experiencia Laboral</div>
+                <div class="content-block">{{ experiencia }}</div>
+                {% endif %}
+
+                {% if educacion %}
+                <div class="section-title">Educación</div>
+                <div class="content-block">{{ educacion }}</div>
+                {% endif %}
+
+                {% if certificaciones %}
+                <div class="section-title">Certificaciones</div>
+                <div class="content-block">{{ certificaciones }}</div>
+                {% endif %}
+
+                {% if proyectos %}
+                <div class="section-title">Proyectos</div>
+                <div class="content-block">{{ proyectos }}</div>
+                {% endif %}
+
+                {% if referencias %}
+                <div class="section-title">Referencias</div>
+                <div class="content-block">{{ referencias }}</div>
+                {% endif %}
+            </td>
+        </tr>
+    </table>
 </body>
 </html>

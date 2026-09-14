@@ -2,58 +2,76 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <title>Curriculum Vitae - {{ nombre }}</title>
     <style>
-        @page { size: A4; margin: 15mm 20mm; }
-        body { font-family: 'Cambria', 'Georgia', serif; color: #2d2424; line-height: 1.5; margin: 0; background-color: #fffaf7; }
-        .header { text-align: center; margin-bottom: 35px; }
-        .header h1 { font-size: 36px; font-weight: normal; color: #4a1525; margin: 0 0 5px 0; letter-spacing: 1px; }
-        .header .subtitle { font-family: sans-serif; font-size: 13px; color: #8c6d62; text-transform: uppercase; tracking: 2px; font-weight: bold; }
-        .header .meta { font-family: sans-serif; font-size: 11px; color: #6b5b57; margin-top: 10px; border-top: 1px solid #e8dfdc; border-bottom: 1px solid #e8dfdc; padding: 6px 0; }
-        .grid-layout { display: flex; gap: 40px; margin-top: 20px; }
-        .col-main { width: 65%; }
-        .col-side { width: 35%; border-left: 1px solid #e8dfdc; padding-left: 25px; }
-        .section-title { font-family: sans-serif; font-size: 12px; font-weight: bold; text-transform: uppercase; color: #4a1525; tracking: 1.5px; margin-bottom: 10px; margin-top: 0; }
-        .content { font-size: 13px; color: #4a3f3d; white-space: pre-line; margin-bottom: 25px; }
-        .side-block { margin-bottom: 25px; }
+        @page { size: A4; margin: 15mm 15mm 15mm 15mm; }
+        body { font-family: 'Montserrat', 'Segoe UI', sans-serif; color: #1e1b4b; line-height: 1.5; margin: 0; background: #ffffff; }
+        .hero { background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 20px 20px; border-radius: 16px; color: #ffffff; margin-bottom: 20px; }
+        .name { font-size: 26px; font-weight: 900; letter-spacing: -0.5px; margin: 0; }
+        .title { font-size: 14px; text-transform: uppercase; font-weight: 700; color: #c7d2fe; margin-top: 3px; letter-spacing: 1px; }
+        .contact-bar { font-size: 11px; color: #e0e7ff; margin-top: 10px; }
+        .contact-item { display: inline-block; margin-right: 12px; }
+        .section-title { font-size: 13px; font-weight: 900; color: #4f46e5; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #c7d2fe; padding-bottom: 4px; margin-top: 18px; margin-bottom: 10px; }
+        .content-block { font-size: 12.5px; color: #312e81; white-space: pre-line; margin-bottom: 12px; }
+        .avatar { width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 3px solid #ffffff; float: right; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>{{ nombre }}</h1>
-        <div class="subtitle">{{ puesto }}</div>
-        <div class="meta">
-            ✉ {{ email }} &nbsp;•&nbsp; 📱 {{ telefono }} {% if linkedin %}&nbsp;•&nbsp; 🔗 {{ linkedin }}{% endif %}
+    <div class="hero">
+        {% if foto_url %}
+        <img src="{{ foto_url }}" class="avatar" alt="Foto">
+        {% endif %}
+        <div class="name">{{ nombre }}</div>
+        <div class="title">{{ puesto }}</div>
+        <div class="contact-bar">
+            <span class="contact-item">✉ {{ email }}</span>
+            <span class="contact-item">📱 {{ telefono }}</span>
+            {% if ubicacion %}<span class="contact-item">📍 {{ ubicacion }}</span>{% endif %}
+            {% if linkedin %}<span class="contact-item">🔗 {{ linkedin }}</span>{% endif %}
+            {% if github %}<span class="contact-item">💻 {{ github }}</span>{% endif %}
+            {% if web %}<span class="contact-item">🌐 {{ web }}</span>{% endif %}
         </div>
+        <div style="clear: both;"></div>
     </div>
-    
-    <div class="grid-layout">
-        <div class="col-main">
-            {% if sobre_mi %}
-            <div class="section-title">Extracto</div>
-            <div class="content">{{ sobre_mi }}</div>
-            {% endif %}
 
-            {% if experiencia %}
-            <div class="section-title">Trayectoria</div>
-            <div class="content">{{ experiencia }}</div>
-            {% endif %}
-        </div>
-        
-        <div class="col-side">
-            {% if habilidades %}
-            <div class="side-block">
-                <div class="section-title">Aptitudes</div>
-                <div class="content" style="font-family: sans-serif; font-size: 12px;">{{ habilidades }}</div>
-            </div>
-            {% endif %}
+    {% if sobre_mi %}
+    <div class="section-title">✨ Perfil Creativo & Profesional</div>
+    <div class="content-block">{{ sobre_mi }}</div>
+    {% endif %}
 
-            {% if educacion %}
-            <div class="side-block">
-                <div class="section-title">Formación</div>
-                <div class="content">{{ educacion }}</div>
-            </div>
-            {% endif %}
-        </div>
-    </div>
+    {% if experiencia %}
+    <div class="section-title">🚀 Experiencia Laboral & Logros</div>
+    <div class="content-block">{{ experiencia }}</div>
+    {% endif %}
+
+    {% if educacion %}
+    <div class="section-title">🎓 Educación & Formación</div>
+    <div class="content-block">{{ educacion }}</div>
+    {% endif %}
+
+    {% if certificaciones %}
+    <div class="section-title">📜 Certificaciones</div>
+    <div class="content-block">{{ certificaciones }}</div>
+    {% endif %}
+
+    {% if habilidades %}
+    <div class="section-title">💡 Competencias & Habilidades</div>
+    <div class="content-block">{{ habilidades }}</div>
+    {% endif %}
+
+    {% if idiomas %}
+    <div class="section-title">🌐 Idiomas</div>
+    <div class="content-block">{{ idiomas }}</div>
+    {% endif %}
+
+    {% if proyectos %}
+    <div class="section-title">🎨 Proyectos Destacados</div>
+    <div class="content-block">{{ proyectos }}</div>
+    {% endif %}
+
+    {% if referencias %}
+    <div class="section-title">👥 Referencias</div>
+    <div class="content-block">{{ referencias }}</div>
+    {% endif %}
 </body>
 </html>
