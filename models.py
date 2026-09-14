@@ -13,6 +13,7 @@ class Client(db.Model):
     address = db.Column(db.String(255), nullable=True)
     cuit = db.Column(db.String(20), nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    bank_alias = db.Column(db.String(100), nullable=True)
     has_guarantor = db.Column(db.Boolean, default=False)
     guarantor_name = db.Column(db.String(120), nullable=True)
     guarantor_address = db.Column(db.String(255), nullable=True)
@@ -147,6 +148,7 @@ class Client(db.Model):
             "address": self.address or "",
             "cuit": self.cuit or "",
             "notes": self.notes or "",
+            "bank_alias": getattr(self, 'bank_alias', '') or "",
             "has_pending_qr": has_pending_qr,
             "has_guarantor": bool(self.has_guarantor),
             "guarantor_name": self.guarantor_name or "",

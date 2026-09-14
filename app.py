@@ -894,6 +894,8 @@ def handle_single_client(client_id):
             return jsonify({'error': f'Ya existe otro cliente registrado con el CUIT/CUIL {clean_cuit} ({dup_cuit.name})'}), 400
         client.cuit = clean_cuit[:20]
 
+    if 'bank_alias' in data:
+        client.bank_alias = str(data['bank_alias'] or '').strip()[:100]
     if 'notes' in data:
         client.notes = str(data['notes'] or '').strip()
 
@@ -2377,6 +2379,7 @@ def pay_installment(installment_id):
         payment_date=datetime.now(),
         payment_method=method,
         notes=notes,
+            bank_alias=str(data.get('bank_alias') or '').strip()[:100],
         receipt_number=receipt_num
     )
     db.session.add(pay)
