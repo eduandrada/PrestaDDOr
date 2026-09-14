@@ -1028,6 +1028,9 @@ function registerPrestamosApp() {
                         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                         return {
+            showArqueoModal: false,
+            async openArqueoModal() { await this.fetchArqueoCaja(); this.showArqueoModal = true; },
+            closeArqueoModal() { this.showArqueoModal = false; },
                             x: clientX - rect.left,
                             y: clientY - rect.top
                         };
@@ -1447,7 +1450,18 @@ function registerPrestamosApp() {
                         return alert("No se especificó la solicitud o ID del préstamo a aprobar.");
                     }
 
-                    const res = await fetch(url, { method: 'POST' });
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
+                    });
+                    
+                    const contentType = res.headers.get('content-type') || '';
+                    if (!contentType.includes('application/json')) {
+                        const errText = await res.text();
+                        console.error("Server returned non-JSON error:", errText);
+                        return alert(`Error del servidor (${res.status}): No se pudo completar la aprobación.`);
+                    }
+
                     const data = await res.json();
                     if (data.success) {
                         alert("✅ Solicitud APROBADA y Préstamo ACTIVADO exitosamente.");
@@ -1461,7 +1475,7 @@ function registerPrestamosApp() {
                         await this.fetchClients();
                         if (this.fetchArqueoCaja) await this.fetchArqueoCaja();
                     } else {
-                        alert(data.error || "Error de comunicación al aprobar la solicitud.");
+                        alert(data.error || "Error al aprobar la solicitud.");
                     }
                 } catch(e) {
                     alert("Error al conectar con el servidor: " + e.message);
