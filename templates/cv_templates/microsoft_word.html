@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Curriculum Vitae - {{ nombre }} (Microsoft Word Executive)</title>
+    <style>
+        @page { size: A4; margin: 12mm 15mm; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1e293b; line-height: 1.5; margin: 0; padding: 0; background: #ffffff; font-size: 11.5px; }
+        .word-header { border-top: 5px solid {{ accent_color or '#1e3a8a' }}; padding-top: 15px; margin-bottom: 18px; }
+        .header-table { width: 100%; border-collapse: collapse; }
+        .name { font-family: 'Georgia', 'Times New Roman', serif; font-size: 28px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.5px; }
+        .title { font-size: 13px; font-weight: 700; color: {{ accent_color or '#1e3a8a' }}; text-transform: uppercase; letter-spacing: 1.2px; margin-top: 3px; }
+        .contact-grid { margin-top: 10px; font-size: 10.5px; color: #475569; display: flex; flex-wrap: wrap; gap: 12px; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 6px 0; }
+        .avatar { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; border: 2px solid {{ accent_color or '#1e3a8a' }}; }
+        .section-title { font-family: 'Georgia', 'Times New Roman', serif; font-size: 13px; font-weight: 700; color: {{ accent_color or '#1e3a8a' }}; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1.5px solid {{ accent_color or '#1e3a8a' }}; padding-bottom: 3px; margin-top: 18px; margin-bottom: 10px; }
+        .content-block { font-size: 11.5px; color: #334155; line-height: 1.6; white-space: pre-line; margin-bottom: 12px; }
+        .word-badge { display: inline-block; background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px 8px; font-size: 10.5px; font-weight: 600; margin-right: 4px; margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+    <div class="word-header">
+        <table class="header-table">
+            <tr>
+                <td style="vertical-align: top;">
+                    <div class="name">{{ nombre }}</div>
+                    <div class="title">{{ puesto }}</div>
+                </td>
+                {% if foto_url %}
+                <td style="width: 85px; text-align: right; vertical-align: top;">
+                    <img src="{{ foto_url }}" class="avatar" alt="Foto">
+                </td>
+                {% endif %}
+            </tr>
+        </table>
+
+        <div class="contact-grid">
+            <span>✉ {{ email }}</span>
+            <span>📱 {{ telefono }}</span>
+            {% if ubicacion %}<span>📍 {{ ubicacion }}</span>{% endif %}
+            {% if linkedin %}<span>🔗 {{ linkedin }}</span>{% endif %}
+            {% if github %}<span>💻 {{ github }}</span>{% endif %}
+            {% if web %}<span>🌐 {{ web }}</span>{% endif %}
+        </div>
+    </div>
+
+    {% if sobre_mi %}
+    <div class="section-title">Resumen Ejecutivo</div>
+    <div class="content-block">{{ sobre_mi }}</div>
+    {% endif %}
+
+    {% if experiencia %}
+    <div class="section-title">Experiencia Profesional</div>
+    <div class="content-block">{{ experiencia }}</div>
+    {% endif %}
+
+    {% if educacion %}
+    <div class="section-title">Educación Formal</div>
+    <div class="content-block">{{ educacion }}</div>
+    {% endif %}
+
+    {% if certificaciones %}
+    <div class="section-title">Certificaciones & Cursos</div>
+    <div class="content-block">{{ certificaciones }}</div>
+    {% endif %}
+
+    {% if habilidades %}
+    <div class="section-title">Habilidades & Competencias</div>
+    <div>
+        {% for skill in habilidades.split(',') %}
+            {% if skill.strip() %}
+            <span class="word-badge">{{ skill.strip() }}</span>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if idiomas %}
+    <div class="section-title" style="margin-top: 14px;">Idiomas</div>
+    <div class="content-block">{{ idiomas }}</div>
+    {% endif %}
+
+    {% if proyectos %}
+    <div class="section-title">Proyectos Destacados</div>
+    <div class="content-block">{{ proyectos }}</div>
+    {% endif %}
+
+    {% if referencias %}
+    <div class="section-title">Referencias</div>
+    <div class="content-block">{{ referencias }}</div>
+    {% endif %}
+</body>
+</html>

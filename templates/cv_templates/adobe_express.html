@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Curriculum Vitae - {{ nombre }} (Adobe Express Style)</title>
+    <style>
+        @page { size: A4; margin: 10mm 12mm; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Montserrat', 'Inter', system-ui, -apple-system, sans-serif; color: #0f172a; line-height: 1.5; margin: 0; padding: 0; background: #ffffff; font-size: 11.5px; }
+        .wrapper { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .sidebar { width: 34%; background: #f8fafc; border-right: 2px solid #e2e8f0; padding: 20px 16px; vertical-align: top; }
+        .main { width: 66%; padding: 20px 22px; vertical-align: top; background: #ffffff; }
+        .hero-card { background: linear-gradient(135deg, {{ accent_color or '#0284c7' }}, #0f172a); color: #ffffff; padding: 18px; border-radius: 16px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.12); }
+        .avatar { width: 85px; height: 85px; border-radius: 50%; object-fit: cover; border: 3px solid #ffffff; margin: 0 auto 10px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .name { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; margin: 0; line-height: 1.2; text-transform: uppercase; }
+        .title { font-size: 12px; font-weight: 700; color: #7dd3fc; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+        .sidebar-section { margin-bottom: 18px; }
+        .sidebar-title { font-size: 11px; font-weight: 900; text-transform: uppercase; color: {{ accent_color or '#0284c7' }}; letter-spacing: 1px; border-bottom: 2px solid {{ accent_color or '#0284c7' }}; padding-bottom: 3px; margin-bottom: 10px; }
+        .contact-item { font-size: 10.5px; color: #475569; margin-bottom: 8px; font-weight: 600; word-break: break-word; display: flex; align-items: center; gap: 6px; }
+        .skill-badge { display: inline-block; background: #e0f2fe; color: #0369a1; font-weight: 700; font-size: 10px; border-radius: 6px; padding: 3px 8px; margin-right: 4px; margin-bottom: 5px; border: 1px solid #bae6fd; }
+        .section-header { font-size: 12px; font-weight: 900; text-transform: uppercase; color: #0f172a; letter-spacing: 1px; border-left: 4px solid {{ accent_color or '#0284c7' }}; padding-left: 10px; margin-top: 18px; margin-bottom: 10px; }
+        .content-block { font-size: 11.5px; color: #334155; line-height: 1.6; white-space: pre-line; margin-bottom: 12px; }
+        .adobe-banner { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; }
+    </style>
+</head>
+<body>
+    <table class="wrapper">
+        <tr>
+            <!-- SIDEBAR DESIGNED ADOBE EXPRESS STYLE -->
+            <td class="sidebar">
+                <div class="hero-card">
+                    {% if foto_url %}
+                    <img src="{{ foto_url }}" class="avatar" alt="Foto">
+                    {% endif %}
+                    <div class="name">{{ nombre }}</div>
+                    <div class="title">{{ puesto }}</div>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Contacto</div>
+                    <div class="contact-item">✉ {{ email }}</div>
+                    <div class="contact-item">📱 {{ telefono }}</div>
+                    {% if ubicacion %}<div class="contact-item">📍 {{ ubicacion }}</div>{% endif %}
+                    {% if linkedin %}<div class="contact-item">🔗 {{ linkedin }}</div>{% endif %}
+                    {% if github %}<div class="contact-item">💻 {{ github }}</div>{% endif %}
+                    {% if web %}<div class="contact-item">🌐 {{ web }}</div>{% endif %}
+                </div>
+
+                {% if habilidades %}
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Habilidades Clave</div>
+                    <div>
+                        {% for skill in habilidades.split(',') %}
+                            {% if skill.strip() %}
+                            <span class="skill-badge">{{ skill.strip() }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if idiomas %}
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Idiomas</div>
+                    <div class="content-block" style="white-space: pre-line;">{{ idiomas }}</div>
+                </div>
+                {% endif %}
+            </td>
+
+            <!-- MAIN COLUMN ADOBE EXPRESS STYLE -->
+            <td class="main">
+                {% if sobre_mi %}
+                <div class="adobe-banner">
+                    <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: {{ accent_color or '#0284c7' }}; margin-bottom: 4px;">🚀 Perfil Ejecutivo Adobe Express</div>
+                    <div style="font-size: 11.5px; color: #1e293b; line-height: 1.5; white-space: pre-line;">{{ sobre_mi }}</div>
+                </div>
+                {% endif %}
+
+                {% if experiencia %}
+                <div class="section-header">Experiencia Laboral</div>
+                <div class="content-block">{{ experiencia }}</div>
+                {% endif %}
+
+                {% if educacion %}
+                <div class="section-header">Educación & Formación</div>
+                <div class="content-block">{{ educacion }}</div>
+                {% endif %}
+
+                {% if certificaciones %}
+                <div class="section-header">Certificaciones Profesional</div>
+                <div class="content-block">{{ certificaciones }}</div>
+                {% endif %}
+
+                {% if proyectos %}
+                <div class="section-header">Proyectos Destacados</div>
+                <div class="content-block">{{ proyectos }}</div>
+                {% endif %}
+
+                {% if referencias %}
+                <div class="section-header">Referencias Laborales</div>
+                <div class="content-block">{{ referencias }}</div>
+                {% endif %}
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

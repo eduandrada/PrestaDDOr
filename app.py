@@ -5392,6 +5392,46 @@ CANVA_FLYER_THEMES = {
         'prize_header': (194, 65, 12), 'prize_text': (44, 40, 37),
         'num_bg': (28, 25, 23), 'num_border': (68, 64, 60), 'num_text': (255, 255, 255),
         'footer_bg': (194, 65, 12), 'badge_text': (254, 240, 138)
+    },
+    'edit_org_gold': {
+        'name': 'Edit.org Gold Ticket & Poster',
+        'bg_start': (20, 20, 20), 'bg_end': (45, 30, 10),
+        'card_bg': (30, 25, 15, 230), 'card_border': (234, 179, 8),
+        'accent_header': (202, 138, 4), 'accent_border': (250, 204, 21),
+        'text_title': (254, 240, 138), 'text_sub': (253, 224, 71),
+        'prize_header': (250, 204, 21), 'prize_text': (254, 243, 199),
+        'num_bg': (45, 30, 10), 'num_border': (202, 138, 4), 'num_text': (254, 240, 138),
+        'footer_bg': (202, 138, 4), 'badge_text': (254, 240, 138)
+    },
+    'adobe_express_raffle': {
+        'name': 'Adobe Express Modern Blue/Gold',
+        'bg_start': (15, 23, 42), 'bg_end': (30, 58, 138),
+        'card_bg': (30, 41, 59, 230), 'card_border': (56, 189, 248),
+        'accent_header': (2, 132, 199), 'accent_border': (125, 211, 252),
+        'text_title': (255, 255, 255), 'text_sub': (186, 230, 253),
+        'prize_header': (251, 191, 36), 'prize_text': (240, 249, 255),
+        'num_bg': (15, 23, 42), 'num_border': (14, 165, 233), 'num_text': (224, 242, 254),
+        'footer_bg': (2, 132, 199), 'badge_text': (254, 240, 138)
+    },
+    'postermywall_fiesta': {
+        'name': 'PosterMyWall Fiesta Premium',
+        'bg_start': (88, 28, 135), 'bg_end': (15, 23, 42),
+        'card_bg': (107, 33, 168, 220), 'card_border': (236, 72, 153),
+        'accent_header': (192, 38, 211), 'accent_border': (244, 114, 182),
+        'text_title': (255, 255, 255), 'text_sub': (249, 168, 212),
+        'prize_header': (250, 204, 21), 'prize_text': (253, 242, 248),
+        'num_bg': (88, 28, 135), 'num_border': (217, 70, 239), 'num_text': (250, 232, 255),
+        'footer_bg': (192, 38, 211), 'badge_text': (254, 240, 138)
+    },
+    'pinterest_retro': {
+        'name': 'Pinterest Vintage Ticket Sorteo',
+        'bg_start': (69, 26, 3), 'bg_end': (28, 25, 23),
+        'card_bg': (120, 53, 15, 230), 'card_border': (245, 158, 11),
+        'accent_header': (180, 83, 9), 'accent_border': (251, 191, 36),
+        'text_title': (254, 240, 138), 'text_sub': (253, 230, 138),
+        'prize_header': (251, 191, 36), 'prize_text': (254, 243, 199),
+        'num_bg': (69, 26, 3), 'num_border': (217, 119, 6), 'num_text': (254, 240, 138),
+        'footer_bg': (180, 83, 9), 'badge_text': (254, 240, 138)
     }
 }
 
@@ -7445,7 +7485,9 @@ def generar_cv():
         'minimalista': 'cv_templates/minimalista.html',
         'ejecutivo': 'cv_templates/ejecutivo.html',
         'creativa': 'cv_templates/creativa.html',
-        'tecnologica': 'cv_templates/tecnologica.html'
+        'tecnologica': 'cv_templates/tecnologica.html',
+        'adobe_express': 'cv_templates/adobe_express.html',
+        'microsoft_word': 'cv_templates/microsoft_word.html'
     }
     target_template = template_map.get(plantilla, 'cv_templates/minimalista.html')
     return render_template(target_template, **data)

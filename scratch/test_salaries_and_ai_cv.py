@@ -46,9 +46,9 @@ class TestSalariesAndAiCv(unittest.TestCase):
             self.assertTrue(data.get('success'))
             self.assertIn("Perfil Profesional en Analista Senior", data.get('result', ''))
 
-    def test_03_generar_cv_2026_pro_with_base64_photo(self):
+    def test_03_generar_cv_2026_pro_all_templates(self):
         fake_base64_photo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-        templates = ['minimalista', 'ejecutivo', 'creativa', 'tecnologica']
+        templates = ['minimalista', 'ejecutivo', 'creativa', 'tecnologica', 'adobe_express', 'microsoft_word']
         for tmpl in templates:
             payload = json.dumps({
                 "nombre": "Eduardo Andrada 2026",
@@ -79,6 +79,14 @@ class TestSalariesAndAiCv(unittest.TestCase):
                 self.assertIn("Eduardo Andrada 2026", html)
                 self.assertIn("AWS Certified Solutions Architect 2026", html)
                 self.assertIn(fake_base64_photo, html)
+
+    def test_04_raffle_flyer_new_themes(self):
+        new_styles = ['edit_org_gold', 'adobe_express_raffle', 'postermywall_fiesta', 'pinterest_retro']
+        for st in new_styles:
+            req = urllib.request.Request(f"{BASE_URL}/api/generar-flyer?title=Gran+Sorteo+Pro&motive=Prueba+IA&style={st}")
+            with urllib.request.urlopen(req) as resp:
+                self.assertEqual(resp.status, 200)
+                self.assertEqual(resp.headers.get('Content-Type'), 'image/png')
 
 if __name__ == '__main__':
     unittest.main()

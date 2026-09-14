@@ -3587,38 +3587,64 @@ function registerPrestamosApp() {
             async openFlyerModal(raffle, useAi = false) {
                 const aiParam = useAi ? '&use_ai=1' : '';
                 const seed = Math.floor(Math.random() * 1000000);
-                this.flyerModal = { open: true, imgUrl: `/api/generar-flyer?raffle_id=${raffle.id}${aiParam}&seed=${seed}&style=random`, raffleTitle: raffle.title };
+                const baseUrl = `/api/generar-flyer?raffle_id=${raffle.id}`;
+                this.flyerModal = {
+                    open: true,
+                    raffleId: raffle.id,
+                    raffleTitle: raffle.title,
+                    baseUrl: baseUrl,
+                    currentStyle: 'edit_org_gold',
+                    useAi: useAi,
+                    imgUrl: `${baseUrl}${aiParam}&seed=${seed}&style=edit_org_gold`
+                };
+            },
+
+            setFlyerStyle(styleKey) {
+                if (!this.flyerModal || !this.flyerModal.baseUrl) return;
+                this.flyerModal.currentStyle = styleKey;
+                const seed = Math.floor(Math.random() * 1000000);
+                const aiParam = this.flyerModal.useAi ? '&use_ai=1' : '';
+                this.flyerModal.imgUrl = `${this.flyerModal.baseUrl}${aiParam}&seed=${seed}&style=${styleKey}`;
+            },
+
+            toggleFlyerAi() {
+                if (!this.flyerModal || !this.flyerModal.baseUrl) return;
+                this.flyerModal.useAi = !this.flyerModal.useAi;
+                this.setFlyerStyle(this.flyerModal.currentStyle || 'edit_org_gold');
             },
 
             randomizeFlyerStyle() {
-                if (!this.flyerModal || !this.flyerModal.imgUrl) return;
-                const seed = Math.floor(Math.random() * 1000000);
-                const baseUrl = this.flyerModal.imgUrl.split('&seed=')[0];
-                this.flyerModal.imgUrl = `${baseUrl}&seed=${seed}&style=random`;
+                const styles = ['edit_org_gold', 'adobe_express_raffle', 'postermywall_fiesta', 'pinterest_retro', 'luxury_gold', 'canva_neon', 'pinterest_emerald', 'template_net_sunset', 'cyber_indigo', 'minimal_cream'];
+                const randomStyle = styles[Math.floor(Math.random() * styles.length)];
+                this.setFlyerStyle(randomStyle);
             },
 
             generateBingoCardsPdf(raffle) {
                 const seed = Math.floor(Math.random() * 1000000);
-                const url = `/api/generar-cartones-bingo?title=${encodeURIComponent(raffle.title)}&mode=${raffle.mode === 'bingo' ? '75' : '90'}&count=4&seed=${seed}&style=random`;
+                const url = `/api/generar-cartones-bingo?title=${encodeURIComponent(raffle.title)}&mode=${raffle.mode === 'bingo' ? '75' : '90'}&count=4&seed=${seed}&style=${this.flyerModal.currentStyle || 'random'}`;
                 window.open(url, '_blank');
             },
 
             generateQuickBingoPdf(mode = '75') {
-                const title = prompt("Título para los Cartones de Bingo (Canva / Pinterest):", "GRAN BINGO FAMILIAR 2026");
+                const title = prompt("Título para los Cartones de Bingo (Adobe Express / Pinterest):", "GRAN BINGO FAMILIAR 2026");
                 if (!title) return;
                 const seed = Math.floor(Math.random() * 1000000);
-                const url = `/api/generar-cartones-bingo?title=${encodeURIComponent(title)}&mode=${mode}&count=4&seed=${seed}&style=random`;
+                const url = `/api/generar-cartones-bingo?title=${encodeURIComponent(title)}&mode=${mode}&count=4&seed=${seed}&style=edit_org_gold`;
                 window.open(url, '_blank');
             },
 
             generateQuickFlyer() {
-                const title = prompt("Título para el Flyer Promocional (Canva / Pinterest):", "GRAN SORTEO Y RIFA FAMILIAR");
+                const title = prompt("Título para el Flyer Promocional (Edit.org / Adobe Express / Pinterest):", "GRAN SORTEO Y RIFA FAMILIAR");
                 if (!title) return;
                 const seed = Math.floor(Math.random() * 1000000);
+                const baseUrl = `/api/generar-flyer?title=${encodeURIComponent(title)}&motive=Beneficio+Familiar+2026&ticket_price=1500&number_min=1&number_max=100`;
                 this.flyerModal = {
                     open: true,
-                    imgUrl: `/api/generar-flyer?title=${encodeURIComponent(title)}&motive=Beneficio+Familiar+2026&ticket_price=1500&number_min=1&number_max=100&seed=${seed}&style=random`,
-                    raffleTitle: title
+                    raffleTitle: title,
+                    baseUrl: baseUrl,
+                    currentStyle: 'edit_org_gold',
+                    useAi: false,
+                    imgUrl: `${baseUrl}&seed=${seed}&style=edit_org_gold`
                 };
             },
 

@@ -100,6 +100,18 @@
                             <span class="font-extrabold text-xs">💻 Tecnológico IT</span>
                             <span class="text-[10px] opacity-75 mt-1">Formato ideal para Desarrolladores y Tech.</span>
                         </label>
+
+                        <label :class="cv.plantilla === 'adobe_express' ? 'border-indigo-500 bg-indigo-950/40 text-white' : 'border-slate-700 bg-slate-900/60 text-slate-400'" class="p-3.5 rounded-xl border-2 cursor-pointer transition flex flex-col justify-between hover:border-indigo-400">
+                            <input type="radio" name="plantilla" value="adobe_express" x-model="cv.plantilla" @change="updatePreview()" class="sr-only">
+                            <span class="font-extrabold text-xs">🔴 Adobe Express Pro</span>
+                            <span class="text-[10px] opacity-75 mt-1">Diseño gráfico moderno con tarjeta de perfil.</span>
+                        </label>
+
+                        <label :class="cv.plantilla === 'microsoft_word' ? 'border-indigo-500 bg-indigo-950/40 text-white' : 'border-slate-700 bg-slate-900/60 text-slate-400'" class="p-3.5 rounded-xl border-2 cursor-pointer transition flex flex-col justify-between hover:border-indigo-400">
+                            <input type="radio" name="plantilla" value="microsoft_word" x-model="cv.plantilla" @change="updatePreview()" class="sr-only">
+                            <span class="font-extrabold text-xs">📘 Microsoft Word Executive</span>
+                            <span class="text-[10px] opacity-75 mt-1">Plantilla ejecutiva oficial de estilo Word.</span>
+                        </label>
                     </div>
 
                     <!-- COLOR DE ACENTO -->
