@@ -138,6 +138,7 @@ class Client(db.Model):
 
     def to_dict(self):
         metrics = self.calculate_scoring_and_status()
+        has_pending_qr = any(getattr(r, 'status', '') in ['firmado', 'pendiente'] for r in getattr(self, 'biometric_requests', []))
         return {
             "id": self.id,
             "name": self.name,
@@ -146,6 +147,7 @@ class Client(db.Model):
             "address": self.address or "",
             "cuit": self.cuit or "",
             "notes": self.notes or "",
+            "has_pending_qr": has_pending_qr,
             "has_guarantor": bool(self.has_guarantor),
             "guarantor_name": self.guarantor_name or "",
             "guarantor_address": self.guarantor_address or "",
@@ -496,6 +498,8 @@ class BiometricRequest(db.Model):
     status = db.Column(db.String(30), default='pendiente') # 'pendiente', 'firmado', 'otorgado', 'cancelado'
     signature_data = db.Column(db.Text, nullable=True)
     selfie_data = db.Column(db.Text, nullable=True)
+    bank_alias = db.Column(db.String(100), nullable=True)
+    bank_holder = db.Column(db.String(100), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     signed_at = db.Column(db.DateTime, nullable=True)
 
@@ -527,6 +531,8 @@ class BiometricRequest(db.Model):
             "rate_type": self.rate_type,
             "modality": self.modality,
             "notes": self.notes or "",
+            "bank_alias": getattr(self, 'bank_alias', '') or "",
+            "bank_holder": getattr(self, 'bank_holder', '') or "",
             "status": self.status,
             "signature_data": self.signature_data or "",
             "selfie_data": self.selfie_data or "",

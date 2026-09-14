@@ -34,6 +34,21 @@ def add_no_cache_headers(response):
 
 db.init_app(app)
 
+with app.app_context():
+    db.create_all()
+    try:
+        with db.engine.connect() as conn:
+            from sqlalchemy import text
+            try:
+                conn.execute(text("ALTER TABLE biometric_requests ADD COLUMN bank_alias VARCHAR(100)"))
+                conn.commit()
+            except Exception: pass
+            try:
+                conn.execute(text("ALTER TABLE biometric_requests ADD COLUMN bank_holder VARCHAR(100)"))
+                conn.commit()
+            except Exception: pass
+    except Exception: pass
+
 # Helper for initial settings & seed data
 def trigger_auto_backup():
     try:
@@ -4176,6 +4191,35 @@ def render_biometric_sign_page(token):
     cleanup_biometric_requests()
     bio_req = BiometricRequest.query.filter_by(token=token).first()
     
+    # 0. Si el Pagaré Express ya fue procesado / firmado / otorgado / cancelado
+    if bio_req and bio_req.status in ['firmado', 'otorgado', 'rechazado', 'cancelado']:
+        st_title = "¡Pagaré Express Firmado & En Proceso!" if bio_req.status == 'firmado' else ("¡Préstamo Otorgado & Acreditado!" if bio_req.status == 'otorgado' else "Solicitud Finalizada / Cancelada")
+        st_desc = "Tu Pagaré Express ya ha sido firmado y registrado exitosamente. Se encuentra en evaluación y proceso de otorgamiento." if bio_req.status == 'firmado' else ("Este préstamo ya fue aprobado y otorgado por transferencia." if bio_req.status == 'otorgado' else "Esta solicitud ya no se encuentra activa.")
+        signed_time = bio_req.signed_at.strftime("%d/%m/%Y %H:%M hs") if bio_req.signed_at else (bio_req.created_at.strftime("%d/%m/%Y %H:%M hs") if bio_req.created_at else "")
+        return render_template_string(f'''<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagaré Express Procesado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>body {{ background: #0f172a; color: #f8fafc; font-family: system-ui, sans-serif; }}</style>
+</head>
+<body class="min-h-screen p-6 flex items-center justify-center">
+    <div class="max-w-md w-full bg-slate-900/95 border border-slate-800 p-6 rounded-3xl text-center space-y-4 shadow-2xl">
+        <div class="w-16 h-16 rounded-2xl bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center text-3xl border border-emerald-500/30">
+            ✅
+        </div>
+        <h1 class="text-xl font-black text-white">{st_title}</h1>
+        <p class="text-xs text-slate-300 leading-relaxed">{st_desc}</p>
+        <div class="p-3 bg-slate-800/80 rounded-2xl text-[11px] text-slate-400 border border-slate-700">
+            Fecha y Hora de Registro: <strong>{signed_time}</strong><br>
+            Monto: <strong>${bio_req.amount:,.2f}</strong>
+        </div>
+    </div>
+</body>
+</html>'''), 200
+
     # 1. Si la solicitud no existe o fue eliminada por estar otorgada/expirada
     if not bio_req:
         return render_template_string("""<!DOCTYPE html>
@@ -4721,7 +4765,16 @@ def render_biometric_sign_page(token):
                     garanteRecibo2 = await readFileAsBase64(document.getElementById('garanteRecibo2Input'));
                 }}
 
+                const bankAlias = (document.getElementById('bankAliasInput') ? document.getElementById('bankAliasInput').value || '' : '').trim();
+                const bankHolder = (document.getElementById('bankHolderInput') ? document.getElementById('bankHolderInput').value || '' : '').trim();
+                if (!bankAlias || !bankHolder) {{
+                    btn.disabled = false;
+                    btn.innerText = '✍️ Aceptar & Firmar Pagaré Digital';
+                    return alert('Por favor completa tu Alias o CBU/CVU y el Nombre del Titular de la Cuenta Bancaria.');
+                }}
                 const payload = {{
+                    bank_alias: bankAlias,
+                    bank_holder: bankHolder,
                     signature_data: canvas.toDataURL('image/png'),
                     selfie_data: selfieDataUrl,
                     dni_frente_data: dniFrente,
@@ -4791,8 +4844,13 @@ def sign_biometric_request(token):
     if not signature_data or not selfie_data:
         return jsonify({"error": "La firma y la selfie son obligatorias"}), 400
         
+    bank_alias = (data.get('bank_alias') or '').strip()
+    bank_holder = (data.get('bank_holder') or '').strip()
+    
     bio_req.signature_data = signature_data
     bio_req.selfie_data = selfie_data
+    bio_req.bank_alias = bank_alias
+    bio_req.bank_holder = bank_holder
     bio_req.status = 'firmado'
     bio_req.signed_at = datetime.utcnow()
     
@@ -6494,3 +6552,203 @@ if __name__ == '__main__':
         except Exception as err:
             print(f"\n[ERROR AL INICIAR]: {err}")
 
+
+
+@app.route('/api/loans/<int:loan_id>/approve', methods=['POST'])
+def approve_loan_by_id(loan_id):
+    loan = Loan.query.get(loan_id)
+    if not loan:
+        return jsonify({"error": "Préstamo no encontrado"}), 404
+        
+    loan.status = 'activo'
+    
+    bio_reqs = BiometricRequest.query.filter_by(client_id=loan.client_id).all()
+    for req in bio_reqs:
+        if req.status in ['pendiente', 'firmado']:
+            req.status = 'otorgado'
+            
+    db.session.commit()
+    
+    client = loan.client
+    wa_url = ""
+    if client and client.whatsapp:
+        clean_phone = client.whatsapp.replace('+', '').replace(' ', '').replace('-', '')
+        company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+        msg = f"¡Hola {client.name}! Tu préstamo por ${loan.amount:,.2f} ha sido APROBADO y OTORGADO exitosamente por {company}. Se encuentra activo y acreditado."
+        wa_url = f"https://wa.me/{clean_phone}?text={urllib.parse.quote(msg)}"
+        
+    return jsonify({
+        "success": True,
+        "message": "Préstamo aprobado y activado exitosamente.",
+        "loan": loan.to_dict(),
+        "wa_url": wa_url
+    })
+
+
+@app.route('/api/reports/arqueo_caja', methods=['GET'])
+def get_arqueo_caja():
+    payments = Payment.query.all()
+    expenses = Expense.query.all()
+    loans = Loan.query.all()
+    installments = Installment.query.all()
+    
+    total_efectivo = sum(p.amount for p in payments if getattr(p, 'payment_method', '') == 'Efectivo')
+    total_transferencia = sum(p.amount for p in payments if getattr(p, 'payment_method', '') == 'Transferencia')
+    total_recaudado = total_efectivo + total_transferencia
+    
+    gastos_efectivo = sum(e.amount for e in expenses if getattr(e, 'payment_method', 'Efectivo') == 'Efectivo')
+    gastos_transferencia = sum(e.amount for e in expenses if getattr(e, 'payment_method', '') == 'Transferencia')
+    total_gastos = sum(e.amount for e in expenses)
+    
+    caja_efectivo_neta = total_efectivo - gastos_efectivo
+    billetera_virtual_neta = total_transferencia - gastos_transferencia
+    
+    active_loans = [l for l in loans if l.status == 'activo']
+    total_otorgado = sum(l.amount for l in active_loans)
+    total_pendiente_cobro = sum(inst.amount for inst in installments if inst.status != 'pagado')
+    
+    ai_summary = f"""📊 ARQUEO DE CAJA EN TIEMPO REAL:
+• Dinero Real en Efectivo (Caja Física): ${caja_efectivo_neta:,.2f}
+• Billetera Virtual (MercadoPago / Bancos): ${billetera_virtual_neta:,.2f}
+• Total Cobrado Acumulado: ${total_recaudado:,.2f} (${total_efectivo:,.2f} Efectivo / ${total_transferencia:,.2f} Transferencias)
+• Total Pendiente de Cobro: ${total_pendiente_cobro:,.2f}
+• Capital en Préstamos Activos: ${total_otorgado:,.2f}
+
+💡 Consejos del Contador Virtual IA:
+1. Mantén separada tu caja física de las transferencias virtuales para evitar descalces.
+2. Todo dinero cobrado en MercadoPago / Banco debe registrarse como 'Transferencia' al cobrar la cuota.
+3. El saldo en efectivo (${caja_efectivo_neta:,.2f}) refleja el dinero físico real que debes tener en mano o en el cajón de cobros."""
+
+    return jsonify({
+        "success": True,
+        "caja_efectivo_neta": caja_efectivo_neta,
+        "billetera_virtual_neta": billetera_virtual_neta,
+        "total_efectivo": total_efectivo,
+        "total_transferencia": total_transferencia,
+        "total_recaudado": total_recaudado,
+        "total_gastos": total_gastos,
+        "total_otorgado": total_otorgado,
+        "total_pendiente_cobro": total_pendiente_cobro,
+        "ai_summary": ai_summary
+    })
+
+
+@app.route('/api/reports/arqueo_caja_pdf', methods=['GET'])
+def download_arqueo_caja_pdf():
+    import tempfile
+    import html
+    from utils.notification import create_pdf
+    
+    company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+    payments = Payment.query.order_by(Payment.payment_date.desc()).all()
+    expenses = Expense.query.all()
+    loans = Loan.query.all()
+    installments = Installment.query.all()
+    
+    total_efectivo = sum(p.amount for p in payments if getattr(p, 'payment_method', '') == 'Efectivo')
+    total_transferencia = sum(p.amount for p in payments if getattr(p, 'payment_method', '') == 'Transferencia')
+    total_recaudado = total_efectivo + total_transferencia
+    
+    gastos_efectivo = sum(e.amount for e in expenses if getattr(e, 'payment_method', 'Efectivo') == 'Efectivo')
+    gastos_transferencia = sum(e.amount for e in expenses if getattr(e, 'payment_method', '') == 'Transferencia')
+    caja_efectivo_neta = total_efectivo - gastos_efectivo
+    billetera_virtual_neta = total_transferencia - gastos_transferencia
+    
+    total_pendiente_cobro = sum(inst.amount for inst in installments if inst.status != 'pagado')
+    total_otorgado = sum(l.amount for l in loans if l.status == 'activo')
+    
+    payment_rows = "".join(
+        f"<tr><td>{p.payment_date.strftime('%d/%m/%Y %H:%M') if p.payment_date else ''}</td>"
+        f"<td>{html.escape(p.client.name if p.client else '')}</td>"
+        f"<td>${p.amount:,.2f}</td>"
+        f"<td><b>{html.escape(p.payment_method or 'Transferencia')}</b></td>"
+        f"<td>{html.escape(p.receipt_number or '')}</td></tr>"
+        for p in payments[:60]
+    )
+    
+    html_content = f"""<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <style>
+        @page {{ size: A4; margin: 15mm; }}
+        body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; font-size: 11px; margin: 0; padding: 0; }}
+        .header {{ background: #0f172a; color: #ffffff; padding: 20px; border-radius: 12px; margin-bottom: 20px; }}
+        .title {{ font-size: 20px; font-weight: bold; margin: 0 0 5px; }}
+        .subtitle {{ font-size: 12px; color: #94a3b8; }}
+        .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }}
+        .card {{ background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; }}
+        .card-title {{ font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 5px; }}
+        .card-value {{ font-size: 18px; font-weight: bold; color: #0f172a; }}
+        .card-value.green {{ color: #16a34a; }}
+        .card-value.blue {{ color: #2563eb; }}
+        .card-value.amber {{ color: #d97706; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 15px; }}
+        th, td {{ border-bottom: 1px solid #e2e8f0; padding: 8px; text-align: left; }}
+        th {{ background: #f1f5f9; color: #475569; font-weight: bold; text-transform: uppercase; font-size: 9px; }}
+        .footer {{ margin-top: 30px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 10px; }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">📄 Informe Oficial de Arqueo & Conciliación de Caja</div>
+        <div class="subtitle">{html.escape(company)} · Generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M:%S hs')}</div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <div class="card-title">💵 Dinero Real en Efectivo (Caja Física)</div>
+            <div class="card-value green">${caja_efectivo_neta:,.2f}</div>
+            <div style="font-size:10px; color:#64748b; margin-top:4px;">Total Ingresos Efectivo: ${total_efectivo:,.2f}</div>
+        </div>
+        <div class="card">
+            <div class="card-title">🏦 Billetera Virtual / Banco (Transferencias)</div>
+            <div class="card-value blue">${billetera_virtual_neta:,.2f}</div>
+            <div style="font-size:10px; color:#64748b; margin-top:4px;">Total MercadoPago/Banco: ${total_transferencia:,.2f}</div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <div class="card-title">⏳ Monto Pendiente por Cobrar</div>
+            <div class="card-value amber">${total_pendiente_cobro:,.2f}</div>
+        </div>
+        <div class="card">
+            <div class="card-title">💰 Capital en Préstamos Activos</div>
+            <div class="card-value">${total_otorgado:,.2f}</div>
+        </div>
+    </div>
+
+    <h3>📊 Historial de Cobros Recientes por Método de Pago</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha & Hora</th>
+                <th>Cliente</th>
+                <th>Monto</th>
+                <th>Método de Pago</th>
+                <th>Comprobante</th>
+            </tr>
+        </thead>
+        <tbody>
+            {payment_rows if payment_rows else '<tr><td colspan="5" style="text-align:center;">No se registraron cobros aún.</td></tr>'}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        Sistema de Gestión de Préstamos 2026 · Auditoría Contador Virtual IA
+    </div>
+</body>
+</html>"""
+
+    fd, path = tempfile.mkstemp(suffix='.pdf')
+    os.close(fd)
+    create_pdf(html_content, path)
+    with open(path, 'rb') as f:
+        pdf_data = f.read()
+    os.unlink(path)
+
+    response = make_response(pdf_data)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=Arqueo_Caja_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf'
+    return response

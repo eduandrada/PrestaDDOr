@@ -1428,12 +1428,26 @@ function registerPrestamosApp() {
             },
 
             async approveBiometricRequest(req) {
-                if (!req || !req.token) return;
-                if (!confirm(`¿Confirmas la APROBACIÓN y ACTIVACIÓN del préstamo por $${(req.amount||0).toLocaleString('es-AR')} para ${req.client_name}?`)) {
+                if (!req) return;
+                const token = req.token || '';
+                const loanId = req.loan_id || req.id || (req.loan ? req.loan.id : null);
+                const clientName = req.client_name || (req.client ? req.client.name : 'Cliente');
+                const amount = req.amount || 0;
+
+                if (!confirm(`¿Confirmas la APROBACIÓN y ACTIVACIÓN del préstamo por $${amount.toLocaleString('es-AR')} para ${clientName}?`)) {
                     return;
                 }
                 try {
-                    const res = await fetch(`/api/biometric_requests/${req.token}/approve`, { method: 'POST' });
+                    let url = '';
+                    if (token) {
+                        url = `/api/biometric_requests/${token}/approve`;
+                    } else if (loanId) {
+                        url = `/api/loans/${loanId}/approve`;
+                    } else {
+                        return alert("No se especificó la solicitud o ID del préstamo a aprobar.");
+                    }
+
+                    const res = await fetch(url, { method: 'POST' });
                     const data = await res.json();
                     if (data.success) {
                         alert("✅ Solicitud APROBADA y Préstamo ACTIVADO exitosamente.");
@@ -1441,16 +1455,16 @@ function registerPrestamosApp() {
                             window.open(data.wa_url, '_blank');
                         }
                         if (req.client_id) {
-                            await this.openClientQrRequestsModal({ id: req.client_id });
+                            await this.fetchClientQrRequests(req.client_id);
                         }
-                        await this.fetchDashboardStats();
                         await this.fetchLoans();
+                        await this.fetchClients();
+                        if (this.fetchArqueoCaja) await this.fetchArqueoCaja();
                     } else {
-                        alert(data.error || "Ocurrió un error al aprobar la solicitud.");
+                        alert(data.error || "Error de comunicación al aprobar la solicitud.");
                     }
-                } catch (e) {
-                    console.error("Error al aprobar solicitud biométrica:", e);
-                    alert("Error de comunicación al aprobar la solicitud.");
+                } catch(e) {
+                    alert("Error al conectar con el servidor: " + e.message);
                 }
             },
 
