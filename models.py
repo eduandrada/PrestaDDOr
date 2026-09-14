@@ -13,6 +13,11 @@ class Client(db.Model):
     address = db.Column(db.String(255), nullable=True)
     cuit = db.Column(db.String(20), nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    has_guarantor = db.Column(db.Boolean, default=False)
+    guarantor_name = db.Column(db.String(120), nullable=True)
+    guarantor_address = db.Column(db.String(255), nullable=True)
+    guarantor_cuit = db.Column(db.String(20), nullable=True)
+    guarantor_phone = db.Column(db.String(30), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     loans = db.relationship('Loan', backref='client', lazy=True, cascade="all, delete-orphan")
@@ -141,6 +146,11 @@ class Client(db.Model):
             "address": self.address or "",
             "cuit": self.cuit or "",
             "notes": self.notes or "",
+            "has_guarantor": bool(self.has_guarantor),
+            "guarantor_name": self.guarantor_name or "",
+            "guarantor_address": self.guarantor_address or "",
+            "guarantor_cuit": self.guarantor_cuit or "",
+            "guarantor_phone": self.guarantor_phone or "",
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M"),
             "metrics": metrics,
             "documents": [d.to_dict() for d in self.documents]
@@ -234,7 +244,10 @@ class Loan(db.Model):
         is_overdue = any(i.status != 'pagado' and i.due_date < today and (today - i.due_date).days > (self.grace_days or 0) for i in self.installments)
         all_paid = all(i.status == 'pagado' for i in self.installments) if self.installments else False
         
-        calculated_status = 'completado' if all_paid else ('en_mora' if is_overdue else 'activo')
+        if self.status in ['pendiente_otorgamiento', 'pendiente']:
+            calculated_status = self.status
+        else:
+            calculated_status = 'completado' if all_paid else ('en_mora' if is_overdue else 'activo')
 
         return {
             "id": self.id,
@@ -490,8 +503,12 @@ class BiometricRequest(db.Model):
     def remaining_seconds(self):
         if not self.created_at:
             return 0
+        try:
+            expiry_mins = int(Setting.get_val('qr_biometric_expiry_minutes', '30'))
+        except Exception:
+            expiry_mins = 30
         elapsed = (datetime.utcnow() - self.created_at).total_seconds()
-        return max(0, int(1800 - elapsed))
+        return max(0, int((expiry_mins * 60) - elapsed))
 
     @property
     def is_expired(self):

@@ -4,9 +4,11 @@ import csv
 import io
 import uuid
 import re
+import warnings
+warnings.filterwarnings("ignore")
 import requests
 import urllib.request
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from flask import Flask, render_template, render_template_string, request, jsonify, send_file, Response, make_response
 from models import db, Client, Loan, Installment, Payment, Expense, Setting, ClientDocument, PersonalBill, BiometricRequest, Raffle, ShoppingItem, NoticeBoardItem, HomeCalendarItem
 
@@ -89,7 +91,13 @@ def restore_auto_backup():
                     whatsapp=c_data.get('whatsapp', ''),
                     email=c_data.get('email', ''),
                     address=c_data.get('address', ''),
-                    notes=c_data.get('notes', '')
+                    cuit=c_data.get('cuit', ''),
+                    notes=c_data.get('notes', ''),
+                    has_guarantor=c_data.get('has_guarantor', False),
+                    guarantor_name=c_data.get('guarantor_name', ''),
+                    guarantor_address=c_data.get('guarantor_address', ''),
+                    guarantor_cuit=c_data.get('guarantor_cuit', ''),
+                    guarantor_phone=c_data.get('guarantor_phone', '')
                 )
                 db.session.add(c)
         db.session.commit()
@@ -120,16 +128,20 @@ def restore_auto_backup():
         for i_data in data.get('Installment', []):
             if not db.session.get(Installment, i_data['id']):
                 due_d = datetime.fromisoformat(i_data['due_date']).date() if isinstance(i_data['due_date'], str) else i_data['due_date']
+                amt = float(i_data.get('amount', 0.0))
+                cap = float(i_data.get('capital_portion') if i_data.get('capital_portion') is not None else round(amt * 0.8, 2))
+                inte = float(i_data.get('interest_portion') if i_data.get('interest_portion') is not None else round(amt * 0.2, 2))
                 inst = Installment(
                     id=i_data['id'],
                     loan_id=i_data['loan_id'],
-                    installment_number=i_data['installment_number'],
+                    number=i_data.get('number', i_data.get('installment_number', 1)),
                     due_date=due_d,
-                    amount=i_data['amount'],
+                    amount=amt,
+                    capital_portion=cap,
+                    interest_portion=inte,
                     paid_amount=i_data.get('paid_amount', 0.0),
                     status=i_data.get('status', 'pendiente'),
-                    paid_date=datetime.fromisoformat(i_data['paid_date']).date() if i_data.get('paid_date') else None,
-                    late_fee_amount=i_data.get('late_fee_amount', 0.0)
+                    paid_date=datetime.fromisoformat(i_data['paid_date']).date() if i_data.get('paid_date') else None
                 )
                 db.session.add(inst)
         db.session.commit()
@@ -193,13 +205,21 @@ def restore_auto_backup():
 def init_db_and_seeds():
     db.create_all()
 
-    # Migration: Ensure cuit column exists in clients table
-    try:
-        with db.engine.connect() as conn:
-            conn.execute(db.text("ALTER TABLE clients ADD COLUMN cuit VARCHAR(20)"))
-            conn.commit()
-    except Exception:
-        pass
+    # Migration: Ensure cuit and guarantor columns exist in clients table
+    for client_col in [
+        ("cuit", "VARCHAR(20)"),
+        ("has_guarantor", "BOOLEAN DEFAULT 0"),
+        ("guarantor_name", "VARCHAR(120)"),
+        ("guarantor_address", "VARCHAR(255)"),
+        ("guarantor_cuit", "VARCHAR(20)"),
+        ("guarantor_phone", "VARCHAR(30)")
+    ]:
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(db.text(f"ALTER TABLE clients ADD COLUMN {client_col[0]} {client_col[1]}"))
+                conn.commit()
+        except Exception:
+            pass
 
     # Check if there is an auto backup to restore
     restored = restore_auto_backup()
@@ -254,6 +274,24 @@ def init_db_and_seeds():
         Setting.set_val('user_salary_eduardo', '550000')
     if not Setting.query.filter_by(key='user_salary_maira').first():
         Setting.set_val('user_salary_maira', '450000')
+
+    # Seed default marquee & Catamarca news configuration
+    for k, v in [
+        ('marquee_enabled', '1'),
+        ('marquee_speed', 'normal'),
+        ('marquee_show_news', '1'),
+        ('marquee_show_pizarra', '1'),
+        ('marquee_show_weather', '1'),
+        ('marquee_show_datetime', '1'),
+        ('marquee_show_calendar', '1'),
+        ('news_source_esquiu', '1'),
+        ('news_source_ancasti', '1'),
+        ('news_source_catamarca_actual', '1'),
+        ('news_source_la_union', '1'),
+        ('custom_marquee_text', '')
+    ]:
+        if not Setting.query.filter_by(key=k).first():
+            Setting.set_val(k, v)
 
     # Seed sample personal bills if empty
     if PersonalBill.query.count() == 0:
@@ -470,6 +508,15 @@ def get_dashboard_stats():
         for p in payments if p.payment_date.date() >= first_day_of_month
     )
 
+    cash_income_month = sum(
+        p.amount for p in payments 
+        if p.payment_date.date() >= first_day_of_month and (p.payment_method or '').lower() == 'efectivo'
+    )
+    transfer_income_month = sum(
+        p.amount for p in payments 
+        if p.payment_date.date() >= first_day_of_month and (p.payment_method or '').lower() != 'efectivo'
+    )
+
     deployed_capital = sum(l.amount for l in active_loans)
     
     total_interest_collected = sum(
@@ -552,6 +599,8 @@ def get_dashboard_stats():
         "capital_en_calle": round(capital_en_calle, 2),
         "intereses_a_cobrar": round(intereses_a_cobrar, 2),
         "ganancia_liquida_mes": round(ganancia_liquida_mes, 2),
+        "cash_income_month": round(cash_income_month, 2),
+        "transfer_income_month": round(transfer_income_month, 2),
         
         "deployed_capital": round(deployed_capital, 2),
         "total_interest_collected": round(total_interest_collected, 2),
@@ -589,14 +638,14 @@ def query_bcra_api(cuit):
     cheques_data = None
     
     try:
-        res = requests.get(url_deudores, timeout=5, headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
+        res = requests.get(url_deudores, timeout=5, headers={'User-Agent': 'Mozilla/5.0'})
         if res.status_code == 200:
             data_bcra = res.json()
     except Exception as e:
         print(f"BCRA Deudores connection error: {e}")
 
     try:
-        res_ch = requests.get(url_cheques, timeout=5, headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
+        res_ch = requests.get(url_cheques, timeout=5, headers={'User-Agent': 'Mozilla/5.0'})
         if res_ch.status_code == 200:
             cheques_data = res_ch.json()
     except Exception as e:
@@ -678,7 +727,7 @@ def query_bcra_api(cuit):
 def check_bcra(cuit_or_id):
     cuit = str(cuit_or_id).strip()
     if cuit.isdigit() and len(cuit) < 10:
-        client = Client.query.get(int(cuit))
+        client = db.session.get(Client, int(cuit))
         if client and client.cuit:
             cuit = client.cuit
         else:
@@ -731,6 +780,25 @@ def handle_clients():
         if existing_name:
             return jsonify({'error': f'Ya existe un cliente registrado con el nombre "{existing_name.name}"'}), 400
 
+        # Manejo de Garante Solidario
+        has_guarantor = bool(data.get('has_guarantor'))
+        guarantor_name = str(data.get('guarantor_name') or '').strip()
+        guarantor_address = str(data.get('guarantor_address') or '').strip()
+        raw_g_cuit = str(data.get('guarantor_cuit') or '').strip()
+        clean_g_cuit = "".join(c for c in raw_g_cuit if c.isdigit())
+        raw_g_phone = str(data.get('guarantor_phone') or '').strip()
+        clean_g_phone = "".join(c for c in raw_g_phone if c.isdigit())
+
+        if has_guarantor:
+            if not guarantor_name:
+                return jsonify({'error': 'El Nombre y Apellido del Garante es obligatorio al marcar la opción Garante'}), 400
+            if not guarantor_address:
+                return jsonify({'error': 'El Domicilio Real del Garante es obligatorio al marcar la opción Garante'}), 400
+            if not clean_g_cuit or len(clean_g_cuit) != 11:
+                return jsonify({'error': 'El CUIT / CUIL del Garante es obligatorio y debe tener exactamente 11 dígitos numéricos'}), 400
+            if not clean_g_phone:
+                return jsonify({'error': 'El Teléfono / WhatsApp del Garante es obligatorio al marcar la opción Garante'}), 400
+
         # Normalización e Inserción
         client = Client(
             name=name.title()[:120],
@@ -738,7 +806,12 @@ def handle_clients():
             email=email[:120],
             address=address[:255],
             cuit=clean_cuit[:20],
-            notes=str(data.get('notes') or '').strip()
+            notes=str(data.get('notes') or '').strip(),
+            has_guarantor=has_guarantor,
+            guarantor_name=guarantor_name.title()[:120] if has_guarantor else None,
+            guarantor_address=guarantor_address[:255] if has_guarantor else None,
+            guarantor_cuit=clean_g_cuit[:20] if has_guarantor else None,
+            guarantor_phone=clean_g_phone[:30] if has_guarantor else None
         )
         try:
             db.session.add(client)
@@ -808,6 +881,36 @@ def handle_single_client(client_id):
 
     if 'notes' in data:
         client.notes = str(data['notes'] or '').strip()
+
+    if 'has_guarantor' in data:
+        has_g = bool(data['has_guarantor'])
+        client.has_guarantor = has_g
+        if has_g:
+            g_name = str(data.get('guarantor_name') or '').strip()
+            g_address = str(data.get('guarantor_address') or '').strip()
+            raw_g_cuit = str(data.get('guarantor_cuit') or '').strip()
+            clean_g_cuit = "".join(c for c in raw_g_cuit if c.isdigit())
+            raw_g_phone = str(data.get('guarantor_phone') or '').strip()
+            clean_g_phone = "".join(c for c in raw_g_phone if c.isdigit())
+
+            if not g_name:
+                return jsonify({'error': 'El Nombre y Apellido del Garante es obligatorio'}), 400
+            if not g_address:
+                return jsonify({'error': 'El Domicilio Real del Garante es obligatorio'}), 400
+            if not clean_g_cuit or len(clean_g_cuit) != 11:
+                return jsonify({'error': 'El CUIT / CUIL del Garante debe contener exactamente 11 dígitos numéricos'}), 400
+            if not clean_g_phone:
+                return jsonify({'error': 'El Teléfono / WhatsApp del Garante es obligatorio'}), 400
+
+            client.guarantor_name = g_name.title()[:120]
+            client.guarantor_address = g_address[:255]
+            client.guarantor_cuit = clean_g_cuit[:20]
+            client.guarantor_phone = clean_g_phone[:30]
+        else:
+            client.guarantor_name = None
+            client.guarantor_address = None
+            client.guarantor_cuit = None
+            client.guarantor_phone = None
         
     try:
         db.session.commit()
@@ -834,6 +937,297 @@ END:VCARD"""
     response.headers["Content-Disposition"] = f"attachment; filename=Contacto_{client.name.replace(' ', '_')}.vcf"
     response.headers["Content-Type"] = "text/vcard; charset=utf-8"
     return response
+
+
+def get_company_logo_html(company_name=None):
+    if not company_name:
+        company_name = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+    logo_data = Setting.get_val('company_logo_data', '').strip()
+    if logo_data and ('data:image' in logo_data or logo_data.startswith('http')):
+        return f'<img src="{logo_data}" style="max-height: 65px; max-width: 220px; object-fit: contain; display: block; margin-bottom: 6px;" alt="{company_name}"/>'
+    return f'<h1 style="font-size: 20px; font-weight: 900; margin: 0; color: #0f172a;">🏢 {company_name}</h1>'
+
+
+@app.route('/api/clients/<int:client_id>/ficha_pdf', methods=['GET'])
+def generate_client_ficha_pdf(client_id):
+    client = Client.query.get_or_404(client_id)
+    company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+    company_cuit = Setting.get_val('company_cuit', '20-33445566-9')
+    company_phone = Setting.get_val('company_phone', '+54 9 11 3344-5566')
+    company_address = Setting.get_val('company_address', 'Av. Corrientes 1234, CABA')
+    alias_cbu = Setting.get_val('alias_cbu', 'FAMILIA.ANDRADA.MP')
+    company_bank = Setting.get_val('company_bank', 'Mercado Pago / Banco Santander')
+    company_titular = Setting.get_val('company_titular', 'Eduardo Andrada')
+    logo_html = get_company_logo_html(company)
+
+    guarantor_html = ""
+    if client.has_guarantor and client.guarantor_name:
+        guarantor_html = f"""
+        <div style="background: #f8fafc; border: 2px solid #6366f1; border-radius: 10px; padding: 18px; margin: 25px 0;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 20px;">🛡️</span>
+                <h3 style="margin: 0; font-size: 16px; color: #312e81; text-transform: uppercase; letter-spacing: 0.5px;">Fiador / Garante Solidario Designado</h3>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; font-size: 13px;">
+                <div><strong style="color: #475569;">Nombre y Apellido:</strong> <span style="font-weight: bold; color: #0f172a;">{client.guarantor_name}</span></div>
+                <div><strong style="color: #475569;">CUIT / CUIL:</strong> <span style="font-family: monospace; font-weight: bold; color: #0f172a;">{client.guarantor_cuit or 'N/A'}</span></div>
+                <div><strong style="color: #475569;">Teléfono / WhatsApp:</strong> <span style="font-weight: bold; color: #0f172a;">+{client.guarantor_phone or 'N/A'}</span></div>
+                <div><strong style="color: #475569;">Domicilio Real:</strong> <span style="font-weight: bold; color: #0f172a;">{client.guarantor_address or 'N/A'}</span></div>
+            </div>
+            <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1; font-size: 12px; line-height: 1.6; color: #334155; text-align: justify;">
+                <strong>CLÁUSULA DE RESPONSABILIDAD SOLIDARIA:</strong> Por el presente acto, el/la Garante arriba individualizado/a se constituye formalmente como Fiador, Liso, Llano y Principal Pagador de todas las obligaciones crediticias, préstamos, mutuos, intereses compensatorios y punitorios presentes y futuros que el Titular Deudor contraiga con <strong>{company}</strong>, renunciando en forma irrevocable a los beneficios de división y excusión de bienes previstos por el Código Civil y Comercial de la Nación.
+            </div>
+        </div>
+        """
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ficha Oficial de Alta de Cliente #{client.id:04d} - {client.name}</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f1f5f9; color: #0f172a; padding: 25px; margin: 0; }}
+        .sheet {{ max-width: 820px; margin: 0 auto; background: #ffffff; border: 2px solid #0f172a; border-radius: 14px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }}
+        .header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 20px; margin-bottom: 25px; }}
+        .brand-title {{ font-size: 22px; font-weight: 900; color: #0f172a; margin: 0; }}
+        .brand-subtitle {{ font-size: 12px; color: #64748b; font-weight: bold; margin-top: 4px; text-transform: uppercase; }}
+        .badge-doc {{ background: #0f172a; color: #ffffff; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: bold; text-align: right; }}
+        .grid-info {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; margin-bottom: 20px; font-size: 13px; }}
+        .info-label {{ font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; margin-bottom: 2px; }}
+        .info-value {{ font-size: 14px; font-weight: bold; color: #0f172a; }}
+        .signatures {{ display: flex; justify-content: space-between; gap: 30px; margin-top: 50px; padding-top: 20px; }}
+        .sig-box {{ flex: 1; text-align: center; border-top: 1px solid #0f172a; padding-top: 8px; font-size: 12px; font-weight: bold; color: #0f172a; }}
+        .sig-sub {{ font-size: 10px; color: #64748b; font-weight: normal; margin-top: 2px; }}
+        @media print {{
+            body {{ background: #fff; padding: 0; }}
+            .sheet {{ border: none; box-shadow: none; padding: 0; max-width: 100%; }}
+            .no-print {{ display: none; }}
+        }}
+    </style>
+</head>
+<body>
+    <div style="text-align: center; margin-bottom: 20px;" class="no-print">
+        <button onclick="window.print()" style="background: #0f172a; color: white; border: none; padding: 12px 28px; font-size: 15px; font-weight: bold; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">🖨️ Imprimir / Guardar en PDF</button>
+    </div>
+
+    <div class="sheet">
+        <div class="header">
+            <div>
+                <h1 class="brand-title">{company}</h1>
+                <p class="brand-subtitle">Servicios Financieros & Gestión Crediticia • CUIT {company_cuit}</p>
+                <p style="font-size: 12px; color: #475569; margin: 4px 0 0 0;">📍 {company_address} • 📞 {company_phone}</p>
+            </div>
+            <div class="badge-doc">
+                <div>FICHA DE ALTA OFICIAL</div>
+                <div style="font-size: 15px; margin-top: 2px;">#{client.id:04d}</div>
+                <div style="font-size: 10px; font-weight: normal; margin-top: 3px;">Fecha: {client.created_at.strftime('%d/%m/%Y')}</div>
+            </div>
+        </div>
+
+        <h2 style="font-size: 15px; text-transform: uppercase; color: #0f172a; margin-bottom: 12px; letter-spacing: 0.5px;">👤 Información del Titular Deudor</h2>
+        <div class="grid-info">
+            <div>
+                <div class="info-label">Nombre Completo</div>
+                <div class="info-value">{client.name}</div>
+            </div>
+            <div>
+                <div class="info-label">CUIT / CUIL</div>
+                <div class="info-value" style="font-family: monospace;">{client.cuit or 'N/A'}</div>
+            </div>
+            <div>
+                <div class="info-label">WhatsApp / Teléfono Móvil</div>
+                <div class="info-value">+{client.whatsapp}</div>
+            </div>
+            <div>
+                <div class="info-label">Correo Electrónico</div>
+                <div class="info-value">{client.email or 'No especificado'}</div>
+            </div>
+            <div style="grid-column: span 2;">
+                <div class="info-label">Domicilio Real Declarado & Referencias</div>
+                <div class="info-value">{client.address}</div>
+            </div>
+            {f'<div style="grid-column: span 2;"><div class="info-label">Notas Adicionales</div><div class="info-value" style="font-weight: normal; font-size: 13px;">{client.notes}</div></div>' if client.notes else ''}
+        </div>
+
+        {guarantor_html}
+
+        <div style="background: #f1f5f9; border-radius: 10px; padding: 16px; margin: 25px 0; font-size: 12px; line-height: 1.6; color: #334155; text-align: justify;">
+            <strong>DECLARACIÓN JURADA Y CONFORMIDAD:</strong> Quienes suscriben el presente instrumento declaran bajo juramento que los datos personales y de contacto consignados son verídicos, exactos y revisten el carácter de declaración jurada a todos los efectos legales, comprometiéndose a notificar cualquier cambio de domicilio o número telefónico dentro de las 48 horas hábiles. Se deja expresa constancia de que los pagos de las cuotas pactadas deberán realizarse por transferencia directa al Alias/CBU: <strong>{alias_cbu}</strong> ({company_bank} - Titular: {company_titular}).
+        </div>
+
+        <div class="signatures">
+            <div class="sig-box">
+                Firma del Deudor Titular
+                <div class="sig-sub">Aclaración: {client.name}</div>
+                <div class="sig-sub">CUIT: {client.cuit or ''}</div>
+            </div>
+            {f'''<div class="sig-box">
+                Firma del Garante Solidario
+                <div class="sig-sub">Aclaración: {client.guarantor_name}</div>
+                <div class="sig-sub">CUIT: {client.guarantor_cuit or ''}</div>
+            </div>''' if client.has_guarantor and client.guarantor_name else ''}
+            <div class="sig-box">
+                Firma y Sello Comercial
+                <div class="sig-sub">{company}</div>
+                <div class="sig-sub">CUIT: {company_cuit}</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>"""
+    return html
+
+
+@app.route('/api/clients/<int:client_id>/garante_cobro_pdf', methods=['GET'])
+def generate_guarantor_cobro_pdf(client_id):
+    client = Client.query.get_or_404(client_id)
+    company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+    company_cuit = Setting.get_val('company_cuit', '20-33445566-9')
+    company_phone = Setting.get_val('company_phone', '+54 9 11 3344-5566')
+    company_address = Setting.get_val('company_address', 'Av. Corrientes 1234, CABA')
+    alias_cbu = Setting.get_val('alias_cbu', 'FAMILIA.ANDRADA.MP')
+    company_cbu = Setting.get_val('company_cbu', '0000003100045678912345')
+    company_bank = Setting.get_val('company_bank', 'Mercado Pago / Banco Santander')
+    company_titular = Setting.get_val('company_titular', 'Eduardo Andrada')
+
+    g_name = client.guarantor_name or 'Garante Solidario'
+    g_cuit = client.guarantor_cuit or 'N/A'
+    g_phone = client.guarantor_phone or 'N/A'
+    g_address = client.guarantor_address or 'N/A'
+
+    # Collect unpaid and overdue installments
+    all_loans = [l for l in client.loans if l.status != 'cancelado']
+    pending_installments = []
+    total_debt = 0.0
+    for l in all_loans:
+        for inst in l.installments:
+            if inst.status in ['pendiente', 'vencido', 'en_mora']:
+                rem = inst.amount - (inst.paid_amount or 0.0) + (inst.late_fee_amount or 0.0)
+                if rem > 0:
+                    pending_installments.append({
+                        "loan_id": l.id,
+                        "num": getattr(inst, 'number', getattr(inst, 'installment_number', 1)),
+                        "due_date": inst.due_date.strftime("%d/%m/%Y"),
+                        "amount": rem,
+                        "status": inst.status
+                    })
+                    total_debt += rem
+
+    table_rows = ""
+    for pi in pending_installments:
+        table_rows += f"""
+        <tr>
+            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold;">Préstamo #{pi['loan_id']} - Cuota #{pi['num']}</td>
+            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-family: monospace;">{pi['due_date']}</td>
+            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; text-transform: uppercase; font-weight: bold; color: {'#e11d48' if pi['status'] in ['vencido', 'en_mora'] else '#d97706'};">{pi['status']}</td>
+            <td style="padding: 8px 12px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">${pi['amount']:,.2f}</td>
+        </tr>
+        """
+
+    if not pending_installments:
+        table_rows = """
+        <tr>
+            <td colspan="4" style="padding: 12px; text-align: center; color: #059669; font-weight: bold;">El deudor no registra cuotas vencidas pendientes a la fecha. Saldo regularizado.</td>
+        </tr>
+        """
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intimación Formal de Cobro a Garante - {g_name}</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #0f172a; padding: 25px; margin: 0; }}
+        .card {{ max-width: 820px; margin: 0 auto; background: #ffffff; border: 2px solid #b91c1c; border-radius: 14px; padding: 35px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }}
+        .header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #b91c1c; padding-bottom: 18px; margin-bottom: 20px; }}
+        .danger-badge {{ background: #b91c1c; color: #ffffff; padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; }}
+        table {{ width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px; }}
+        th {{ background: #0f172a; color: #ffffff; padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; }}
+        .total-box {{ background: #0f172a; color: #ffffff; border-radius: 10px; padding: 18px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }}
+        .pay-box {{ background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 18px; margin-bottom: 25px; font-size: 13px; }}
+        @media print {{
+            body {{ background: #fff; padding: 0; }}
+            .card {{ border: none; box-shadow: none; padding: 0; max-width: 100%; }}
+            .no-print {{ display: none; }}
+        }}
+    </style>
+</head>
+<body>
+    <div style="text-align: center; margin-bottom: 20px;" class="no-print">
+        <button onclick="window.print()" style="background: #b91c1c; color: white; border: none; padding: 12px 28px; font-size: 15px; font-weight: bold; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 12px rgba(185,28,28,0.25);">🖨️ Imprimir / Guardar Notificación en PDF</button>
+    </div>
+
+    <div class="card">
+        <div class="header">
+            <div>
+                <h1 style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 0;">{company}</h1>
+                <p style="font-size: 11px; color: #64748b; font-weight: bold; margin: 4px 0 0 0; text-transform: uppercase;">Departamento de Cobranzas & Asuntos Legales • CUIT {company_cuit}</p>
+                <p style="font-size: 12px; color: #475569; margin: 4px 0 0 0;">📍 {company_address} • 📞 {company_phone}</p>
+            </div>
+            <div style="text-align: right;">
+                <div class="danger-badge">REQUERIMIENTO FORMAL DE PAGO</div>
+                <div style="font-size: 11px; color: #64748b; font-weight: bold; margin-top: 5px;">Fecha Emisión: {datetime.now().strftime('%d/%m/%Y')}</div>
+            </div>
+        </div>
+
+        <p style="font-size: 14px; line-height: 1.6; text-align: justify; margin-bottom: 18px;">
+            Por medio de la presente se notifica a <strong>{g_name}</strong> (CUIT/CUIL: {g_cuit}, Tel: +{g_phone}, Domicilio: {g_address}) en su calidad de <strong>FIADOR Y GARANTE SOLIDARIO</strong> del deudor principal <strong>{client.name}</strong> (CUIT: {client.cuit or 'N/A'}, Tel: +{client.whatsapp}), que ante el vencimiento e impago de las obligaciones dinerarias pactadas, se lo intima formalmente al pago del saldo adeudado y exigible detallado a continuación:
+        </p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Concepto</th>
+                    <th>Vencimiento</th>
+                    <th>Estado</th>
+                    <th style="text-align: right;">Monto Exigible ($)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {table_rows}
+            </tbody>
+        </table>
+
+        <div class="total-box">
+            <div>
+                <div style="font-size: 12px; text-transform: uppercase; color: #94a3b8; font-weight: bold;">TOTAL EXIGIBLE A CANCELAR:</div>
+                <div style="font-size: 10px; color: #cbd5e1;">(Capital, Intereses compensatorios y punitorios acumulados)</div>
+            </div>
+            <div style="font-size: 28px; font-weight: 900; color: #38bdf8;">${total_debt:,.2f}</div>
+        </div>
+
+        <div class="pay-box">
+            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #0f172a; text-transform: uppercase;">💳 Datos Bancarios para Cancelación Inmediata:</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div><strong>Titular:</strong> {company_titular}</div>
+                <div><strong>Alias CBU / CVU:</strong> <span style="font-family: monospace; font-weight: 900; color: #0284c7;">{alias_cbu}</span></div>
+                <div><strong>N° CBU:</strong> <span style="font-family: monospace;">{company_cbu}</span></div>
+                <div><strong>Banco / Entidad:</strong> {company_bank}</div>
+                <div><strong>CUIT / CUIL:</strong> <span style="font-family: monospace;">{company_cuit}</span></div>
+            </div>
+            <p style="margin: 10px 0 0 0; font-size: 11px; color: #64748b;">* Al transferir, enviar de inmediato el comprobante de pago vía WhatsApp a {company_phone} para emitir el recibo de cancelación y liberar la fianza.</p>
+        </div>
+
+        <p style="font-size: 12px; color: #475569; line-height: 1.5; text-align: justify; border-left: 3px solid #b91c1c; padding-left: 12px;">
+            <strong>PLAZO PERENTORIO:</strong> Se otorga un plazo improrrogable de <strong>48 horas hábiles</strong> a partir de la recepción de la presente para dar cumplimiento al pago requerido o comunicarse para convenir un acuerdo formal, bajo apercibimiento de iniciar las acciones judiciales ejecutivas pertinentes con costas y honorarios a su exclusivo cargo.
+        </p>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 40px; padding-top: 20px; border-top: 1px dashed #cbd5e1;">
+            <div style="text-align: center; width: 45%; border-top: 1px solid #0f172a; padding-top: 8px; font-size: 12px; font-weight: bold;">
+                Firma y Aclaración del Garante
+                <div style="font-size: 10px; color: #64748b;">Recepción de Notificación</div>
+            </div>
+            <div style="text-align: center; width: 45%; border-top: 1px solid #0f172a; padding-top: 8px; font-size: 12px; font-weight: bold;">
+                Cobranzas & Asuntos Crediticios
+                <div style="font-size: 10px; color: #64748b;">{company}</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>"""
+    return html
 
 
 @app.route('/api/clients/<int:client_id>/documents', methods=['GET', 'POST'])
@@ -896,7 +1290,7 @@ def handle_loans():
         if not client_id:
             return jsonify({'error': 'Debe seleccionar un cliente para otorgar el préstamo'}), 400
         
-        client = Client.query.get(client_id)
+        client = db.session.get(Client, client_id)
         if not client:
             return jsonify({'error': 'El cliente seleccionado no existe en la base de datos'}), 400
             
@@ -1138,6 +1532,219 @@ def generate_pagare_pdf(loan_id):
     return response
 
 
+@app.route('/api/loans/<int:loan_id>/resumen_ia_pdf', methods=['GET'])
+def generate_loan_ia_resumen_pdf(loan_id):
+    loan = Loan.query.get_or_404(loan_id)
+    client = loan.client
+    company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+    company_cuit = Setting.get_val('company_cuit', '20-33445566-9')
+    alias_cbu = Setting.get_val('alias_cbu', 'FAMILIA.ANDRADA.MP')
+    company_cbu = Setting.get_val('company_cbu', '0000003100045678912345')
+    company_bank = Setting.get_val('company_bank', 'Mercado Pago / Banco Santander')
+    company_titular = Setting.get_val('company_titular', 'Eduardo Andrada')
+    company_phone = Setting.get_val('company_phone', '+54 9 11 3344-5566')
+    company_address = Setting.get_val('company_address', 'Av. Corrientes 1234, CABA')
+
+    total_to_pay = sum(i.amount for i in loan.installments) if loan.installments else loan.amount
+    total_interest = max(0.0, total_to_pay - loan.amount)
+    installment_val = round(total_to_pay / loan.installments_count, 2) if loan.installments_count > 0 else total_to_pay
+    cft_pct = round((total_interest / loan.amount) * 100, 2) if loan.amount > 0 else 0.0
+
+    sorted_installments = sorted(loan.installments, key=lambda x: getattr(x, 'number', 0))
+    first_due = sorted_installments[0].due_date.strftime('%d/%m/%Y') if sorted_installments else 'A convenir'
+    last_due = sorted_installments[-1].due_date.strftime('%d/%m/%Y') if sorted_installments else 'A convenir'
+
+    guarantor_section = ""
+    guarantor_clause = ""
+    guarantor_sig_box = ""
+    if client.has_guarantor and client.guarantor_name:
+        guarantor_clause = f", con fianza y aval solidario mancomunado de <strong>{client.guarantor_name}</strong> (CUIT/CUIL: {client.guarantor_cuit}, Tel: +{client.guarantor_phone})"
+        guarantor_section = f"""
+        <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 13px;">
+            <strong style="color: #4338ca; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">🛡️ Garante Solidario & Co-deudor Designado:</strong>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 6px;">
+                <div><strong>Nombre:</strong> {client.guarantor_name}</div>
+                <div><strong>CUIT / CUIL:</strong> {client.guarantor_cuit}</div>
+                <div><strong>Domicilio Real:</strong> {client.guarantor_address}</div>
+                <div><strong>Teléfono / WA:</strong> +{client.guarantor_phone}</div>
+            </div>
+        </div>
+        """
+        guarantor_sig_box = f"""
+        <div class="sig-box">
+            <div style="height: 60px; display: flex; align-items: flex-end; justify-content: center; color: #94a3b8; font-style: italic; font-size: 12px;">
+                Firma y Aclaración
+            </div>
+            <div class="sig-line">FIRMA GARANTE SOLIDARIO ({client.guarantor_name})</div>
+        </div>
+        """
+
+    # Installment Table Rows
+    inst_rows = ""
+    rem = total_to_pay
+    for idx, inst in enumerate(sorted_installments):
+        rem = max(0.0, rem - inst.amount)
+        inst_num = getattr(inst, 'number', idx + 1)
+        inst_rows += f"""
+        <tr>
+            <td style="font-weight: bold;">Cuota #{inst_num}</td>
+            <td style="font-family: monospace;">{inst.due_date.strftime('%d/%m/%Y')}</td>
+            <td style="font-weight: bold; color: #059669;">${inst.amount:,.2f}</td>
+            <td style="color: #64748b;">${rem:,.2f}</td>
+            <td><span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; text-transform: uppercase;">{inst.status}</span></td>
+        </tr>
+        """
+
+    sig_html = f'<img src="{loan.signature_data}" style="max-height: 70px; max-width: 100%; object-fit: contain;" alt="Firma Biometrica"/>' if loan.signature_data else '<div style="height: 60px; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-style:italic; font-size: 12px;">Firma Digital Registrada</div>'
+
+    html_content = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificado & Resumen de Préstamo #{loan.id} - {client.name}</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #0f172a; padding: 20px; margin: 0; }}
+        .card {{ max-width: 820px; margin: 0 auto; background: #ffffff; border: 2px solid #0f172a; border-radius: 14px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }}
+        .header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 20px; }}
+        .badge {{ background: #0f172a; color: #ffffff; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; }}
+        .ai-box {{ background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 18px; margin-bottom: 22px; font-size: 13.5px; line-height: 1.65; color: #14532d; }}
+        .ai-badge {{ display: inline-block; background: #16a34a; color: white; padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }}
+        .grid-2 {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; font-size: 13px; }}
+        .grid-4 {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; text-align: center; }}
+        .metric-box {{ background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 8px; }}
+        .metric-label {{ font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }}
+        .metric-val {{ font-size: 16px; font-weight: 900; color: #0f172a; }}
+        table {{ width: 100%; border-collapse: collapse; margin-bottom: 22px; font-size: 13px; }}
+        th, td {{ border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }}
+        th {{ background: #0f172a; color: #ffffff; text-transform: uppercase; font-size: 11px; }}
+        .bank-box {{ background: #f8fafc; border: 1px dashed #0f172a; border-radius: 8px; padding: 14px; margin-bottom: 25px; font-size: 12.5px; }}
+        .signatures {{ display: flex; justify-content: space-around; align-items: flex-end; margin-top: 35px; padding-top: 20px; border-top: 1px dashed #cbd5e1; }}
+        .sig-box {{ text-align: center; width: 30%; }}
+        .sig-line {{ border-top: 1px solid #0f172a; margin-top: 8px; padding-top: 5px; font-weight: bold; font-size: 11px; color: #0f172a; text-transform: uppercase; }}
+        @media print {{
+            body {{ background: #fff; padding: 0; }}
+            .card {{ border: none; box-shadow: none; padding: 0; max-width: 100%; }}
+            .no-print {{ display: none; }}
+        }}
+    </style>
+</head>
+<body>
+    <div style="text-align: center; margin-bottom: 18px;" class="no-print">
+        <button onclick="window.print()" style="background: #16a34a; color: white; border: none; padding: 12px 28px; font-size: 14px; font-weight: bold; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 12px rgba(22,163,74,0.25);">🖨️ Imprimir / Guardar Resumen en PDF</button>
+    </div>
+
+    <div class="card">
+        <div class="header">
+            <div>
+                <h1 style="font-size: 20px; font-weight: 900; margin: 0; color: #0f172a;">{company}</h1>
+                <p style="font-size: 11px; color: #64748b; font-weight: bold; margin: 4px 0 0 0; text-transform: uppercase;">División Préstamos & Créditos Personales • CUIT {company_cuit}</p>
+                <p style="font-size: 12px; color: #475569; margin: 3px 0 0 0;">📍 {company_address} • 📞 {company_phone}</p>
+            </div>
+            <div style="text-align: right;">
+                <div class="badge">RESUMEN OFICIAL DE PRÉSTAMO #{loan.id}</div>
+                <div style="font-size: 11px; color: #64748b; font-weight: bold; margin-top: 5px;">Fecha: {loan.start_date.strftime('%d/%m/%Y')}</div>
+            </div>
+        </div>
+
+        <!-- Resumen Ejecutivo Inteligente -->
+        <div class="ai-box">
+            <div class="ai-badge">🤖 RESUMEN FINANCIERO INTELIGENTE & CONDICIONES (IA ANALYTICS)</div>
+            <p style="margin: 0 0 8px 0;">
+                Por medio del presente documento se certifica formalmente que <strong>{company}</strong> ha otorgado a favor de <strong>{client.name}</strong> (CUIT/DNI: {client.cuit or 'Sin registrar'}, Tel: +{client.whatsapp}){guarantor_clause}, un crédito personal por la suma de <strong>${loan.amount:,.2f}</strong>, conviniéndose un esquema de cancelación de <strong>{loan.installments_count} cuota(s) {loan.modality}es</strong> por valor de <strong>${installment_val:,.2f}</strong> cada una, alcanzando un importe total a devolver de <strong>${total_to_pay:,.2f}</strong> (tasa de interés pactada: {loan.interest_rate}% {loan.rate_type}, Costo Financiero Total: {cft_pct}%).
+            </p>
+            <p style="margin: 0;">
+                <strong>Cronograma y Devolución:</strong> El primer vencimiento opera el día <strong>{first_due}</strong> y el último vencimiento el día <strong>{last_due}</strong>. El presente plan goza de <strong>{loan.grace_days} días de gracia</strong> por período. Tras dicho plazo sin verificarse el pago, regirá una tasa punitoria de <strong>{loan.late_fee_value}% {loan.late_fee_type}</strong> computable por cada día de mora.
+            </p>
+        </div>
+
+        <!-- Datos del Cliente -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 13px;">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;">
+                <div><strong>Titular Deudor:</strong> {client.name}</div>
+                <div><strong>CUIT / DNI:</strong> {client.cuit or 'Sin registrar'}</div>
+                <div><strong>Domicilio:</strong> {client.address or 'Sin registrar'}</div>
+                <div><strong>Teléfono / WA:</strong> +{client.whatsapp}</div>
+            </div>
+        </div>
+
+        <!-- Datos del Garante (si existe) -->
+        {guarantor_section}
+
+        <!-- Métricas Principales -->
+        <div class="grid-4">
+            <div class="metric-box">
+                <div class="metric-label">Capital Prestado</div>
+                <div class="metric-val">${loan.amount:,.2f}</div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-label">Total a Devolver</div>
+                <div class="metric-val" style="color: #059669;">${total_to_pay:,.2f}</div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-label">Valor de Cuota</div>
+                <div class="metric-val" style="color: #4f46e5;">${installment_val:,.2f}</div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-label">Plan de Pagos</div>
+                <div class="metric-val">{loan.installments_count} de {loan.modality}</div>
+            </div>
+        </div>
+
+        <!-- Tabla de Cuotas y Vencimientos -->
+        <h3 style="font-size: 12px; font-weight: 900; text-transform: uppercase; color: #0f172a; margin: 0 0 8px 0; letter-spacing: 0.5px;">DETALLE CRONOGRAMA DE CUOTAS Y VENCIMIENTOS</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Cuota</th>
+                    <th>Vencimiento</th>
+                    <th>Importe</th>
+                    <th>Saldo Posterior</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {inst_rows}
+            </tbody>
+        </table>
+
+        <!-- Medios Oficiales de Pago -->
+        <div class="bank-box">
+            <strong style="text-transform: uppercase; font-size: 11px; color: #0f172a; letter-spacing: 0.5px;">💳 Medios Oficiales para Realizar Pagos y Cancelaciones:</strong>
+            <div style="margin-top: 6px; line-height: 1.6;">
+                Transferencias a <strong>Alias CBU: {alias_cbu}</strong> | CBU: <span style="font-family: monospace;">{company_cbu}</span><br>
+                <strong>Entidad:</strong> {company_bank} • <strong>Titular:</strong> {company_titular}<br>
+                <em>Remitir comprobante inmediatamente vía WhatsApp a <strong>+{company_phone}</strong> para registrar la imputación de la cuota y obtener constancia electrónica.</em>
+            </div>
+        </div>
+
+        <!-- Firmas -->
+        <div class="signatures">
+            <div class="sig-box">
+                <div style="height: 60px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #0f172a; font-size: 13px;">
+                    {company}
+                </div>
+                <div class="sig-line">FIRMA Y SELLO ACREEDOR</div>
+            </div>
+            <div class="sig-box">
+                {sig_html}
+                <div class="sig-line">FIRMA CLIENTE / TITULAR ({client.name})</div>
+            </div>
+            {guarantor_sig_box}
+        </div>
+
+        <div style="text-align: center; font-size: 10px; color: #94a3b8; margin-top: 25px; border-top: 1px solid #f1f5f9; padding-top: 10px;">
+            Documento emitido electrónicamente por el Sistema de Gestión de Préstamos • Fecha emisión: {datetime.now().strftime('%d/%m/%Y %H:%M')}
+        </div>
+    </div>
+</body>
+</html>"""
+
+    response = make_response(html_content)
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
+    return response
+
+
 @app.route('/api/quote/pdf', methods=['GET'])
 def generate_quote_pdf():
     company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
@@ -1289,6 +1896,441 @@ def generate_quote_pdf():
 
 
 # ----------------------------------------------------
+# PLANTILLAS OFICIALES EN PDF (PAGARÉ, CONTRATO, LEYES, REGLAS & PRE-VENCIMIENTO)
+# ----------------------------------------------------
+
+@app.route('/api/documents/pagare_blanco_pdf', methods=['GET'])
+def generate_pagare_blanco_pdf():
+    company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+    cuit = Setting.get_val('company_cuit', '20-33445566-9')
+    phone = Setting.get_val('company_phone', '+54 9 11 3344-5566')
+    address = Setting.get_val('company_address', 'Av. Corrientes 1234, CABA')
+    logo_html = get_company_logo_html(company)
+    
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Pagaré Digital e Impreso en Blanco - {company}</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #0f172a; padding: 20px; margin: 0; }}
+        .card {{ max-width: 820px; margin: 0 auto; background: #fff; border: 2px solid #0f172a; border-radius: 14px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }}
+        .header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 20px; }}
+        .badge {{ background: #0f172a; color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 900; text-transform: uppercase; }}
+        .fill-line {{ border-bottom: 1px dashed #0f172a; display: inline-block; min-width: 150px; font-weight: bold; color: #1e3a8a; padding: 0 5px; }}
+        .box {{ background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 16px; margin-bottom: 20px; font-size: 13px; line-height: 1.8; }}
+        .signatures {{ display: flex; justify-content: space-around; align-items: flex-end; margin-top: 45px; padding-top: 20px; border-top: 1px dashed #cbd5e1; }}
+        .sig-box {{ text-align: center; width: 30%; }}
+        .sig-line {{ border-top: 1px solid #0f172a; margin-top: 8px; padding-top: 5px; font-weight: bold; font-size: 11px; text-transform: uppercase; }}
+        @media print {{ body {{ background: #fff; padding: 0; }} .card {{ border: none; box-shadow: none; padding: 0; }} .no-print {{ display: none; }} }}
+    </style>
+</head>
+<body>
+    <div style="text-align: center; margin-bottom: 18px;" class="no-print">
+        <button onclick="window.print()" style="background: #16a34a; color: white; border: none; padding: 12px 28px; font-size: 14px; font-weight: bold; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 12px rgba(22,163,74,0.25);">🖨️ Imprimir / Guardar Pagaré en Blanco</button>
+    </div>
+
+    <div class="card">
+        <div class="header">
+            <div>
+                {logo_html}
+                <p style="font-size: 11px; color: #64748b; font-weight: bold; margin: 4px 0 0 0; text-transform: uppercase;">DOCUMENTO DE CRÉDITO Y VALOR PROPRIO • CUIT {cuit}</p>
+                <p style="font-size: 12px; color: #475569; margin: 3px 0 0 0;">📍 {address} • 📞 {phone}</p>
+            </div>
+            <div style="text-align: right;">
+                <div class="badge">PAGARÉ SIN PROTESTO</div>
+                <div style="font-size: 12px; font-weight: bold; margin-top: 8px;">Monto: $ <span class="fill-line" style="min-width: 120px;"></span></div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Vencimiento: <span class="fill-line" style="min-width: 100px;"></span></div>
+            </div>
+        </div>
+
+        <div class="box">
+            En la ciudad de <span class="fill-line" style="min-width: 160px;">San Fernando del Valle de Catamarca</span>, con fecha <span class="fill-line" style="min-width: 140px;"></span>, el/la abajo firmante <strong>DEUDOR/A TITULAR</strong>:
+            <br><br>
+            <strong>Nombre y Apellido:</strong> <span class="fill-line" style="min-width: 320px;"></span><br>
+            <strong>DNI / CUIT / CUIL:</strong> <span class="fill-line" style="min-width: 200px;"></span> | <strong>Teléfono / WA:</strong> <span class="fill-line" style="min-width: 200px;"></span><br>
+            <strong>Domicilio Real:</strong> <span class="fill-line" style="min-width: 450px;"></span>
+            <br><br>
+            PAGARÉ(MOS) incondicionalmente sin protesto (Art. 50 Decreto Ley 5965/63) a la orden de <strong>{company}</strong> (CUIT {cuit}) o a quien sus derechos represente, en el domicilio de <strong>{address}</strong>, la cantidad de Pesos:
+            <br>
+            <div style="background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; margin: 10px 0; font-weight: bold; text-align: center;">
+                $ <span class="fill-line" style="min-width: 480px;"></span> (Pesos)
+            </div>
+            con más un interés pactado del <span class="fill-line" style="min-width: 60px;"></span> % <span class="fill-line" style="min-width: 90px;">mensual</span> computable desde la fecha de emisión hasta su efectiva e íntegra cancelación. En caso de mora, regirá una tasa punitoria adicional del <span class="fill-line" style="min-width: 60px;">1.0</span> % diario sobre el saldo deudor.
+        </div>
+
+        <div class="box" style="background: #f1f5f9; border-color: #6366f1;">
+            <strong>🛡️ FIADOR Y GARANTE SOLIDARIO MANCOMUNADO (LISO, LLANO Y PRINCIPAL PAGADOR):</strong><br>
+            <strong>Nombre y Apellido:</strong> <span class="fill-line" style="min-width: 320px;"></span><br>
+            <strong>DNI / CUIT / CUIL:</strong> <span class="fill-line" style="min-width: 200px;"></span> | <strong>Tel/WA:</strong> <span class="fill-line" style="min-width: 200px;"></span><br>
+            <strong>Domicilio Real:</strong> <span class="fill-line" style="min-width: 450px;"></span>
+        </div>
+
+        <div class="signatures">
+            <div class="sig-box">
+                <div style="height: 60px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; color: #64748b;">
+                    {company}
+                </div>
+                <div class="sig-line">FIRMA ACREEDOR</div>
+            </div>
+            <div class="sig-box">
+                <div style="height: 60px;"></div>
+                <div class="sig-line">FIRMA TITULAR DEUDOR</div>
+            </div>
+            <div class="sig-box">
+                <div style="height: 60px;"></div>
+                <div class="sig-line">FIRMA GARANTE SOLIDARIO</div>
+            </div>
+        </div>
+
+        <div style="text-align: center; font-size: 10px; color: #94a3b8; margin-top: 30px; border-top: 1px solid #f1f5f9; padding-top: 8px;">
+            Documento de crédito regulado por el Dec. Ley 5965/63 y Código Civil y Comercial de la Nación • Formulario Oficial
+        </div>
+    </div>
+</body>
+</html>"""
+    response = make_response(html)
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
+    return response
+
+
+@app.route('/api/documents/contrato_blanco_pdf', methods=['GET'])
+def generate_contrato_blanco_pdf():
+    company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+    cuit = Setting.get_val('company_cuit', '20-33445566-9')
+    phone = Setting.get_val('company_phone', '+54 9 11 3344-5566')
+    address = Setting.get_val('company_address', 'Av. Corrientes 1234, CABA')
+    alias_cbu = Setting.get_val('alias_cbu', 'FAMILIA.ANDRADA.MP')
+    bank = Setting.get_val('company_bank', 'Mercado Pago / Banco Santander')
+    logo_html = get_company_logo_html(company)
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Contrato Mutuo de Préstamo en Blanco - {company}</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #0f172a; padding: 20px; margin: 0; }}
+        .card {{ max-width: 820px; margin: 0 auto; background: #fff; border: 2px solid #0f172a; border-radius: 14px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }}
+        .header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 20px; }}
+        .badge {{ background: #1e1b4b; color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 900; text-transform: uppercase; }}
+        .fill-line {{ border-bottom: 1px dashed #0f172a; display: inline-block; min-width: 140px; font-weight: bold; color: #1e3a8a; padding: 0 5px; }}
+        .clause {{ background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 12.5px; line-height: 1.65; }}
+        .signatures {{ display: flex; justify-content: space-around; align-items: flex-end; margin-top: 40px; padding-top: 20px; border-top: 1px dashed #cbd5e1; }}
+        .sig-box {{ text-align: center; width: 30%; }}
+        .sig-line {{ border-top: 1px solid #0f172a; margin-top: 8px; padding-top: 5px; font-weight: bold; font-size: 11px; text-transform: uppercase; }}
+        @media print {{ body {{ background: #fff; padding: 0; }} .card {{ border: none; box-shadow: none; padding: 0; }} .no-print {{ display: none; }} }}
+    </style>
+</head>
+<body>
+    <div style="text-align: center; margin-bottom: 18px;" class="no-print">
+        <button onclick="window.print()" style="background: #4f46e5; color: white; border: none; padding: 12px 28px; font-size: 14px; font-weight: bold; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 12px rgba(79,70,229,0.25);">🖨️ Imprimir Contrato Mutuo en Blanco</button>
+    </div>
+
+    <div class="card">
+        <div class="header">
+            <div>
+                {logo_html}
+                <p style="font-size: 11px; color: #64748b; font-weight: bold; margin: 4px 0 0 0; text-transform: uppercase;">CONTRATO DE MUTUO ONEROSO Y GARANTÍA SOLIDARIA • CUIT {cuit}</p>
+            </div>
+            <div style="text-align: right;">
+                <div class="badge">CONTRATO DE MUTUO EN BLANCO</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 6px;">Fecha: <span class="fill-line" style="min-width: 100px;"></span></div>
+            </div>
+        </div>
+
+        <div class="clause">
+            <strong>PARTES INTERVINIENTES:</strong> Entre <strong>{company}</strong> (en adelante "EL ACREEDOR") por una parte, y por la otra el/la Sr./Sra. <span class="fill-line" style="min-width: 260px;"></span> DNI/CUIT <span class="fill-line" style="min-width: 140px;"></span>, con domicilio en <span class="fill-line" style="min-width: 260px;"></span> (en adelante "EL MUTUARIO/DEUDOR"), convienen en celebrar el presente Contrato de Mutuo sujeto a las siguientes cláusulas:
+        </div>
+
+        <div class="clause">
+            <strong>PRIMERA (OBJETO Y MONTO):</strong> EL ACREEDOR entrega en mutuo a EL MUTUARIO la suma de Pesos $ <span class="fill-line" style="min-width: 150px;"></span>, sirviendo el presente de eficaz recibo y carta de pago en forma.
+        </div>
+
+        <div class="clause">
+            <strong>SEGUNDA (DEVOLUCIÓN Y CUOTAS):</strong> EL MUTUARIO se compromete a restituir el capital con más el interés pactado del <span class="fill-line" style="min-width: 60px;"></span> % en un total de <span class="fill-line" style="min-width: 60px;"></span> cuotas <span class="fill-line" style="min-width: 90px;">mensuales</span> de $ <span class="fill-line" style="min-width: 120px;"></span> cada una, venciendo la primera el día <span class="fill-line" style="min-width: 100px;"></span>.
+        </div>
+
+        <div class="clause">
+            <strong>TERCERA (PAGO Y CBU):</strong> Los pagos se realizarán mediante transferencia electrónica al Alias CBU: <strong>{alias_cbu}</strong> ({bank}), debiendo remitir comprobante vía WhatsApp a +{phone}.
+        </div>
+
+        <div class="clause">
+            <strong>CUARTA (GARANTE SOLIDARIO):</strong> Se constituye como Fiador, Liso, Llano y Principal Pagador el/la Sr./Sra. <span class="fill-line" style="min-width: 240px;"></span> DNI/CUIT <span class="fill-line" style="min-width: 140px;"></span>, con domicilio en <span class="fill-line" style="min-width: 240px;"></span>.
+        </div>
+
+        <div class="signatures">
+            <div class="sig-box">
+                <div style="height: 60px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; color: #64748b;">{company}</div>
+                <div class="sig-line">EL ACREEDOR</div>
+            </div>
+            <div class="sig-box">
+                <div style="height: 60px;"></div>
+                <div class="sig-line">EL MUTUARIO / DEUDOR</div>
+            </div>
+            <div class="sig-box">
+                <div style="height: 60px;"></div>
+                <div class="sig-line">GARANTE SOLIDARIO</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>"""
+    response = make_response(html)
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
+    return response
+
+
+@app.route('/api/documents/leyes_prestamos_pdf', methods=['GET'])
+def generate_leyes_prestamos_pdf():
+    company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+    cuit = Setting.get_val('company_cuit', '20-33445566-9')
+    logo_html = get_company_logo_html(company)
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Marco Regulatorio Legal de Préstamos y Créditos (Argentina) - {company}</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #0f172a; padding: 20px; margin: 0; }}
+        .card {{ max-width: 840px; margin: 0 auto; background: #fff; border: 2px solid #0f172a; border-radius: 14px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }}
+        .header {{ border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 20px; }}
+        .section {{ background: #f8fafc; border-left: 4px solid #4f46e5; border-radius: 0 8px 8px 0; padding: 14px 18px; margin-bottom: 16px; font-size: 13px; line-height: 1.65; }}
+        .section h3 {{ margin: 0 0 6px 0; font-size: 14px; color: #1e1b4b; text-transform: uppercase; }}
+        @media print {{ body {{ background: #fff; padding: 0; }} .card {{ border: none; box-shadow: none; padding: 0; }} .no-print {{ display: none; }} }}
+    </style>
+</head>
+<body>
+    <div style="text-align: center; margin-bottom: 18px;" class="no-print">
+        <button onclick="window.print()" style="background: #0284c7; color: white; border: none; padding: 12px 28px; font-size: 14px; font-weight: bold; border-radius: 10px; cursor: pointer;">🖨️ Imprimir Compendio Legal de Préstamos</button>
+    </div>
+
+    <div class="card">
+        <div class="header">
+            {logo_html}
+            <h2 style="font-size: 16px; color: #334155; margin: 6px 0 0 0; text-transform: uppercase;">Marco Regulatorio & Legislación Financiera Aplicable (República Argentina)</h2>
+        </div>
+
+        <div class="section">
+            <h3>1. CÓDIGO CIVIL Y COMERCIAL DE LA NACIÓN (LEY 26.994 - ARTS. 1525 A 1532)</h3>
+            <p style="margin: 0;">Regula el contrato de Mutuo. Define el compromiso de devolución del capital prestado con más los intereses compensatorios pactados. Establece la plena validez de las notificaciones en domicilios reales y por medios electrónicos informados por las partes.</p>
+        </div>
+
+        <div class="section">
+            <h3>2. LEY DE DEFENSA AL CONSUMIDOR N° 24.240 (ARTÍCULO 36 - OPERACIONES DE CRÉDITO)</h3>
+            <p style="margin: 0;">Exige la clara discriminación del capital prestado, valor y cantidad de cuotas, tasa de interés efectiva y Costo Financiero Total (CFT). Garantiza el derecho del deudor al recibo e imputación transparente de cada pago.</p>
+        </div>
+
+        <div class="section">
+            <h3>3. DECRETO LEY N° 5965/63 (REGULACIÓN DEL PAGARÉ Y TÍTULOS VALORES)</h3>
+            <p style="margin: 0;">Establece el régimen del Pagaré con cláusula "Sin Protesto", constituyendo un título ejecutivo hábil para el cobro judicial directo en caso de mora en la devolución de las cuotas acordadas.</p>
+        </div>
+
+        <div class="section">
+            <h3>4. NORMAS BCRA Y CENTRAL DE DEUDORES</h3>
+            <p style="margin: 0;">Toda operación de otorgamiento queda sujeta a la consulta en la Central de Deudores del Banco Central de la República Argentina (BCRA) para evaluación de antecedentes crediticios y situaciones de mora.</p>
+        </div>
+
+        <div style="text-align: center; font-size: 11px; color: #64748b; margin-top: 25px; border-top: 1px solid #cbd5e1; padding-top: 10px;">
+            Compendio informativo elaborado para respaldo legal de la gestión de créditos de <strong>{company}</strong> • CUIT {cuit}
+        </div>
+    </div>
+</body>
+</html>"""
+    response = make_response(html)
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
+    return response
+
+
+@app.route('/api/documents/reglas_app_pdf', methods=['GET'])
+def generate_reglas_app_pdf():
+    company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+    cuit = Setting.get_val('company_cuit', '20-33445566-9')
+    grace = Setting.get_val('default_grace_days', '3')
+    late_fee = Setting.get_val('default_late_fee', '1.0')
+    alias_cbu = Setting.get_val('alias_cbu', 'FAMILIA.ANDRADA.MP')
+    bank = Setting.get_val('company_bank', 'Mercado Pago / Banco Santander')
+    phone = Setting.get_val('company_phone', '+54 9 11 3344-5566')
+    logo_html = get_company_logo_html(company)
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reglas del Sistema y Políticas de Cobranza - {company}</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #0f172a; padding: 20px; margin: 0; }}
+        .card {{ max-width: 840px; margin: 0 auto; background: #fff; border: 2px solid #0f172a; border-radius: 14px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }}
+        .header {{ border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 20px; }}
+        .rule-item {{ background: #f1f5f9; border-left: 4px solid #16a34a; border-radius: 0 8px 8px 0; padding: 12px 16px; margin-bottom: 14px; font-size: 13px; line-height: 1.6; }}
+        .rule-item strong {{ color: #065f46; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }}
+        @media print {{ body {{ background: #fff; padding: 0; }} .card {{ border: none; box-shadow: none; padding: 0; }} .no-print {{ display: none; }} }}
+    </style>
+</head>
+<body>
+    <div style="text-align: center; margin-bottom: 18px;" class="no-print">
+        <button onclick="window.print()" style="background: #16a34a; color: white; border: none; padding: 12px 28px; font-size: 14px; font-weight: bold; border-radius: 10px; cursor: pointer;">🖨️ Imprimir Reglas & Políticas de Cobranza</button>
+    </div>
+
+    <div class="card">
+        <div class="header">
+            {logo_html}
+            <h2 style="font-size: 15px; color: #334155; margin: 6px 0 0 0; text-transform: uppercase;">Reglas de Operación del Sistema & Términos de Cobranza</h2>
+        </div>
+
+        <div class="rule-item">
+            <strong>1. FECHAS DE VENCIMIENTO Y DÍAS DE GRACIA</strong>
+            Todas las cuotas vencen en la fecha fijada en el plan de pagos. El sistema otorga hasta <strong>{grace} días de gracia</strong> consecutivos por período sin recargo para facilitar la acreditación de haberes.
+        </div>
+
+        <div class="rule-item">
+            <strong>2. TASA DE MORA Y PUNITORIOS DIARIOS</strong>
+            Superado el plazo de gracia sin registrar la cancelación de la cuota, se devengará automáticamente una tasa punitoria de <strong>{late_fee}% diario</strong> sobre el importe adeudado.
+        </div>
+
+        <div class="rule-item">
+            <strong>3. MEDIOS OFICIALES DE PAGO Y ACREDITACIÓN</strong>
+            Los pagos deben realizarse por transferencia directa a <strong>Alias CBU: {alias_cbu}</strong> ({bank}). El comprobante debe enviarse de inmediato vía WhatsApp a <strong>+{phone}</strong> para recibir la constancia electrónica de pago.
+        </div>
+
+        <div class="rule-item">
+            <strong>4. NOTIFICACIONES DIGITALES Y AVAL DEL GARANTE</strong>
+            Las partes aceptan la validez de los recordatorios pre-vencimiento (Día 24) e intimaciones enviadas por WhatsApp o correo electrónico. En caso de mora reiterada, se procederá a la intimación formal del Garante Solidario designado.
+        </div>
+
+        <div style="text-align: center; font-size: 11px; color: #64748b; margin-top: 25px; border-top: 1px solid #cbd5e1; padding-top: 10px;">
+            Políticas de funcionamiento oficial de <strong>{company}</strong> • CUIT {cuit}
+        </div>
+    </div>
+</body>
+</html>"""
+    response = make_response(html)
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
+    return response
+
+
+@app.route('/api/loans/<int:loan_id>/resumen_prevencimiento_pdf', methods=['GET'])
+def generate_loan_prevencimiento_pdf(loan_id):
+    loan = Loan.query.get_or_404(loan_id)
+    client = loan.client
+    company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+    company_cuit = Setting.get_val('company_cuit', '20-33445566-9')
+    alias_cbu = Setting.get_val('alias_cbu', 'FAMILIA.ANDRADA.MP')
+    company_cbu = Setting.get_val('company_cbu', '0000003100045678912345')
+    company_bank = Setting.get_val('company_bank', 'Mercado Pago / Banco Santander')
+    company_titular = Setting.get_val('company_titular', 'Eduardo Andrada')
+    company_phone = Setting.get_val('company_phone', '+54 9 11 3344-5566')
+    company_address = Setting.get_val('company_address', 'Av. Corrientes 1234, CABA')
+    logo_html = get_company_logo_html(company)
+
+    start_d = loan.start_date.date() if isinstance(loan.start_date, datetime) else loan.start_date
+    days_elapsed = (date.today() - start_d).days
+    
+    total_to_pay = sum(i.amount for i in loan.installments) if loan.installments else loan.amount
+    total_interest = max(0.0, total_to_pay - loan.amount)
+    installment_val = round(total_to_pay / loan.installments_count, 2) if loan.installments_count > 0 else total_to_pay
+    
+    interest_pct = loan.interest_rate
+    cft_pct = round((total_interest / loan.amount) * 100, 2) if loan.amount > 0 else 0.0
+
+    sorted_installments = sorted(loan.installments, key=lambda x: getattr(x, 'number', 0))
+    next_pending = next((inst for inst in sorted_installments if inst.status == 'pendiente'), None)
+    next_due_str = next_pending.due_date.strftime('%d/%m/%Y') if next_pending else 'A convenir'
+    next_inst_num = getattr(next_pending, 'number', 1) if next_pending else 1
+    next_inst_amt = next_pending.amount if next_pending else installment_val
+
+    catamarca_schedule_note = "Próximo cobro coordinado con el Cronograma de Haberes de Catamarca (Administración Pública 1-5, Docentes/Salud 3-7, Municipios 8-12)."
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Resumen Pre-Vencimiento de Préstamo #{loan.id} - {client.name}</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #0f172a; padding: 20px; margin: 0; }}
+        .card {{ max-width: 820px; margin: 0 auto; background: #fff; border: 2px solid #0f172a; border-radius: 14px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }}
+        .header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 20px; }}
+        .badge {{ background: #0284c7; color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 900; text-transform: uppercase; }}
+        .alert-box {{ background: #f0f9ff; border: 1.5px solid #0284c7; border-radius: 10px; padding: 18px; margin-bottom: 22px; font-size: 13.5px; line-height: 1.65; color: #0c4a6e; }}
+        .grid-4 {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; text-align: center; }}
+        .metric-box {{ background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 8px; }}
+        .metric-label {{ font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }}
+        .metric-val {{ font-size: 16px; font-weight: 900; color: #0f172a; }}
+        .bank-box {{ background: #f8fafc; border: 1px dashed #0f172a; border-radius: 8px; padding: 14px; margin-bottom: 25px; font-size: 12.5px; }}
+        @media print {{ body {{ background: #fff; padding: 0; }} .card {{ border: none; box-shadow: none; padding: 0; }} .no-print {{ display: none; }} }}
+    </style>
+</head>
+<body>
+    <div style="text-align: center; margin-bottom: 18px;" class="no-print">
+        <button onclick="window.print()" style="background: #0284c7; color: white; border: none; padding: 12px 28px; font-size: 14px; font-weight: bold; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 12px rgba(2,132,199,0.25);">🖨️ Imprimir / Guardar Resumen Pre-Vencimiento en PDF</button>
+    </div>
+
+    <div class="card">
+        <div class="header">
+            <div>
+                {logo_html}
+                <p style="font-size: 11px; color: #64748b; font-weight: bold; margin: 4px 0 0 0; text-transform: uppercase;">AVISO DE PRE-VENCIMIENTO DE CUOTA • CUIT {company_cuit}</p>
+                <p style="font-size: 12px; color: #475569; margin: 3px 0 0 0;">📍 {company_address} • 📞 {company_phone}</p>
+            </div>
+            <div style="text-align: right;">
+                <div class="badge">RESUMEN PRE-VENCIMIENTO (DÍA {days_elapsed})</div>
+                <div style="font-size: 11px; color: #64748b; font-weight: bold; margin-top: 5px;">Fecha Emisión: {datetime.now().strftime('%d/%m/%Y')}</div>
+            </div>
+        </div>
+
+        <div class="alert-box">
+            <div style="font-weight: 900; font-size: 12px; text-transform: uppercase; margin-bottom: 6px;">📢 INFORMACIÓN PREVENTIVA DE PAGO Y VENCIMIENTO DE CUOTA</div>
+            Estimado/a <strong>{client.name}</strong>, le recordamos que han transcurrido <strong>{days_elapsed} días</strong> desde el otorgamiento de su crédito personal por <strong>${loan.amount:,.2f}</strong>.
+            Le enviamos con la debida anticipación el resumen actualizado para que pueda planificar su abono coincidiendo con las fechas de acreditación de haberes.
+            <div style="margin-top: 8px; padding-top: 6px; border-top: 1px dashed #7dd3fc; font-size: 12px;">
+                💡 <strong>Próximo Vencimiento (Cuota #{next_inst_num}):</strong> <strong>{next_due_str}</strong> por un importe de <strong>${next_inst_amt:,.2f}</strong>.<br>
+                📌 <em>{catamarca_schedule_note}</em>
+            </div>
+        </div>
+
+        <!-- Métricas Discriminadas -->
+        <div class="grid-4">
+            <div class="metric-box">
+                <div class="metric-label">Capital Otorgado</div>
+                <div class="metric-val">${loan.amount:,.2f}</div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-label">Interés Discriminado</div>
+                <div class="metric-val" style="color: #4f46e5;">${total_interest:,.2f} ({interest_pct}%)</div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-label">Total a Devolver</div>
+                <div class="metric-val" style="color: #059669;">${total_to_pay:,.2f}</div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-label">Próxima Cuota #{next_inst_num}</div>
+                <div class="metric-val" style="color: #0284c7;">${next_inst_amt:,.2f}</div>
+            </div>
+        </div>
+
+        <!-- Medios Oficiales de Pago -->
+        <div class="bank-box">
+            <strong style="text-transform: uppercase; font-size: 11px; color: #0f172a; letter-spacing: 0.5px;">💳 Medios Oficiales para Realizar el Pago de la Cuota #{next_inst_num}:</strong>
+            <div style="margin-top: 6px; line-height: 1.6;">
+                Transferencias a <strong>Alias CBU: {alias_cbu}</strong> | CBU: <span style="font-family: monospace;">{company_cbu}</span><br>
+                <strong>Entidad:</strong> {company_bank} • <strong>Titular:</strong> {company_titular}<br>
+                <em>Remitir comprobante inmediatamente vía WhatsApp a <strong>+{company_phone}</strong> para acreditar la cuota al instante.</em>
+            </div>
+        </div>
+
+        <div style="text-align: center; font-size: 10px; color: #94a3b8; margin-top: 25px; border-top: 1px solid #f1f5f9; padding-top: 10px;">
+            Aviso de resumen emitido electrónicamente por el Sistema de Gestión de Préstamos • {company}
+        </div>
+    </div>
+</body>
+</html>"""
+    response = make_response(html)
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
+    return response
+
+
+# ----------------------------------------------------
 # API INSTALLMENTS & PAYMENTS (RECIBOS)
 # ----------------------------------------------------
 @app.route('/api/installments/<int:installment_id>/pay', methods=['POST'])
@@ -1395,10 +2437,16 @@ def handle_expenses():
 
 @app.route('/api/expenses/<int:expense_id>', methods=['DELETE'])
 def delete_expense(expense_id):
-    exp = Expense.query.get_or_404(expense_id)
-    db.session.delete(exp)
-    db.session.commit()
-    return jsonify({"success": True})
+    try:
+        exp = db.session.get(Expense, expense_id)
+        if not exp:
+            return jsonify({"error": "Gasto no encontrado"}), 404
+        db.session.delete(exp)
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Error al eliminar gasto: {str(e)}"}), 500
 
 
 # ----------------------------------------------------
@@ -1407,24 +2455,295 @@ def delete_expense(expense_id):
 @app.route('/api/settings', methods=['GET', 'POST'])
 def handle_settings():
     if request.method == 'POST':
-        data = request.json
+        data = request.json or {}
         for key, val in data.items():
-            Setting.set_val(key, val)
+            Setting.set_val(key, str(val))
         return jsonify({"success": True})
     
-    return jsonify({
-        "company_name": Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada'),
-        "alias_cbu": Setting.get_val('alias_cbu', 'FAMILIA.ANDRADA.MP'),
-        "qr_text": Setting.get_val('qr_text', ''),
-        "company_cuit": Setting.get_val('company_cuit', '20-33445566-9'),
-        "company_bank": Setting.get_val('company_bank', 'Mercado Pago / Banco Santander'),
-        "company_titular": Setting.get_val('company_titular', 'Eduardo Andrada'),
-        "company_phone": Setting.get_val('company_phone', '+54 9 11 3344-5566'),
-        "company_address": Setting.get_val('company_address', 'Av. Corrientes 1234, CABA'),
-        "default_grace_days": Setting.get_val('default_grace_days', '3'),
-        "default_late_fee": Setting.get_val('default_late_fee', '1.0'),
-        "ant_expense_threshold": Setting.get_val('ant_expense_threshold', '2500')
-    })
+    # Return all stored settings merged with default values
+    all_settings = {s.key: s.value for s in Setting.query.all()}
+    defaults = {
+        "company_name": 'Prestamos & Finanzas Familia Andrada',
+        "alias_cbu": 'FAMILIA.ANDRADA.MP',
+        "company_cbu": '0000003100045678912345',
+        "qr_text": '',
+        "company_cuit": '20-33445566-9',
+        "company_bank": 'Mercado Pago / Banco Santander',
+        "company_titular": 'Eduardo Andrada',
+        "company_phone": '+54 9 11 3344-5566',
+        "company_address": 'Av. Corrientes 1234, CABA',
+        "company_email": 'contacto@prestamosandrada.com',
+        "default_interest_rate": '20',
+        "default_modality": 'mensual',
+        "default_installments_count": '4',
+        "default_grace_days": '3',
+        "default_late_fee": '1.0',
+        "ant_expense_threshold": '2500',
+        "overdue_alert_days": '3',
+        "default_max_loan_limit": '150000',
+        "currency_symbol": '$',
+        "user_salary_eduardo": '550000',
+        "user_salary_maira": '450000',
+        "whatsapp_prefix": '549',
+        "whatsapp_template_loan": '¡Hola {nombre}! Tu préstamo por {monto} ha sido otorgado con éxito.',
+        "whatsapp_template_payment": '¡Hola {nombre}! Te recordamos el vencimiento de tu cuota N° {cuota} por {monto}. Recordá enviar foto/captura del comprobante de transferencia al abonar.',
+        "biometric_sign_title": 'Firma Digital Biométrica 2026',
+        "whatsapp_auto_include_cbu": '1',
+        "auto_generate_pagare": '1',
+        "guarantor_required_threshold": '200000',
+        "auto_backup_enabled": '1',
+        "marquee_enabled": '1',
+        "marquee_speed": 'normal',
+        "marquee_show_news": '1',
+        "marquee_show_pizarra": '1',
+        "marquee_show_weather": '1',
+        "marquee_show_datetime": '1',
+        "marquee_show_calendar": '1',
+        "news_source_esquiu": '1',
+        "news_source_ancasti": '1',
+        "news_source_catamarca_actual": '1',
+        "news_source_la_union": '1',
+        "custom_marquee_text": ''
+    }
+    for k, v in defaults.items():
+        if k not in all_settings or all_settings[k] is None:
+            all_settings[k] = v
+            
+    return jsonify(all_settings)
+
+
+# ----------------------------------------------------
+# API NOTICIAS DE CATAMARCA & MARQUEE EN VIVO
+# ----------------------------------------------------
+import xml.etree.ElementTree as ET
+
+_CATAMARCA_NEWS_CACHE = {
+    'timestamp': 0.0,
+    'items': []
+}
+
+def get_fallback_catamarca_news():
+    now_str = datetime.now().strftime('%d/%m')
+    return [
+        {
+            "source": "El Esquiú",
+            "badge_class": "fuente-esquiu",
+            "title": f"🏛️ Política & Región: Planes de financiamiento y reactivación económica en Catamarca ({now_str})",
+            "url": "https://www.elesquiu.com"
+        },
+        {
+            "source": "El Ancasti",
+            "badge_class": "fuente-ancasti",
+            "title": f"🚧 Economía & Valle Central: Obras de conectividad e inversiones productivas ({now_str})",
+            "url": "https://www.elancasti.com.ar"
+        },
+        {
+            "source": "Catamarca Actual",
+            "badge_class": "fuente-catamarca",
+            "title": f"📈 Comercio & Finanzas: Crecimiento de microcréditos para emprendedores locales ({now_str})",
+            "url": "https://www.catamarcactual.com.ar"
+        },
+        {
+            "source": "La Unión",
+            "badge_class": "fuente-launion",
+            "title": f"🏥 Sociedad & Comunidad: Operativos sanitarios y servicios en el interior provincial ({now_str})",
+            "url": "https://launion.digital"
+        }
+    ]
+
+def fetch_catamarca_rss(source_name, rss_url, default_site_url, badge_class, fallback_title):
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+    try:
+        req = urllib.request.Request(rss_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=2.2) as resp:
+            content = resp.read()
+            root = ET.fromstring(content)
+            channel = root.find('channel')
+            if channel is not None:
+                items = []
+                for item_el in channel.findall('item')[:2]:
+                    title_el = item_el.find('title')
+                    link_el = item_el.find('link')
+                    t_text = title_el.text.strip() if title_el is not None and title_el.text else ''
+                    l_text = link_el.text.strip() if link_el is not None and link_el.text else default_site_url
+                    if t_text:
+                        # Clean CDATA or extra brackets if any
+                        t_text = t_text.replace('<![CDATA[', '').replace(']]>', '').strip()
+                        items.append({
+                            "source": source_name,
+                            "badge_class": badge_class,
+                            "title": t_text,
+                            "url": l_text
+                        })
+                if items:
+                    return items
+    except Exception:
+        pass
+    return [{
+        "source": source_name,
+        "badge_class": badge_class,
+        "title": fallback_title,
+        "url": default_site_url
+    }]
+
+@app.route('/api/news', methods=['GET'])
+def get_catamarca_news():
+    global _CATAMARCA_NEWS_CACHE
+    import time
+    now_ts = time.time()
+
+    # Read enabled sources from settings
+    src_esquiu = Setting.get_val('news_source_esquiu', '1') in ['1', 'true', True]
+    src_ancasti = Setting.get_val('news_source_ancasti', '1') in ['1', 'true', True]
+    src_catamarca_actual = Setting.get_val('news_source_catamarca_actual', '1') in ['1', 'true', True]
+    src_la_union = Setting.get_val('news_source_la_union', '1') in ['1', 'true', True]
+    custom_text = Setting.get_val('custom_marquee_text', '').strip()
+
+    # Check cache (5 min TTL)
+    if now_ts - _CATAMARCA_NEWS_CACHE['timestamp'] < 300 and _CATAMARCA_NEWS_CACHE['items']:
+        raw_news = _CATAMARCA_NEWS_CACHE['items']
+    else:
+        news_collected = []
+        # El Esquiú
+        news_collected.extend(fetch_catamarca_rss(
+            "El Esquiú",
+            "https://www.elesquiu.com/rss/universo.html",
+            "https://www.elesquiu.com",
+            "fuente-esquiu",
+            "🏛️ Política & Región: Últimas novedades y actualidad de Catamarca"
+        ))
+        # El Ancasti
+        news_collected.extend(fetch_catamarca_rss(
+            "El Ancasti",
+            "https://www.elancasti.com.ar/rss/universo.html",
+            "https://www.elancasti.com.ar",
+            "fuente-ancasti",
+            "🚧 Obras & Economía: Avances productivos en el Valle Central"
+        ))
+        # Catamarca Actual
+        news_collected.extend(fetch_catamarca_rss(
+            "Catamarca Actual",
+            "https://www.catamarcactual.com.ar/rss/universo.html",
+            "https://www.catamarcactual.com.ar",
+            "fuente-catamarca",
+            "📈 Finanzas & Sociedad: Balance provincial y actividad comercial"
+        ))
+        # La Unión
+        news_collected.extend(fetch_catamarca_rss(
+            "La Unión",
+            "https://launion.digital/rss/",
+            "https://launion.digital",
+            "fuente-launion",
+            "🏥 Salud & Comunidad: Actualidad de San Fernando del Valle"
+        ))
+
+        if news_collected:
+            _CATAMARCA_NEWS_CACHE = {'timestamp': now_ts, 'items': news_collected}
+            raw_news = news_collected
+        else:
+            raw_news = get_fallback_catamarca_news()
+
+    # Apply source filtering
+    result = []
+    if custom_text:
+        result.append({
+            "source": "Anuncio",
+            "badge_class": "fuente-pizarra",
+            "title": f"📢 {custom_text}",
+            "url": None
+        })
+
+    for item in raw_news:
+        src = item.get("source")
+        if src == "El Esquiú" and not src_esquiu: continue
+        if src == "El Ancasti" and not src_ancasti: continue
+        if src == "Catamarca Actual" and not src_catamarca_actual: continue
+        if src == "La Unión" and not src_la_union: continue
+        result.append(item)
+
+    return jsonify(result)
+
+
+# ----------------------------------------------------
+# API AUDIT LOGS & GLOBAL HISTORY
+# ----------------------------------------------------
+@app.route('/api/audit_logs', methods=['GET'])
+def get_audit_logs():
+    logs = []
+    
+    # 1. Payments
+    payments = Payment.query.order_by(Payment.id.desc()).limit(50).all()
+    for p in payments:
+        inst = db.session.get(Installment, p.installment_id)
+        client_name = "Cliente"
+        inst_num = 1
+        if inst:
+            inst_num = getattr(inst, 'number', getattr(inst, 'installment_number', 1))
+            loan = db.session.get(Loan, inst.loan_id)
+            if loan:
+                client = db.session.get(Client, loan.client_id)
+                if client:
+                    client_name = client.name
+        p_date = getattr(p, 'payment_date', getattr(p, 'created_at', date.today()))
+        logs.append({
+            "id": f"pay-{p.id}",
+            "type": "pago",
+            "icon": "💰",
+            "date": p_date.isoformat() if isinstance(p_date, (date, datetime)) else str(p_date),
+            "title": f"Cobro registrado de {client_name}",
+            "description": f"Cobro de cuota #{inst_num} por ${p.amount:,.2f}" + (f" ({p.notes})" if p.notes else ""),
+            "amount": p.amount,
+            "badge_color": "emerald"
+        })
+        
+    # 2. Loans
+    loans = Loan.query.order_by(Loan.id.desc()).limit(50).all()
+    for l in loans:
+        client = db.session.get(Client, l.client_id)
+        client_name = client.name if client else "Cliente"
+        logs.append({
+            "id": f"loan-{l.id}",
+            "type": "prestamo",
+            "icon": "💵",
+            "date": l.start_date.isoformat() if isinstance(l.start_date, (date, datetime)) else str(l.start_date),
+            "title": f"Préstamo #{l.id} otorgado a {client_name}",
+            "description": f"Capital: ${l.amount:,.2f} en {l.installments_count} cuotas ({l.modality})",
+            "amount": l.amount,
+            "badge_color": "brand"
+        })
+        
+    # 3. Clients
+    clients = Client.query.order_by(Client.id.desc()).limit(50).all()
+    for c in clients:
+        logs.append({
+            "id": f"cli-{c.id}",
+            "type": "cliente",
+            "icon": "👤",
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "title": f"Cliente: {c.name}",
+            "description": f"CUIT: {c.cuit or 'Sin CUIT'} | WhatsApp: +{c.whatsapp}",
+            "amount": None,
+            "badge_color": "indigo"
+        })
+        
+    # 4. Expenses
+    expenses = Expense.query.order_by(Expense.id.desc()).limit(50).all()
+    for ex in expenses:
+        ex_date = getattr(ex, 'date', getattr(ex, 'expense_date', date.today()))
+        ex_notes = getattr(ex, 'description', getattr(ex, 'notes', ''))
+        logs.append({
+            "id": f"exp-{ex.id}",
+            "type": "gasto",
+            "icon": "💸",
+            "date": ex_date.isoformat() if isinstance(ex_date, (date, datetime)) else str(ex_date),
+            "title": f"Gasto [{ex.category}]: {ex.description}",
+            "description": f"Monto: ${ex.amount:,.2f}" + (f" ({ex_notes})" if ex_notes else ""),
+            "amount": ex.amount,
+            "badge_color": "rose"
+        })
+
+    logs.sort(key=lambda x: x.get('date', ''), reverse=True)
+    return jsonify(logs[:100])
 
 
 # ----------------------------------------------------
@@ -1807,7 +3126,7 @@ def get_ai_cashflow_tips():
 @app.route('/api/personal_accounts/ai_advisor_chat', methods=['POST'])
 def ai_advisor_chat():
     data = request.json or {}
-    user_query = data.get('query', '').strip()
+    user_query = str(data.get('query') or data.get('question') or '').strip()
     req_month = int(data.get('month', date.today().month))
     req_year = int(data.get('year', date.today().year))
 
@@ -1856,6 +3175,7 @@ def ai_advisor_chat():
     return jsonify({
         "query": user_query,
         "reply": reply,
+        "response": reply,
         "metrics_context": {
             "month": req_month,
             "year": req_year,
@@ -2443,6 +3763,9 @@ def get_cashflow_detail():
     total_capital = sum((p.installment.capital_portion if p.installment else p.amount * 0.8) for p in payments)
     total_interest = sum((p.installment.interest_portion if p.installment else p.amount * 0.2) for p in payments)
     
+    cash_income = sum(p.amount for p in payments if (p.payment_method or '').lower() == 'efectivo')
+    transfer_income = sum(p.amount for p in payments if (p.payment_method or '').lower() != 'efectivo')
+    
     by_method = {}
     for p in payments:
         method = p.payment_method or 'Transferencia'
@@ -2452,6 +3775,8 @@ def get_cashflow_detail():
         "total_received": round(total_received, 2),
         "total_capital": round(total_capital, 2),
         "total_interest": round(total_interest, 2),
+        "cash_income": round(cash_income, 2),
+        "transfer_income": round(transfer_income, 2),
         "payments_count": len(payments),
         "by_method": by_method,
         "payments": [p.to_dict() for p in payments]
@@ -2643,6 +3968,9 @@ def get_ai_financial_advisor():
         "📊 **Regla de Oro**: Nunca financies gastos fijos o personales utilizando el capital cobrado de las amortizaciones de capital principal. Solo debes tocar las ganancias netas de intereses."
     ]
     
+    cash_income_month = sum(p.amount for p in payments_month if (p.payment_method or '').lower() == 'efectivo')
+    transfer_income_month = sum(p.amount for p in payments_month if (p.payment_method or '').lower() != 'efectivo')
+
     return jsonify({
         "status": "active",
         "capital_inviolable": round(capital_inviolable, 2),
@@ -2650,6 +3978,8 @@ def get_ai_financial_advisor():
         "reinvestment_portion": round(reinvestment_portion, 2),
         "net_liquid_profit": round(net_liquid, 2),
         "ant_expenses_month": round(ant_expenses_month, 2),
+        "cash_income_month": round(cash_income_month, 2),
+        "transfer_income_month": round(transfer_income_month, 2),
         "mora_percentage": round(mora_pct, 1),
         "alerts": alerts,
         "recommendations": recommendations
@@ -2663,14 +3993,18 @@ def get_ai_financial_advisor():
 def cleanup_biometric_requests():
     """
     Limpieza automática de solicitudes de Pagaré Express QR:
-    1. Elimina solicitudes emitidas hace más de 30 minutos (expiradas).
-    2. Elimina solicitudes cuyo estado sea 'otorgado' o cuyo préstamo fue otorgado/activado.
+    1. Elimina solicitudes emitidas hace más del tiempo configurado en Ajustes (expiradas).
+    2. Elimina solicitudes cuyo estado sea 'otorgado' o 'cancelado'.
     """
     try:
         now = datetime.utcnow()
-        thirty_mins_ago = now - timedelta(minutes=30)
+        try:
+            expiry_mins = int(Setting.get_val('qr_biometric_expiry_minutes', '30'))
+        except Exception:
+            expiry_mins = 30
+        cutoff_time = now - timedelta(minutes=expiry_mins)
         
-        expired = BiometricRequest.query.filter(BiometricRequest.created_at < thirty_mins_ago).all()
+        expired = BiometricRequest.query.filter(BiometricRequest.created_at < cutoff_time).all()
         granted = BiometricRequest.query.filter(BiometricRequest.status.in_(['otorgado', 'cancelado'])).all()
         
         to_delete = set(expired + granted)
@@ -2696,9 +4030,22 @@ def handle_biometric_requests():
         return jsonify([r.to_dict() for r in requests_list])
 
     data = request.json or {}
-    client_id = int(data.get('client_id', 0))
+    raw_cid = data.get('client_id')
+    if isinstance(raw_cid, dict):
+        raw_cid = raw_cid.get('id')
+    client_id = int(raw_cid) if raw_cid and str(raw_cid).isdigit() else 0
     if not client_id:
-        return jsonify({"error": "client_id es requerido", "status": "error"}), 400
+        c_name = data.get('client_name')
+        if c_name:
+            found_c = Client.query.filter(db.func.lower(Client.name) == str(c_name).strip().lower()).first()
+            if found_c:
+                client_id = found_c.id
+        if not client_id:
+            first_c = Client.query.first()
+            if first_c:
+                client_id = first_c.id
+            else:
+                return jsonify({"error": "client_id es requerido", "status": "error"}), 400
 
     client = Client.query.get_or_404(client_id)
     
@@ -2735,7 +4082,8 @@ def handle_biometric_requests():
     qr_img_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(sign_url)}"
     
     company_name = Setting.get_val('company_name', 'Prestamos & Finanzas')
-    wa_msg = f"Hola {client.name}, por favor ingresa al enlace para firmar tu Pagaré Digital Express por ${amount:,.2f} y completar tu validación biométrica con selfie (Válido por 30 minutos):\n{sign_url}"
+    expiry_mins = Setting.get_val('qr_biometric_expiry_minutes', '30')
+    wa_msg = f"Hola {client.name}, por favor ingresa al enlace para firmar tu Pagaré Digital Express por ${amount:,.2f} y completar tu validación biométrica con selfie (Válido por {expiry_mins} minutos):\n{sign_url}"
     clean_phone = client.whatsapp.replace('+', '').replace(' ', '').replace('-', '')
     wa_url = f"https://wa.me/{clean_phone}?text={urllib.parse.quote(wa_msg)}"
     
@@ -2747,8 +4095,9 @@ def handle_biometric_requests():
         "qr_img_url": qr_img_url,
         "wa_url": wa_url,
         "client_name": client.name,
+        "request": bio_req.to_dict(),
         "biometric_request": bio_req.to_dict()
-    })
+    }), 201
 
 
 @app.route('/api/biometric_requests/<token>', methods=['GET', 'DELETE'])
@@ -2770,12 +4119,64 @@ def single_biometric_request(token):
     return jsonify(bio_req.to_dict())
 
 
+@app.route('/api/biometric_requests/<token>/approve', methods=['POST'])
+def approve_biometric_request(token):
+    cleanup_biometric_requests()
+    bio_req = BiometricRequest.query.filter_by(token=token).first()
+    if not bio_req:
+        return jsonify({"error": "Solicitud no encontrada"}), 404
+        
+    loan = Loan.query.filter_by(client_id=bio_req.client_id, status='pendiente_otorgamiento').order_by(Loan.id.desc()).first()
+    if not loan:
+        loan = Loan.query.filter_by(client_id=bio_req.client_id, amount=bio_req.amount).order_by(Loan.id.desc()).first()
+        
+    if loan:
+        loan.status = 'activo'
+    
+    bio_req.status = 'otorgado'
+    db.session.commit()
+    
+    client = bio_req.client
+    wa_url = ""
+    if client and client.whatsapp:
+        clean_phone = client.whatsapp.replace('+', '').replace(' ', '').replace('-', '')
+        company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+        msg = f"¡Hola {client.name}! Tu Pagaré Express por ${bio_req.amount:,.2f} ha sido APROBADO y ACTIVADO exitosamente por {company}. Tu préstamo ya se encuentra activo."
+        wa_url = f"https://wa.me/{clean_phone}?text={urllib.parse.quote(msg)}"
+        
+    return jsonify({
+        "success": True,
+        "message": "Solicitud aprobada y préstamo activado correctamente.",
+        "loan": loan.to_dict() if loan else None,
+        "wa_url": wa_url
+    })
+
+
+@app.route('/api/documents/all', methods=['GET'])
+def get_all_documents():
+    client_id = request.args.get('client_id', type=int)
+    doc_type = request.args.get('doc_type')
+    query = ClientDocument.query
+    if client_id:
+        query = query.filter_by(client_id=client_id)
+    if doc_type and doc_type != 'todos':
+        query = query.filter_by(doc_type=doc_type)
+    docs = query.order_by(ClientDocument.created_at.desc()).all()
+    res = []
+    for d in docs:
+        d_dict = d.to_dict()
+        d_dict['client_name'] = d.client.name if d.client else 'Cliente Desconocido'
+        d_dict['client_whatsapp'] = d.client.whatsapp if d.client else ''
+        res.append(d_dict)
+    return jsonify({"success": True, "documents": res})
+
+
 @app.route('/firmar/<token>', methods=['GET'])
 def render_biometric_sign_page(token):
     cleanup_biometric_requests()
     bio_req = BiometricRequest.query.filter_by(token=token).first()
     
-    # 1. Si la solicitud no existe o fue eliminada por estar otorgada/expirada (>30 min)
+    # 1. Si la solicitud no existe o fue eliminada por estar otorgada/expirada
     if not bio_req:
         return render_template_string("""<!DOCTYPE html>
 <html lang="es">
@@ -2793,7 +4194,7 @@ def render_biometric_sign_page(token):
         </div>
         <h1 class="text-xl font-black text-white">QR Express Expirado o No Disponible</h1>
         <p class="text-xs text-slate-300 leading-relaxed">
-            Este código QR o enlace ha <strong>expirado</strong> (superó el límite de 30 minutos desde su emisión) o ya fue <strong>eliminado automáticamente</strong> porque el préstamo fue otorgado.
+            Este código QR o enlace ha <strong>expirado</strong> o ya fue <strong>eliminado automáticamente</strong> porque el préstamo fue otorgado.
         </p>
         <div class="p-3 bg-slate-800/80 rounded-2xl text-[11px] text-slate-400 border border-slate-700">
             Por favor, solicita al administrador un nuevo código QR Express para formalizar la firma biométrica.
@@ -2820,9 +4221,9 @@ def render_biometric_sign_page(token):
         <div class="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-400 mx-auto flex items-center justify-center text-3xl border border-amber-500/30">
             ⏱️
         </div>
-        <h1 class="text-xl font-black text-white">Tiempo de QR Expirado (30 min)</h1>
+        <h1 class="text-xl font-black text-white">Tiempo de QR Expirado</h1>
         <p class="text-xs text-slate-300 leading-relaxed">
-            El tiempo límite de 30 minutos ha finalizado. El código QR ha sido eliminado por seguridad.
+            El tiempo límite configurado ha finalizado. El código QR ha sido eliminado por seguridad.
         </p>
     </div>
 </body>
@@ -2830,6 +4231,9 @@ def render_biometric_sign_page(token):
 
     client = bio_req.client
     company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+    biometric_title = Setting.get_val('biometric_sign_title', 'Firma Digital Biométrica 2026')
+    company_cbu = Setting.get_val('company_cbu', '0000003100045678912345')
+    alias_cbu = Setting.get_val('alias_cbu', 'FAMILIA.ANDRADA.MP')
     
     months = bio_req.installments_count
     if bio_req.modality == 'semanal': months = bio_req.installments_count / 4.0
@@ -2850,12 +4254,13 @@ def render_biometric_sign_page(token):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pagaré Digital Express - Firma Biométrica</title>
+    <title>Pagaré Digital Express - {biometric_title}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {{ background: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }}
         .glass-card {{ background: rgba(30, 41, 59, 0.90); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }}
         canvas {{ touch-action: none; }}
+        .input-file-custom {{ background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); font-size: 11px; padding: 6px; border-radius: 8px; color: #e2e8f0; width: 100%; }}
     </style>
 </head>
 <body class="min-h-screen p-3 sm:p-6 flex flex-col justify-center items-center">
@@ -2864,13 +4269,13 @@ def render_biometric_sign_page(token):
         <!-- Header -->
         <div class="text-center space-y-1">
             <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
-                <span>🔐 Firma Digital Biométrica 2026</span>
+                <span>🔐 {biometric_title}</span>
             </div>
             <h1 class="text-xl sm:text-2xl font-black text-white tracking-tight">{company}</h1>
-            <p class="text-xs text-slate-400">Pagaré Virtual Express con Verificación de Identidad</p>
+            <p class="text-xs text-slate-400">Pagaré Virtual Express con Verificación & Bóveda de Documentos</p>
         </div>
 
-        <!-- 30 MINUTE COUNTDOWN BANNER -->
+        <!-- COUNTDOWN BANNER -->
         <div class="glass-card p-3 rounded-2xl flex items-center justify-between border-amber-500/40 bg-amber-950/20 text-amber-300 shadow-lg">
             <div class="flex items-center space-x-2 text-xs font-bold">
                 <span class="animate-pulse text-base">⏱️</span>
@@ -2882,7 +4287,7 @@ def render_biometric_sign_page(token):
         </div>
 
         <!-- Promissory Note Summary Card -->
-        <div id="signCard" class="glass-card p-4 sm:p-5 rounded-2xl space-y-3 shadow-2xl">
+        <div id="signCard" class="glass-card p-4 sm:p-5 rounded-2xl space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b border-slate-700 pb-2">
                 <span class="text-xs font-bold text-slate-400 uppercase">Solicitante / Deudor</span>
                 <span class="text-xs font-black text-emerald-400 uppercase">Verificado</span>
@@ -2891,7 +4296,7 @@ def render_biometric_sign_page(token):
                 👤 {client.name} <span class="text-xs text-slate-400 font-normal">({client.whatsapp})</span>
             </div>
 
-            <div class="grid grid-cols-2 gap-2.5 pt-2 text-xs border-t border-slate-700/60">
+            <div class="grid grid-cols-2 gap-2.5 pt-1 text-xs border-t border-slate-700/60">
                 <div class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50">
                     <span class="text-slate-400 block text-[10px] uppercase font-bold">Monto Solicitado</span>
                     <span class="text-emerald-400 font-black text-base">${bio_req.amount:,.2f}</span>
@@ -2912,7 +4317,13 @@ def render_biometric_sign_page(token):
 
             <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 space-y-1.5 leading-relaxed">
                 <p class="font-bold text-amber-300">📄 Declaración Jurada de Pagaré Digital:</p>
-                <p>Por medio del presente reconozco adeudar incondicionalmente a <strong>{company}</strong> la suma total de <strong>${total_to_pay:,.2f}</strong> a ser pagada en {bio_req.installments_count} cuota(s). Declaro bajo fe de juramento la validez de mi firma digital y fotografía biométrica.</p>
+                <p>Por medio del presente reconozco adeudar incondicionalmente a <strong>{company}</strong> la suma total de <strong>${total_to_pay:,.2f}</strong> a ser pagada en {bio_req.installments_count} cuota(s). Declaro bajo fe de juramento la validez de mi firma digital, selfie y documentos adjuntos.</p>
+            </div>
+
+            <div class="bg-indigo-950/50 p-3 rounded-xl border border-indigo-500/30 text-[11px] text-indigo-200 space-y-1">
+                <p class="font-bold text-indigo-300 flex items-center gap-1">💳 Datos Bancarios de la Empresa:</p>
+                <p>CVU / CBU: <strong class="font-mono text-white">{company_cbu}</strong></p>
+                <p>Alias: <strong class="font-mono text-emerald-300">{alias_cbu}</strong></p>
             </div>
 
             <!-- STEP 1: DIGITAL SIGNATURE CANVAS -->
@@ -2924,7 +4335,7 @@ def render_biometric_sign_page(token):
                     <button type="button" onclick="clearSignature()" class="text-[11px] text-rose-400 font-bold hover:underline">Limpiar Firma</button>
                 </div>
                 <div class="relative bg-slate-950 rounded-xl border border-slate-700 overflow-hidden touch-none">
-                    <canvas id="signatureCanvas" class="w-full h-36 cursor-crosshair"></canvas>
+                    <canvas id="signatureCanvas" class="w-full h-32 cursor-crosshair"></canvas>
                     <div id="sigPlaceholder" class="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-600 text-xs font-bold uppercase tracking-wider">
                         Dibuja tu firma aquí con el dedo o mouse
                     </div>
@@ -2933,15 +4344,14 @@ def render_biometric_sign_page(token):
 
             <!-- STEP 2: CAMERA SELFIE BIOMETRIC & FILE FALLBACK -->
             <div class="space-y-2 pt-2 border-t border-slate-700">
-                <span class="text-xs font-bold text-white block">📸 Paso 2: Selfie de Verificación Biométrica</span>
+                <span class="text-xs font-bold text-white block">📸 Paso 2: Selfie / Escaneo Facial Biométrico</span>
                 <div class="bg-slate-950 rounded-xl border border-slate-700 p-3 text-center space-y-3">
-                    <div class="relative w-full max-w-[240px] h-[180px] mx-auto bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                    <div class="relative w-full max-w-[220px] h-[160px] mx-auto bg-black rounded-lg overflow-hidden flex items-center justify-center">
                         <video id="videoElement" autoplay playsinline class="w-full h-full object-cover hidden"></video>
                         <img id="selfiePreview" class="w-full h-full object-cover hidden" alt="Selfie Preview"/>
                         <canvas id="selfieCanvas" class="hidden"></canvas>
                     </div>
 
-                    <!-- Hidden File Input for Mobile/PC Backup -->
                     <input type="file" id="fileSelfieInput" accept="image/*" capture="user" class="hidden" onchange="handleFileSelect(event)">
 
                     <div class="flex flex-wrap justify-center gap-2">
@@ -2962,11 +4372,112 @@ def render_biometric_sign_page(token):
                 </div>
             </div>
 
-            <!-- STEP 3: ACCEPT CHECKBOX & SUBMIT -->
-            <div class="pt-2 space-y-3">
+            <!-- STEP 3: DNI FRENTE & DORSO -->
+            <div class="space-y-2 pt-2 border-t border-slate-700">
+                <span class="text-xs font-bold text-white block">🪪 Paso 3: Documento de Identidad (DNI Frente y Dorso)</span>
+                <p class="text-[11px] text-slate-400">Se guardarán en la Bóveda de Documentos & Resguardos.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-300 block mb-1">📷 DNI Frente (Foto / PDF)</label>
+                        <input type="file" id="dniFrenteInput" accept="image/*,.pdf" class="input-file-custom">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-300 block mb-1">📷 DNI Dorso (Foto / PDF)</label>
+                        <input type="file" id="dniDorsoInput" accept="image/*,.pdf" class="input-file-custom">
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 4: RECIBOS DE SUELDO (DEUDOR) -->
+            <div class="space-y-2 pt-2 border-t border-slate-700">
+                <span class="text-xs font-bold text-white block">💵 Paso 4: Últimos 2 Recibos de Sueldo del Titular</span>
+                <p class="text-[11px] text-slate-400">Puedes subir imagen, PDF, Word, DOC, DOCX o comprobante de ingresos.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-300 block mb-1">📄 Recibo de Sueldo 1</label>
+                        <input type="file" id="reciboSueldo1Input" accept="image/*,.pdf,.doc,.docx" class="input-file-custom">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-300 block mb-1">📄 Recibo de Sueldo 2</label>
+                        <input type="file" id="reciboSueldo2Input" accept="image/*,.pdf,.doc,.docx" class="input-file-custom">
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 5: COMPROBANTE DE SERVICIO / IMPUESTO (DETECCION IA) -->
+            <div class="space-y-2 pt-2 border-t border-slate-700">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-white block">⚡ Paso 5: Factura de Servicio o Impuesto (Domicilio)</span>
+                    <span class="text-[10px] font-extrabold bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">✨ Detección IA</span>
+                </div>
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                    Sube una factura de servicio (Luz, Gas, Internet) o impuesto a tu nombre si tu domicilio actual no coincide con el del DNI.
+                </p>
+                <input type="file" id="comprobanteServicioInput" accept="image/*,.pdf,.doc,.docx" class="input-file-custom">
+            </div>
+
+            <!-- STEP 6: GARANTE SOLIDARIO (OPCIONAL - DESMARCADO POR DEFECTO) -->
+            <div class="space-y-3 pt-2 border-t border-slate-700">
+                <label class="flex items-center space-x-2.5 cursor-pointer select-none bg-slate-900 p-2.5 rounded-xl border border-slate-700/80">
+                    <input type="checkbox" id="tieneGaranteCheck" onchange="toggleGaranteSection()" class="w-4 h-4 rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500">
+                    <span class="text-xs font-extrabold text-indigo-300">🛡️ ¿Presenta Socio o Garante Solidario?</span>
+                </label>
+
+                <!-- Container del Garante (Oculto si no tilda la opción) -->
+                <div id="garanteSection" class="hidden p-3 rounded-2xl bg-indigo-950/30 border border-indigo-800/50 space-y-3">
+                    <div class="flex items-center space-x-2 border-b border-indigo-800/40 pb-2">
+                        <span class="text-sm">🛡️</span>
+                        <span class="text-xs font-bold text-indigo-200 uppercase">Datos & Documentos del Garante Solidario</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-300 block mb-1">Nombre Completo del Garante</label>
+                            <input type="text" id="garanteName" placeholder="Ej. Juan Pérez" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-300 block mb-1">DNI / CUIT del Garante</label>
+                            <input type="text" id="garanteDni" placeholder="Ej. 20334455669" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-300 block mb-1">Teléfono / WhatsApp Garante</label>
+                            <input type="text" id="garantePhone" placeholder="Ej. 3834123456" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-300 block mb-1">Domicilio del Garante</label>
+                            <input type="text" id="garanteAddress" placeholder="Ej. San Martín 450, Catamarca" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        <div>
+                            <label class="text-[10px] font-bold text-indigo-300 block mb-1">🪪 Garante: DNI Frente</label>
+                            <input type="file" id="garanteDniFrenteInput" accept="image/*,.pdf" class="input-file-custom">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-indigo-300 block mb-1">🪪 Garante: DNI Dorso</label>
+                            <input type="file" id="garanteDniDorsoInput" accept="image/*,.pdf" class="input-file-custom">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        <div>
+                            <label class="text-[10px] font-bold text-indigo-300 block mb-1">📄 Garante: Recibo Sueldo 1</label>
+                            <input type="file" id="garanteRecibo1Input" accept="image/*,.pdf,.doc,.docx" class="input-file-custom">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-indigo-300 block mb-1">📄 Garante: Recibo Sueldo 2</label>
+                            <input type="file" id="garanteRecibo2Input" accept="image/*,.pdf,.doc,.docx" class="input-file-custom">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 7: ACCEPT CHECKBOX & SUBMIT -->
+            <div class="pt-2 space-y-3 border-t border-slate-700">
                 <label class="flex items-start space-x-2 cursor-pointer select-none">
                     <input type="checkbox" id="acceptCheck" class="mt-0.5 rounded border-slate-700 bg-slate-900 text-brand-600 focus:ring-brand-500">
-                    <span class="text-[11px] text-slate-300">Acepto los términos del Pagaré Digital, autorizo mi firma digital y selfie como constancia válida de obligación de pago.</span>
+                    <span class="text-[11px] text-slate-300">Acepto los términos del Pagaré Digital, autorizo mi firma digital, selfie y documentación adjunta para ser guardada en la Bóveda de Documentos.</span>
                 </label>
 
                 <button type="button" id="submitBtn" onclick="submitBiometricSignature('{token}')" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white font-extrabold text-sm shadow-lg shadow-emerald-500/20 transition active:scale-[0.99]">
@@ -2978,20 +4489,20 @@ def render_biometric_sign_page(token):
         <!-- EXPIRED / SUCCESS BOXES -->
         <div id="expiredBox" class="glass-card p-6 rounded-2xl text-center space-y-3 hidden border-amber-500/40">
             <div class="w-14 h-14 rounded-full bg-amber-500/20 text-amber-400 mx-auto flex items-center justify-center text-3xl">⏰</div>
-            <h2 class="text-xl font-black text-white">QR Expirado (30 Minutos)</h2>
+            <h2 class="text-xl font-black text-white">QR Expirado</h2>
             <p class="text-xs text-slate-300">El tiempo de validez para firmar este pagaré ha finalizado. Por favor solicita un nuevo código QR al emisor.</p>
         </div>
 
         <div id="successBox" class="glass-card p-6 rounded-2xl text-center space-y-3 hidden border-emerald-500/40">
             <div class="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center text-2xl">✅</div>
             <h2 class="text-xl font-black text-white">¡Pagaré Firmado Exitosamente!</h2>
-            <p class="text-xs text-slate-300">Tu firma digital y selfie biométrica han sido registradas de forma segura. Tu solicitud pasará a revisión para el otorgamiento del préstamo.</p>
+            <p class="text-xs text-slate-300">Tu firma digital, selfie biométrica y documentación han sido registradas y guardadas en la Bóveda de Documentos & Resguardos.</p>
         </div>
 
     </div>
 
     <script>
-        // 30 MINUTE COUNTDOWN TIMER
+        // COUNTDOWN TIMER
         let secondsLeft = {rem_seconds};
         function updateTimer() {{
             if (secondsLeft <= 0) {{
@@ -3009,7 +4520,18 @@ def render_biometric_sign_page(token):
         setInterval(updateTimer, 1000);
         updateTimer();
 
-        // SIGNATURE CANVAS LOGIC (COMPATIBLE MOBILE & PC)
+        // TOGGLE GARANTE SECTION
+        function toggleGaranteSection() {{
+            const chk = document.getElementById('tieneGaranteCheck').checked;
+            const sec = document.getElementById('garanteSection');
+            if (chk) {{
+                sec.classList.remove('hidden');
+            }} else {{
+                sec.classList.add('hidden');
+            }}
+        }}
+
+        // SIGNATURE CANVAS LOGIC
         const canvas = document.getElementById('signatureCanvas');
         const ctx = canvas.getContext('2d');
         let isDrawing = false;
@@ -3080,17 +4602,15 @@ def render_biometric_sign_page(token):
             document.getElementById('sigPlaceholder').style.display = 'flex';
         }}
 
-        // CAMERA SELFIE LOGIC (MULTI-PLATFORM MOBILE & PC)
+        // CAMERA SELFIE LOGIC
         let videoStream = null;
         let selfieDataUrl = '';
 
         async function startCamera() {{
             try {{
-                // Try facingMode user first
                 try {{
                     videoStream = await navigator.mediaDevices.getUserMedia({{ video: {{ facingMode: 'user' }} }});
                 }} catch(e1) {{
-                    // Fallback to basic video true for desktop webcams
                     videoStream = await navigator.mediaDevices.getUserMedia({{ video: true }});
                 }}
                 const video = document.getElementById('videoElement');
@@ -3157,21 +4677,73 @@ def render_biometric_sign_page(token):
             }}
         }}
 
+        // READ FILE TO BASE64 HELPER
+        function readFileAsBase64(fileEl) {{
+            return new Promise((resolve) => {{
+                if (!fileEl || !fileEl.files || !fileEl.files[0]) return resolve('');
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result || '');
+                reader.onerror = () => resolve('');
+                reader.readAsDataURL(fileEl.files[0]);
+            }});
+        }}
+
         async function submitBiometricSignature(token) {{
             const check = document.getElementById('acceptCheck').checked;
             if (!hasSignature) return alert('Por favor realiza tu firma digital en el recuadro.');
             if (!selfieDataUrl) return alert('Por favor tómate la selfie o sube tu foto de validación.');
-            if (!check) return alert('Debes aceptar la declaración jurada del pagaré.');
+            if (!check) return alert('Debes aceptar los términos y la declaración jurada.');
 
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
-            btn.innerText = 'Enviando Firma...';
+            btn.innerText = 'Procesando Documentación y Firma...';
 
             try {{
+                const dniFrente = await readFileAsBase64(document.getElementById('dniFrenteInput'));
+                const dniDorso = await readFileAsBase64(document.getElementById('dniDorsoInput'));
+                const recibo1 = await readFileAsBase64(document.getElementById('reciboSueldo1Input'));
+                const recibo2 = await readFileAsBase64(document.getElementById('reciboSueldo2Input'));
+                const servicio = await readFileAsBase64(document.getElementById('comprobanteServicioInput'));
+
+                const hasGarante = document.getElementById('tieneGaranteCheck').checked;
+                let garanteName = '', garanteDni = '', garantePhone = '', garanteAddress = '';
+                let garanteDniFrente = '', garanteDniDorso = '', garanteRecibo1 = '', garanteRecibo2 = '';
+
+                if (hasGarante) {{
+                    garanteName = (document.getElementById('garanteName').value || '').trim();
+                    garanteDni = (document.getElementById('garanteDni').value || '').trim();
+                    garantePhone = (document.getElementById('garantePhone').value || '').trim();
+                    garanteAddress = (document.getElementById('garanteAddress').value || '').trim();
+
+                    garanteDniFrente = await readFileAsBase64(document.getElementById('garanteDniFrenteInput'));
+                    garanteDniDorso = await readFileAsBase64(document.getElementById('garanteDniDorsoInput'));
+                    garanteRecibo1 = await readFileAsBase64(document.getElementById('garanteRecibo1Input'));
+                    garanteRecibo2 = await readFileAsBase64(document.getElementById('garanteRecibo2Input'));
+                }}
+
+                const payload = {{
+                    signature_data: canvas.toDataURL('image/png'),
+                    selfie_data: selfieDataUrl,
+                    dni_frente_data: dniFrente,
+                    dni_dorso_data: dniDorso,
+                    recibo_sueldo_1_data: recibo1,
+                    recibo_sueldo_2_data: recibo2,
+                    comprobante_servicio_data: servicio,
+                    has_garante: hasGarante,
+                    garante_name: garanteName,
+                    garante_dni: garanteDni,
+                    garante_phone: garantePhone,
+                    garante_address: garanteAddress,
+                    garante_dni_frente_data: garanteDniFrente,
+                    garante_dni_dorso_data: garanteDniDorso,
+                    garante_recibo_1_data: garanteRecibo1,
+                    garante_recibo_2_data: garanteRecibo2
+                }};
+
                 const res = await fetch(`/api/biometric_requests/${{token}}/sign`, {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ signature_data: canvas.toDataURL('image/png'), selfie_data: selfieDataUrl }})
+                    body: JSON.stringify(payload)
                 }});
                 const result = await res.json();
                 if (result.success) {{
@@ -3183,7 +4755,7 @@ def render_biometric_sign_page(token):
                     btn.innerText = '✍️ Aceptar & Firmar Pagaré Digital';
                 }}
             }} catch(err) {{
-                alert('Error de conexión al guardar firma');
+                alert('Error de conexión al guardar firma: ' + err.message);
                 btn.disabled = false;
                 btn.innerText = '✍️ Aceptar & Firmar Pagaré Digital';
             }}
@@ -3202,7 +4774,7 @@ def sign_biometric_request(token):
         if bio_req:
             db.session.delete(bio_req)
             db.session.commit()
-        return jsonify({"error": "⏰ El código QR o enlace ha expirado (límite de 30 minutos). Genera una nueva solicitud."}), 400
+        return jsonify({"error": "⏰ El código QR o enlace ha expirado. Genera una nueva solicitud."}), 400
 
     if bio_req.status == 'otorgado':
         db.session.delete(bio_req)
@@ -3214,7 +4786,7 @@ def sign_biometric_request(token):
         
     data = request.json or {}
     signature_data = (data.get('signature_data') or '').strip()
-    selfie_data = (data.get('selfie_data') or data.get('biometric_photo_data') or '').strip()
+    selfie_data = (data.get('selfie_data') or data.get('biometric_photo_data') or data.get('face_photo_data') or '').strip()
     
     if not signature_data or not selfie_data:
         return jsonify({"error": "La firma y la selfie son obligatorias"}), 400
@@ -3224,19 +4796,70 @@ def sign_biometric_request(token):
     bio_req.status = 'firmado'
     bio_req.signed_at = datetime.utcnow()
     
-    doc_sig = ClientDocument(
-        client_id=bio_req.client_id,
-        doc_type='firma_digital',
-        title=f'Firma Digital Pagaré Express (${bio_req.amount:,.2f})',
-        image_data=signature_data
-    )
-    doc_selfie = ClientDocument(
-        client_id=bio_req.client_id,
-        doc_type='selfie_deudor',
-        title=f'Selfie Biométrica Deudor (${bio_req.amount:,.2f})',
-        image_data=selfie_data
-    )
-    db.session.add_all([doc_sig, doc_selfie])
+    new_docs = [
+        ClientDocument(
+            client_id=bio_req.client_id,
+            doc_type='firma_digital',
+            title=f'Firma Digital Pagaré Express (${bio_req.amount:,.2f})',
+            image_data=signature_data
+        ),
+        ClientDocument(
+            client_id=bio_req.client_id,
+            doc_type='selfie_deudor',
+            title=f'Selfie Biométrica Deudor (${bio_req.amount:,.2f})',
+            image_data=selfie_data
+        )
+    ]
+
+    # Additional Documents Saved Directly to Bóveda de Documentos & Resguardos
+    dni_frente = (data.get('dni_frente_data') or '').strip()
+    dni_dorso = (data.get('dni_dorso_data') or '').strip()
+    recibo_1 = (data.get('recibo_sueldo_1_data') or '').strip()
+    recibo_2 = (data.get('recibo_sueldo_2_data') or '').strip()
+    servicio = (data.get('comprobante_servicio_data') or '').strip()
+
+    if dni_frente:
+        new_docs.append(ClientDocument(client_id=bio_req.client_id, doc_type='dni_frente', title='DNI Frente (Firma Biométrica 2026)', image_data=dni_frente))
+    if dni_dorso:
+        new_docs.append(ClientDocument(client_id=bio_req.client_id, doc_type='dni_dorso', title='DNI Dorso (Firma Biométrica 2026)', image_data=dni_dorso))
+    if recibo_1:
+        new_docs.append(ClientDocument(client_id=bio_req.client_id, doc_type='recibo_sueldo', title='Recibo de Sueldo 1 (Firma Biométrica 2026)', image_data=recibo_1))
+    if recibo_2:
+        new_docs.append(ClientDocument(client_id=bio_req.client_id, doc_type='recibo_sueldo', title='Recibo de Sueldo 2 (Firma Biométrica 2026)', image_data=recibo_2))
+    if servicio:
+        new_docs.append(ClientDocument(client_id=bio_req.client_id, doc_type='servicio_impuesto', title='Factura de Servicio / Impuesto (Detección IA Domicilio)', image_data=servicio))
+
+    # Garante Solidario Data & Documents
+    has_garante = bool(data.get('has_garante'))
+    if has_garante:
+        g_name = (data.get('garante_name') or '').strip()
+        g_dni = (data.get('garante_dni') or '').strip()
+        g_phone = (data.get('garante_phone') or '').strip()
+        g_address = (data.get('garante_address') or '').strip()
+
+        if bio_req.client:
+            bio_req.client.has_guarantor = True
+            if g_name: bio_req.client.guarantor_name = g_name
+            if g_dni: bio_req.client.guarantor_cuit = g_dni
+            if g_phone: bio_req.client.guarantor_phone = g_phone
+            if g_address: bio_req.client.guarantor_address = g_address
+
+        g_dni_f = (data.get('garante_dni_frente_data') or '').strip()
+        g_dni_d = (data.get('garante_dni_dorso_data') or '').strip()
+        g_rec_1 = (data.get('garante_recibo_1_data') or '').strip()
+        g_rec_2 = (data.get('garante_recibo_2_data') or '').strip()
+
+        prefix = f"Garante ({g_name or 'Solidario'})"
+        if g_dni_f:
+            new_docs.append(ClientDocument(client_id=bio_req.client_id, doc_type='garante_doc', title=f'{prefix}: DNI Frente', image_data=g_dni_f))
+        if g_dni_d:
+            new_docs.append(ClientDocument(client_id=bio_req.client_id, doc_type='garante_doc', title=f'{prefix}: DNI Dorso', image_data=g_dni_d))
+        if g_rec_1:
+            new_docs.append(ClientDocument(client_id=bio_req.client_id, doc_type='garante_doc', title=f'{prefix}: Recibo Sueldo 1', image_data=g_rec_1))
+        if g_rec_2:
+            new_docs.append(ClientDocument(client_id=bio_req.client_id, doc_type='garante_doc', title=f'{prefix}: Recibo Sueldo 2', image_data=g_rec_2))
+
+    db.session.add_all(new_docs)
     
     new_loan = Loan(
         client_id=bio_req.client_id,
@@ -3247,7 +4870,7 @@ def sign_biometric_request(token):
         installments_count=bio_req.installments_count,
         start_date=date.today(),
         status='pendiente_otorgamiento',
-        notes=f"Pagaré Virtual Express firmado el {datetime.now().strftime('%d/%m/%Y %H:%M')}. Selfie y firma registradas.",
+        notes=f"Pagaré Virtual Express firmado el {datetime.now().strftime('%d/%m/%Y %H:%M')}. Selfie y documentos registrados.",
         signature_data=signature_data
     )
     db.session.add(new_loan)
@@ -3259,7 +4882,7 @@ def sign_biometric_request(token):
     
     return jsonify({
         "success": True,
-        "message": "Firma biométrica y selfie registradas exitosamente. Préstamo pendiente de otorgamiento.",
+        "message": "Firma biométrica, selfie y documentación registradas exitosamente en la Bóveda de Documentos.",
         "loan_id": new_loan.id
     })
 
@@ -3763,15 +5386,15 @@ def api_shopping():
     
     data = request.get_json() or {}
     item = ShoppingItem(
-        store_category=data.get('store_category') or 'supermercado',
-        item_name=data.get('item_name') or 'Producto',
+        store_category=data.get('store_category') or data.get('category') or 'supermercado',
+        item_name=data.get('item_name') or data.get('name') or 'Producto',
         quantity=data.get('quantity') or '1',
         is_checked=bool(data.get('is_checked', False)),
         added_by=data.get('added_by') or 'Familia'
     )
     db.session.add(item)
     db.session.commit()
-    return jsonify({"success": True, "item": item.to_dict()})
+    return jsonify({"success": True, "item": item.to_dict()}), 201
 
 @app.route('/api/shopping/<int:item_id>/toggle', methods=['POST'])
 def toggle_shopping_item(item_id):
@@ -3796,12 +5419,12 @@ def api_noticeboard():
     data = request.get_json() or {}
     item = NoticeBoardItem(
         author=data.get('author') or 'Familia',
-        message=data.get('message') or '',
+        message=data.get('message') or data.get('content') or data.get('title') or '',
         is_pinned=bool(data.get('is_pinned', False))
     )
     db.session.add(item)
     db.session.commit()
-    return jsonify({"success": True, "notice": item.to_dict()})
+    return jsonify({"success": True, "notice": item.to_dict(), "item": item.to_dict()}), 201
 
 @app.route('/api/noticeboard/<int:notice_id>', methods=['DELETE'])
 def delete_noticeboard(notice_id):
@@ -3820,14 +5443,14 @@ def api_home_calendar():
     item = HomeCalendarItem(
         title=data.get('title') or 'Evento / Turno',
         category=data.get('category') or 'servicio',
-        due_date=data.get('due_date') or date.today().strftime('%Y-%m-%d'),
+        due_date=data.get('due_date') or data.get('event_date') or date.today().strftime('%Y-%m-%d'),
         due_time=data.get('due_time') or '',
         notes=data.get('notes') or '',
         is_completed=bool(data.get('is_completed', False))
     )
     db.session.add(item)
     db.session.commit()
-    return jsonify({"success": True, "event": item.to_dict()})
+    return jsonify({"success": True, "event": item.to_dict(), "item": item.to_dict()}), 201
 
 @app.route('/api/home-calendar/<int:event_id>', methods=['DELETE'])
 def delete_home_calendar(event_id):

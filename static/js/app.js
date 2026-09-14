@@ -199,8 +199,44 @@ function registerPrestamosApp() {
             bcraReport: { loading: false, data: null, error: null },
 
             // Forms State
-            clientForm: { id: null, name: '', whatsapp: '', address: '', cuit: '', email: '', notes: '' },
-            loanForm: { client_id: '', amount: 50000, interest_rate: 15, rate_type: 'mensual', modality: 'mensual', installments_count: 4, start_date: new Date().toISOString().split('T')[0], grace_days: 3, late_fee_type: 'porcentaje', late_fee_value: 1.0, notes: '' },
+            createdClientSuccess: null,
+            selectedGuarantorClient: null,
+            createdLoanSuccess: null,
+            marqueeNews: [],
+            clientForm: { 
+                id: null, 
+                name: '', 
+                whatsapp: '', 
+                address: '', 
+                cuit: '', 
+                email: '', 
+                notes: '',
+                has_guarantor: false,
+                guarantor_name: '',
+                guarantor_address: '',
+                guarantor_cuit: '',
+                guarantor_phone: '',
+                send_whatsapp: false,
+                download_pdf: false,
+                whatsapp_target: 'client',
+                custom_phone: ''
+            },
+            loanForm: { 
+                client_id: '', 
+                amount: 50000, 
+                interest_rate: 15, 
+                rate_type: 'mensual', 
+                modality: 'mensual', 
+                installments_count: 4, 
+                start_date: new Date().toISOString().split('T')[0], 
+                grace_days: 3, 
+                late_fee_type: 'porcentaje', 
+                late_fee_value: 1.0, 
+                notes: '',
+                send_whatsapp: true,
+                download_pdf: false,
+                whatsapp_target: 'titular'
+            },
             editLoanForm: { id: null, notes: '', grace_days: 3, late_fee_type: 'porcentaje', late_fee_value: 1.0, status: 'activo' },
             cashflowDetailData: { total_received: 0, total_capital: 0, total_interest: 0, payments_count: 0, by_method: {}, payments: [] },
             paymentForm: { installment_id: null, amount: 0, payment_method: 'Transferencia', notes: '' },
@@ -267,6 +303,33 @@ function registerPrestamosApp() {
             bcraSearchCuit: '',
             bcraResult: null,
             bcraLoading: false,
+
+            // Settings & Global Audit Log State
+            settingsTab: 'empresa', // 'empresa' | 'parametros' | 'auditoria'
+            settingsForm: {
+                company_name: '',
+                company_cuit: '',
+                alias_cbu: '',
+                company_cbu: '',
+                company_bank: '',
+                company_titular: '',
+                company_phone: '',
+                company_address: '',
+                default_grace_days: '3',
+                default_late_fee: '1.0',
+                ant_expense_threshold: '2500',
+                qr_biometric_expiry_minutes: '30',
+                biometric_sign_title: 'Firma Digital Biométrica 2026'
+            },
+            globalVaultDocTypeFilter: 'todos',
+            globalVaultSearch: '',
+            globalVaultDocs: [],
+            clientQrRequests: [],
+            selectedQrRequest: null,
+            auditLogs: [],
+            auditSearch: '',
+            isAuditLoading: false,
+            createdLoanSuccess: null,
 
             async consultarBcraSubSection() {
                 if (!this.bcraSearchCuit || this.bcraSearchCuit.trim().length < 7) {
@@ -446,9 +509,37 @@ function registerPrestamosApp() {
                     this.fetchRaffles(),
                     this.fetchShoppingItems(),
                     this.fetchNotices(),
-                    this.fetchCalendarEvents()
+                    this.fetchCalendarEvents(),
+                    this.fetchNews()
                 ]);
                 this.$nextTick(() => this.renderCharts());
+            },
+
+            async fetchNews() {
+                try {
+                    const res = await fetch('/api/news');
+                    if (res.ok) {
+                        this.marqueeNews = await res.json();
+                    }
+                } catch (e) {
+                    console.error("Error fetching Catamarca news:", e);
+                }
+            },
+
+            getMarqueeDurationStyle() {
+                if (this.settings.marquee_speed_seconds || (this.settingsForm && this.settingsForm.marquee_speed_seconds)) {
+                    const secs = this.settingsForm?.marquee_speed_seconds || this.settings.marquee_speed_seconds;
+                    return `animation-duration: ${secs}s;`;
+                }
+                const speed = this.settings.marquee_speed || 'normal';
+                if (speed === 'lenta') return 'animation-duration: 65s;';
+                if (speed === 'rapida') return 'animation-duration: 22s;';
+                return 'animation-duration: 38s;';
+            },
+
+            isMarqueeVisible() {
+                const val = this.settings.marquee_enabled;
+                return val === undefined || val === '1' || val === true || val === 'true';
             },
 
             async fetchStats() {
@@ -506,7 +597,24 @@ function registerPrestamosApp() {
 
             // Client Methods & BCRA Deudores
             openNewClientModal() {
-                this.clientForm = { id: null, name: '', whatsapp: '', address: '', cuit: '', email: '', notes: '' };
+                this.clientForm = { 
+                    id: null, 
+                    name: '', 
+                    whatsapp: '', 
+                    address: '', 
+                    cuit: '', 
+                    email: '', 
+                    notes: '',
+                    has_guarantor: false,
+                    guarantor_name: '',
+                    guarantor_address: '',
+                    guarantor_cuit: '',
+                    guarantor_phone: '',
+                    send_whatsapp: false,
+                    download_pdf: false,
+                    whatsapp_target: 'client',
+                    custom_phone: ''
+                };
                 this.activeModal = 'newClient';
             },
 
@@ -518,7 +626,16 @@ function registerPrestamosApp() {
                     address: client.address || '',
                     cuit: client.cuit || '',
                     email: client.email || '',
-                    notes: client.notes || ''
+                    notes: client.notes || '',
+                    has_guarantor: !!client.has_guarantor,
+                    guarantor_name: client.guarantor_name || '',
+                    guarantor_address: client.guarantor_address || '',
+                    guarantor_cuit: client.guarantor_cuit || '',
+                    guarantor_phone: client.guarantor_phone || '',
+                    send_whatsapp: false,
+                    download_pdf: false,
+                    whatsapp_target: 'client',
+                    custom_phone: ''
                 };
                 this.activeModal = 'editClient';
             },
@@ -581,6 +698,31 @@ function registerPrestamosApp() {
                     return;
                 }
 
+                // Validación de Garante Solidario (si está marcado)
+                if (this.clientForm.has_guarantor) {
+                    if (!this.clientForm.guarantor_name || !this.clientForm.guarantor_name.trim()) {
+                        alert("Por favor ingrese el Nombre y Apellido del Garante.");
+                        return;
+                    }
+                    if (!this.clientForm.guarantor_address || !this.clientForm.guarantor_address.trim()) {
+                        alert("Por favor ingrese el Domicilio Real del Garante.");
+                        return;
+                    }
+                    if (!this.clientForm.guarantor_cuit || !this.clientForm.guarantor_cuit.trim()) {
+                        alert("Por favor ingrese el CUIT / CUIL del Garante.");
+                        return;
+                    }
+                    const cleanGCuit = this.clientForm.guarantor_cuit.replace(/\D/g, '');
+                    if (cleanGCuit.length !== 11) {
+                        alert("El CUIT / CUIL del Garante debe contener exactamente 11 dígitos numéricos (ej. 20123456789).");
+                        return;
+                    }
+                    if (!this.clientForm.guarantor_phone || !this.clientForm.guarantor_phone.trim()) {
+                        alert("Por favor ingrese el Teléfono / WhatsApp del Garante.");
+                        return;
+                    }
+                }
+
                 const isEdit = !!this.clientForm.id;
                 const url = isEdit ? `/api/clients/${this.clientForm.id}` : '/api/clients';
                 const method = isEdit ? 'PUT' : 'POST';
@@ -593,17 +735,36 @@ function registerPrestamosApp() {
                     });
                     if (res.ok) {
                         const savedClient = await res.json();
+                        const wantsPdf = !!this.clientForm.download_pdf;
+                        const wantsWa = !!this.clientForm.send_whatsapp;
+                        const waTarget = this.clientForm.whatsapp_target || 'client';
+                        const customPh = this.clientForm.custom_phone || '';
+
                         this.activeModal = null;
                         await this.fetchClients();
                         await this.fetchStats();
                         if (savedClient && savedClient.id && this.loanForm) {
                             this.loanForm.client_id = savedClient.id;
                         }
+
+                        // Acción: Descargar Ficha Oficial en PDF si fue seleccionada
+                        if (wantsPdf) {
+                            this.downloadClientFichaPDF(savedClient.id);
+                        }
+
+                        // Acción: Enviar WhatsApp redactado si fue seleccionado
+                        if (wantsWa) {
+                            this.sendClientWelcomeWhatsApp(savedClient, waTarget, customPh);
+                        }
+
+                        // Mostrar modal de éxito interactivo con accesos directos
+                        this.createdClientSuccess = savedClient;
+                        this.activeModal = 'clientCreatedSuccess';
+
                         const successMsg = isEdit 
                             ? `✅ Cliente "${savedClient.name}" actualizado correctamente.`
                             : `🎉 ¡Cliente "${savedClient.name}" registrado satisfactoriamente en el sistema!`;
                         this.showToast(successMsg, 'success');
-                        alert(successMsg);
                     } else {
                         const errData = await res.json().catch(() => ({}));
                         alert(errData.error || "Error al guardar el cliente.");
@@ -611,6 +772,115 @@ function registerPrestamosApp() {
                 } catch (err) {
                     console.error("saveClient error:", err);
                     alert("Error de conexión al guardar cliente.");
+                }
+            },
+
+            downloadClientFichaPDF(clientId) {
+                if (!clientId) return;
+                window.open(`/api/clients/${clientId}/ficha_pdf`, '_blank');
+            },
+
+            getClientWelcomeWhatsAppMessage(client) {
+                const c = client || this.clientForm || {};
+                const name = c.name || 'Cliente';
+                const comp = (this.settings && this.settings.company_name) || 'Prestamos & Finanzas';
+                const alias = (this.settings && this.settings.alias_cbu) || 'Consultar';
+                const phone = (this.settings && this.settings.company_phone) || '';
+                const cuit = c.cuit || '';
+                const hasG = c.has_guarantor;
+                const gName = c.guarantor_name;
+
+                let gText = '';
+                if (hasG && gName) {
+                    gText = `\n🛡️ *Garante Solidario Registrado:* ${gName}`;
+                }
+
+                return `🏛️ *BIENVENIDA & ALTA DE CLIENTE - ${comp.toUpperCase()}* 🏛️\n` +
+                       `-----------------------------------------\n` +
+                       `👤 *Titular:* ${name}\n` +
+                       `🆔 *CUIT/CUIL:* ${cuit}` + gText + `\n\n` +
+                       `Estimado/a, le confirmamos que su ficha de cliente ha sido dada de alta satisfactoriamente en nuestro sistema de créditos.\n\n` +
+                       `💳 *Datos Bancarios Oficiales para Pagos/Transferencias:* \n` +
+                       `• *Alias CBU/CVU:* ${alias}\n` +
+                       `• *Atención & Consultas:* ${phone}\n\n` +
+                       `Quedamos a su entera disposición para cualquier consulta o solicitud de préstamo.\n` +
+                       `Atentamente,\n*${comp}*`;
+            },
+
+            sendClientWelcomeWhatsApp(client, target = 'client', customPhone = '') {
+                const c = client || this.clientForm || {};
+                let phone = '';
+                if (target === 'client') {
+                    phone = c.whatsapp || '';
+                } else if (target === 'guarantor') {
+                    phone = c.guarantor_phone || '';
+                } else if (target === 'custom') {
+                    phone = customPhone || '';
+                }
+                phone = (phone || '').replace(/\D/g, '');
+                const msg = encodeURIComponent(this.getClientWelcomeWhatsAppMessage(c));
+                if (phone) {
+                    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+                } else {
+                    window.open(`https://wa.me/?text=${msg}`, '_blank');
+                }
+            },
+
+            // Guarantor Methods (Perfil del Cliente)
+            openGuarantorModal(client) {
+                this.selectedGuarantorClient = client || (this.selectedClientHistory ? this.selectedClientHistory.client : null);
+                this.activeModal = 'guarantorModal';
+            },
+
+            downloadGuarantorCobroPDF(clientId) {
+                if (!clientId) return;
+                window.open(`/api/clients/${clientId}/garante_cobro_pdf`, '_blank');
+            },
+
+            getGuarantorCollectionMessage(client) {
+                const c = client || this.selectedGuarantorClient || (this.selectedClientHistory ? this.selectedClientHistory.client : {}) || {};
+                const gName = c.guarantor_name || 'Garante Solidario';
+                const comp = (this.settings && this.settings.company_name) || 'Prestamos & Finanzas';
+                const alias = (this.settings && this.settings.alias_cbu) || 'Consultar';
+                const phone = (this.settings && this.settings.company_phone) || '';
+                const titular = (this.settings && this.settings.company_titular) || 'Eduardo Andrada';
+                const deudor = c.name || 'el Titular Deudor';
+
+                // Calcular deuda pendiente real si está disponible en el historial
+                let pendingDebtStr = "regularización de cuotas pendientes";
+                if (this.selectedClientHistory && this.selectedClientHistory.loans) {
+                    let totalPending = 0;
+                    for (const l of this.selectedClientHistory.loans) {
+                        if (l.status !== 'completado' && l.status !== 'cancelado') {
+                            totalPending += (l.remaining_amount || l.amount);
+                        }
+                    }
+                    if (totalPending > 0) {
+                        pendingDebtStr = `$${totalPending.toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
+                    }
+                }
+
+                return `⚖️ *REQUERIMIENTO FORMAL DE COBRO A GARANTE SOLIDARIO* ⚖️\n` +
+                       `-----------------------------------------\n` +
+                       `🛡️ *Estimado/a:* ${gName}\n` +
+                       `👤 *En su carácter de Garante / Fiador Solidario de:* ${deudor}\n\n` +
+                       `Nos comunicamos formalmente del Departamento de Cobranzas de *${comp}* para informarle que ante el vencimiento e impago de las obligaciones contraídas por el titular avalado, se requiere la cancelación del saldo exigible correspondiente (*${pendingDebtStr}*).\n\n` +
+                       `💳 *Datos Bancarios para Cancelación Inmediata:*\n` +
+                       `• *Alias CBU/CVU:* ${alias}\n` +
+                       `• *Titular:* ${titular}\n` +
+                       `• *Atención & Consultas:* ${phone}\n\n` +
+                       `Por favor, proceda a la cancelación o comuníquese a la brevedad para regularizar la situación y evitar acciones legales ejecutivas.\n` +
+                       `Atentamente,\n*Cobranzas & Asuntos Legales - ${comp}*`;
+            },
+
+            sendGuarantorWhatsApp(client) {
+                const c = client || this.selectedGuarantorClient || (this.selectedClientHistory ? this.selectedClientHistory.client : {}) || {};
+                let phone = (c.guarantor_phone || '').replace(/\D/g, '');
+                const msg = encodeURIComponent(this.getGuarantorCollectionMessage(c));
+                if (phone) {
+                    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+                } else {
+                    window.open(`https://wa.me/?text=${msg}`, '_blank');
                 }
             },
 
@@ -640,6 +910,7 @@ function registerPrestamosApp() {
                 if (type === 'dni_dorso') return 'DNI (Dorso)';
                 if (type === 'pagare_firmado') return 'Pagaré Firmado (Foto)';
                 if (type === 'domicilio') return 'Comprobante de Domicilio';
+                if (type === 'recibo_sueldo') return 'Recibo de Sueldo';
                 return 'Documento Adjunto';
             },
 
@@ -807,19 +1078,69 @@ function registerPrestamosApp() {
                 this.loanForm = {
                     client_id: clientId || (this.clients.length > 0 ? this.clients[0].id : ''),
                     amount: 50000,
-                    interest_rate: 15,
+                    interest_rate: parseFloat(this.settings.default_interest_rate || '15'),
                     rate_type: 'mensual',
-                    modality: 'mensual',
-                    installments_count: 4,
+                    modality: this.settings.default_modality || 'mensual',
+                    installments_count: parseInt(this.settings.default_installments_count || '4'),
                     start_date: new Date().toISOString().split('T')[0],
                     grace_days: parseInt(this.settings.default_grace_days || '3'),
                     late_fee_type: 'porcentaje',
                     late_fee_value: parseFloat(this.settings.default_late_fee || '1.0'),
                     notes: '',
-                    signature_data: ''
+                    signature_data: '',
+                    send_whatsapp: false,
+                    download_pdf: false,
+                    download_pagare_pdf: false,
+                    download_ficha_pdf: false,
+                    auto_deliver: false,
+                    has_guarantor: false,
+                    existing_guarantor_client_id: '',
+                    guarantor_name: '',
+                    guarantor_dni: '',
+                    guarantor_phone: '',
+                    guarantor_address: ''
                 };
                 this.activeModal = 'newLoan';
                 this.initSignaturePad();
+            },
+
+            toggleAutoDeliverLoanOptions() {
+                const isAuto = !!this.loanForm.auto_deliver;
+                this.loanForm.send_whatsapp = isAuto;
+                this.loanForm.download_pdf = isAuto;
+                this.loanForm.download_pagare_pdf = isAuto;
+                this.loanForm.download_ficha_pdf = isAuto;
+            },
+
+            deliverAllLoanDocuments(loan) {
+                if (!loan) return;
+                const loanId = loan.id;
+                const clientId = loan.client_id;
+                
+                // 1. Abrir Pagaré PDF
+                window.open(`/api/loans/${loanId}/pagare_pdf`, '_blank');
+                
+                // 2. Abrir Resumen Pre-Vencimiento Día 24
+                window.open(`/api/loans/${loanId}/resumen_prevencimiento_pdf`, '_blank');
+                
+                // 3. Abrir Resumen IA PDF
+                window.open(`/api/loans/${loanId}/pdf`, '_blank');
+
+                // 4. Abrir Ficha/Contrato
+                if (clientId) {
+                    window.open(`/api/clients/${clientId}/ficha_pdf`, '_blank');
+                }
+                
+                // 5. Enviar Notificación por WhatsApp
+                if (loan.preview_message) {
+                    this.sendLoanWhatsApp(
+                        loan.whatsapp_target === 'titular' ? loan.client?.whatsapp : 
+                        (loan.whatsapp_target === 'garante' ? loan.client?.guarantor_phone : loan.custom_phone),
+                        loan.preview_message
+                    );
+                } else {
+                    this.sendLoanWhatsApp(loan);
+                }
             },
 
             get selectedLoanClient() {
@@ -875,6 +1196,20 @@ function registerPrestamosApp() {
                 }
 
                 try {
+                    if (this.loanForm.has_guarantor && this.loanForm.guarantor_name) {
+                        await fetch(`/api/clients/${this.loanForm.client_id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                has_guarantor: true,
+                                guarantor_name: this.loanForm.guarantor_name,
+                                guarantor_dni: this.loanForm.guarantor_dni || '',
+                                guarantor_phone: this.loanForm.guarantor_phone || '',
+                                guarantor_address: this.loanForm.guarantor_address || ''
+                            })
+                        }).catch(() => {});
+                    }
+
                     const res = await fetch('/api/loans', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -884,9 +1219,7 @@ function registerPrestamosApp() {
                         const newLoan = await res.json();
                         this.activeModal = null;
                         await this.loadAllData();
-                        const successMsg = `🎉 ¡Préstamo #${newLoan.id} por $${newLoan.amount.toLocaleString('es-AR')} otorgado exitosamente a ${newLoan.client_name}!`;
-                        this.showToast(successMsg, 'success');
-                        alert(successMsg);
+                        this.openLoanCreatedSuccessModal(newLoan);
                     } else {
                         const errData = await res.json().catch(() => ({}));
                         alert(errData.error || "Error al registrar el préstamo.");
@@ -894,6 +1227,427 @@ function registerPrestamosApp() {
                 } catch (err) {
                     console.error("saveLoan error:", err);
                     alert("Error de conexión al registrar préstamo.");
+                }
+            },
+
+            // Settings & Audit Methods
+            // Settings & Audit Methods (Apertura Instantánea 0ms & Unificada)
+            openSettingsModal() {
+                this.settingsTab = 'empresa';
+                this.settingsForm = {
+                    // 1. Empresa & Cobranzas
+                    company_name: this.settings.company_name || 'Prestamos & Finanzas Familia Andrada',
+                    company_cuit: this.settings.company_cuit || '20-33445566-9',
+                    alias_cbu: this.settings.alias_cbu || 'FAMILIA.ANDRADA.MP',
+                    company_cbu: this.settings.company_cbu || '0000003100045678912345',
+                    company_bank: this.settings.company_bank || 'Mercado Pago / Banco Santander',
+                    company_titular: this.settings.company_titular || 'Eduardo Andrada',
+                    company_phone: this.settings.company_phone || '+54 9 11 3344-5566',
+                    company_address: this.settings.company_address || 'Av. Corrientes 1234, CABA',
+                    company_email: this.settings.company_email || 'contacto@prestamosandrada.com',
+                    company_logo_data: this.settings.company_logo_data || '',
+                    qr_text: this.settings.qr_text || '',
+
+                    // 2. Parámetros Financieros & Préstamos
+                    default_interest_rate: this.settings.default_interest_rate || '20',
+                    default_modality: this.settings.default_modality || 'mensual',
+                    default_installments_count: this.settings.default_installments_count || '4',
+                    default_grace_days: this.settings.default_grace_days || '3',
+                    default_late_fee: this.settings.default_late_fee || '1.0',
+                    ant_expense_threshold: this.settings.ant_expense_threshold || '2500',
+                    default_max_loan_limit: this.settings.default_max_loan_limit || '150000',
+                    overdue_alert_days: this.settings.overdue_alert_days || '3',
+                    currency_symbol: this.settings.currency_symbol || '$',
+                    guarantor_required_threshold: this.settings.guarantor_required_threshold || '200000',
+
+                    // 3. Marquee & Noticias de Catamarca
+                    marquee_enabled: this.settings.marquee_enabled !== undefined ? String(this.settings.marquee_enabled) : '1',
+                    marquee_speed: this.settings.marquee_speed || 'normal',
+                    marquee_speed_seconds: this.settings.marquee_speed_seconds || 38,
+                    marquee_show_news: this.settings.marquee_show_news !== undefined ? String(this.settings.marquee_show_news) : '1',
+                    marquee_show_pizarra: this.settings.marquee_show_pizarra !== undefined ? String(this.settings.marquee_show_pizarra) : '1',
+                    marquee_show_weather: this.settings.marquee_show_weather !== undefined ? String(this.settings.marquee_show_weather) : '1',
+                    marquee_show_datetime: this.settings.marquee_show_datetime !== undefined ? String(this.settings.marquee_show_datetime) : '1',
+                    marquee_show_calendar: this.settings.marquee_show_calendar !== undefined ? String(this.settings.marquee_show_calendar) : '1',
+                    news_source_esquiu: this.settings.news_source_esquiu !== undefined ? String(this.settings.news_source_esquiu) : '1',
+                    news_source_ancasti: this.settings.news_source_ancasti !== undefined ? String(this.settings.news_source_ancasti) : '1',
+                    news_source_catamarca_actual: this.settings.news_source_catamarca_actual !== undefined ? String(this.settings.news_source_catamarca_actual) : '1',
+                    news_source_la_union: this.settings.news_source_la_union !== undefined ? String(this.settings.news_source_la_union) : '1',
+                    custom_marquee_text: this.settings.custom_marquee_text || '',
+                    custom_rss_sources: this.settings.custom_rss_sources || '',
+                    marquee_keywords: this.settings.marquee_keywords || 'Catamarca, Policiales, Elecciones, Política, Economía, País, Sueldos',
+
+                    // 4. WhatsApp, IA & Notificaciones
+                    whatsapp_prefix: this.settings.whatsapp_prefix || '549',
+                    whatsapp_template_loan: this.settings.whatsapp_template_loan || '¡Hola {nombre}! Tu préstamo por {monto} ha sido otorgado con éxito.',
+                    whatsapp_template_payment: this.settings.whatsapp_template_payment || '¡Hola {nombre}! Te recordamos el vencimiento de tu cuota N° {cuota} por {monto}. Recordá enviar foto/captura del comprobante de transferencia al abonar.',
+                    biometric_sign_title: this.settings.biometric_sign_title || 'Firma Digital Biométrica 2026',
+                    whatsapp_auto_include_cbu: this.settings.whatsapp_auto_include_cbu !== undefined ? String(this.settings.whatsapp_auto_include_cbu) : '1',
+                    auto_generate_pagare: this.settings.auto_generate_pagare !== undefined ? String(this.settings.auto_generate_pagare) : '1',
+
+                    // 5. Sueldos Familiares
+                    user_salary_eduardo: this.settings.user_salary_eduardo || '550000',
+                    user_salary_maira: this.settings.user_salary_maira || '450000',
+
+                    // 6. Base de Datos & Sistema
+                    auto_backup_enabled: this.settings.auto_backup_enabled !== undefined ? String(this.settings.auto_backup_enabled) : '1'
+                };
+                this.activeModal = 'settingsModal';
+                this.fetchSettings().catch(() => {});
+            },
+
+            downloadBackupFile() {
+                window.location.href = '/api/backup/download';
+            },
+
+            async handleRestoreBackup(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                if (!confirm("⚠️ ATENCIÓN: Esta acción reemplazará los datos actuales por los del archivo de respaldo seleccionado. ¿Desea continuar?")) {
+                    event.target.value = '';
+                    return;
+                }
+                const formData = new FormData();
+                formData.append('file', file);
+                try {
+                    const res = await fetch('/api/backup/restore', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success !== false) {
+                        alert("✅ Copia de seguridad restaurada exitosamente.");
+                        window.location.reload();
+                    } else {
+                        alert("❌ Error al restaurar respaldo: " + (data.error || "Formato de archivo inválido"));
+                    }
+                } catch (e) {
+                    alert("❌ Error de red al subir archivo de respaldo.");
+                } finally {
+                    event.target.value = '';
+                }
+            },
+
+            onLogoSelected(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                if (file.size > 1024 * 1024) {
+                    alert("El logo no debe superar 1MB de tamaño.");
+                    event.target.value = '';
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.settingsForm.company_logo_data = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            },
+
+            openDocumentTemplatesModal() {
+                this.activeModal = 'documentTemplatesModal';
+            },
+
+            onSelectExistingGuarantor(event) {
+                const cid = event.target.value;
+                if (!cid) return;
+                const client = this.clients.find(c => c.id == cid);
+                if (client) {
+                    this.loanForm.guarantor_name = client.name;
+                    this.loanForm.guarantor_dni = client.dni || '';
+                    this.loanForm.guarantor_phone = client.whatsapp || '';
+                    this.loanForm.guarantor_address = client.address || '';
+                }
+            },
+
+            async saveSettings() {
+                try {
+                    const res = await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.settingsForm)
+                    });
+                    if (res.ok) {
+                        await this.fetchSettings();
+                        await this.fetchNews();
+                        this.showToast("✅ Ajustes guardados correctamente.", "success");
+                        alert("✅ Ajustes del sistema guardados correctamente.");
+                    } else {
+                        alert("Error al guardar ajustes.");
+                    }
+                } catch (e) {
+                    alert("Error de conexión al guardar ajustes.");
+                }
+            },
+
+            async loadGlobalVault() {
+                try {
+                    const type = this.globalVaultDocTypeFilter || 'todos';
+                    const res = await fetch(`/api/documents/all?doc_type=${type}`);
+                    const data = await res.json();
+                    if (data.success) {
+                        this.globalVaultDocs = data.documents || [];
+                    }
+                } catch (e) {
+                    console.error("Error al cargar Bóveda Global:", e);
+                }
+            },
+
+            filteredGlobalVaultDocs() {
+                if (!this.globalVaultDocs) return [];
+                if (!this.globalVaultSearch || !this.globalVaultSearch.trim()) {
+                    return this.globalVaultDocs;
+                }
+                const q = this.globalVaultSearch.trim().toLowerCase();
+                return this.globalVaultDocs.filter(d => 
+                    (d.client_name && d.client_name.toLowerCase().includes(q)) ||
+                    (d.title && d.title.toLowerCase().includes(q)) ||
+                    (d.doc_type && d.doc_type.toLowerCase().includes(q))
+                );
+            },
+
+            async openClientQrRequestsModal(client) {
+                if (!client) return;
+                try {
+                    const res = await fetch(`/api/biometric_requests?client_id=${client.id}`);
+                    const data = await res.json();
+                    this.clientQrRequests = Array.isArray(data) ? data : [];
+                    this.activeModal = 'clientQrRequestsModal';
+                } catch (e) {
+                    console.error("Error al obtener solicitudes QR del cliente:", e);
+                    alert("No se pudieron cargar las solicitudes QR del cliente.");
+                }
+            },
+
+            async openClientVaultModal(client) {
+                if (!client) return;
+                this.globalVaultSearch = client.name || '';
+                this.globalVaultDocTypeFilter = 'todos';
+                this.settingsTab = 'boveda';
+                this.activeModal = 'settingsModal';
+                await this.loadGlobalVault();
+            },
+
+            async approveBiometricRequest(req) {
+                if (!req || !req.token) return;
+                if (!confirm(`¿Confirmas la APROBACIÓN y ACTIVACIÓN del préstamo por $${(req.amount||0).toLocaleString('es-AR')} para ${req.client_name}?`)) {
+                    return;
+                }
+                try {
+                    const res = await fetch(`/api/biometric_requests/${req.token}/approve`, { method: 'POST' });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert("✅ Solicitud APROBADA y Préstamo ACTIVADO exitosamente.");
+                        if (data.wa_url) {
+                            window.open(data.wa_url, '_blank');
+                        }
+                        if (req.client_id) {
+                            await this.openClientQrRequestsModal({ id: req.client_id });
+                        }
+                        await this.fetchDashboardStats();
+                        await this.fetchLoans();
+                    } else {
+                        alert(data.error || "Ocurrió un error al aprobar la solicitud.");
+                    }
+                } catch (e) {
+                    console.error("Error al aprobar solicitud biométrica:", e);
+                    alert("Error de comunicación al aprobar la solicitud.");
+                }
+            },
+
+            async deleteBiometricRequest(req) {
+                if (!req || !req.token) return;
+                if (!confirm("¿Seguro que deseas eliminar/rechazar esta solicitud Pagaré Express QR?")) return;
+                try {
+                    const res = await fetch(`/api/biometric_requests/${req.token}`, { method: 'DELETE' });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert("🗑️ Solicitud eliminada correctamente.");
+                        if (req.client_id) {
+                            await this.openClientQrRequestsModal({ id: req.client_id });
+                        }
+                    } else {
+                        alert(data.error || "Error al eliminar la solicitud.");
+                    }
+                } catch (e) {
+                    console.error("Error al eliminar solicitud:", e);
+                }
+            },
+
+            async fetchAuditLogs() {
+                this.isAuditLoading = true;
+                try {
+                    const res = await fetch('/api/audit_logs');
+                    if (res.ok) {
+                        this.auditLogs = await res.json();
+                    }
+                } catch (e) {
+                    console.error("Error fetching audit logs:", e);
+                } finally {
+                    this.isAuditLoading = false;
+                }
+            },
+
+            get filteredAuditLogs() {
+                if (!this.auditSearch || !this.auditSearch.trim()) return this.auditLogs;
+                const q = this.auditSearch.toLowerCase().trim();
+                return this.auditLogs.filter(l => 
+                    (l.title && l.title.toLowerCase().includes(q)) ||
+                    (l.description && l.description.toLowerCase().includes(q)) ||
+                    (l.date && l.date.includes(q))
+                );
+            },
+
+            // Loan Granted Message & WhatsApp / PDF Helpers
+            getLoanWhatsAppMessage(loan) {
+                if (!loan) return '';
+                const clientName = loan.client_name || (this.clients.find(c => c.id == loan.client_id) || {}).name || 'Cliente';
+                const total = loan.total_amount || (loan.amount * 1.15);
+                const count = loan.installments_count || 1;
+                const instVal = loan.installment_amount || (total / count);
+                const startDate = loan.start_date || new Date().toISOString().split('T')[0];
+
+                return `🏛️ *COMPROBANTE DE PRÉSTAMO OTORGADO* 🏛️\n` +
+                       `-----------------------------------------\n` +
+                       `👤 *Cliente:* ${clientName}\n` +
+                       `💵 *Monto Otorgado:* $${Number(loan.amount).toLocaleString('es-AR', {minimumFractionDigits: 2})}\n` +
+                       `📊 *Plan de Pagos:* ${count} cuota(s) ${loan.modality || 'mensual'} de $${Number(instVal).toLocaleString('es-AR', {minimumFractionDigits: 2})}\n` +
+                       `💰 *Total a Devolver:* $${Number(total).toLocaleString('es-AR', {minimumFractionDigits: 2})}\n` +
+                       `📅 *Fecha de Primera Cuota:* ${startDate}\n\n` +
+                       `💳 *DATOS PARA TRANSFERENCIA / PAGO:*\n` +
+                       `• *Alias CBU/CVU:* ${this.settings.alias_cbu || 'FAMILIA.ANDRADA.MP'}\n` +
+                       `• *N° CBU/CVU:* ${this.settings.company_cbu || '0000003100045678912345'}\n` +
+                       `• *Titular:* ${this.settings.company_titular || 'Eduardo Andrada'}\n` +
+                       `• *Banco/Billetera:* ${this.settings.company_bank || 'Mercado Pago'}\n` +
+                       `• *CUIT/CUIL:* ${this.settings.company_cuit || '20-33445566-9'}\n\n` +
+                       `🤝 ¡Muchas gracias por su confianza! Quedamos a su disposición.`;
+            },
+
+            sendLoanWhatsApp(loan) {
+                if (!loan) return;
+                const client = this.clients.find(c => c.id == loan.client_id);
+                let phone = loan.whatsapp || (client ? client.whatsapp : '');
+                if (phone) phone = phone.replace(/\D/g, '');
+                const msg = encodeURIComponent(this.getLoanWhatsAppMessage(loan));
+                if (phone) {
+                    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+                } else {
+                    window.open(`https://wa.me/?text=${msg}`, '_blank');
+                }
+            },
+
+            copyToClipboard(text) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        this.showToast("📋 ¡Mensaje copiado al portapapeles!", "success");
+                        alert("📋 ¡Mensaje copiado al portapapeles!");
+                    });
+                } else {
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    alert("📋 ¡Mensaje copiado al portapapeles!");
+                }
+            },
+
+            openLoanCreatedSuccessModal(loan) {
+                const client = this.clients.find(c => c.id === loan.client_id) || { name: loan.client_name || 'Cliente', whatsapp: '', has_guarantor: false };
+                const totalAmount = (loan.installments || []).reduce((sum, i) => sum + i.amount, 0) || loan.amount;
+                const instVal = (loan.installments && loan.installments.length > 0) ? loan.installments[0].amount : Math.round(totalAmount / (loan.installments_count || 1));
+                
+                let scheduleText = "";
+                if (loan.installments && loan.installments.length > 0) {
+                    scheduleText = loan.installments.map(i => `  • Cuota #${i.installment_number}: $${i.amount.toLocaleString('es-AR')} (Vence: ${i.due_date})`).join('\n');
+                } else {
+                    scheduleText = `  • Plan de ${loan.installments_count} cuota(s) ${loan.modality}es de $${instVal.toLocaleString('es-AR')}`;
+                }
+
+                let msg = `🏦 *NOTIFICACIÓN DE PRÉSTAMO OTORGADO*\n` +
+                          `Estimado/a *${client.name}*:\n\n` +
+                          `Nos complace informarle que su solicitud de crédito *#${loan.id}* ha sido *APROBADA Y ACTIVADA* con éxito.\n\n` +
+                          `📋 *DETALLES DEL PRÉSTAMO:*\n` +
+                          `• Capital Otorgado: *$${loan.amount.toLocaleString('es-AR')}*\n` +
+                          `• Modalidad: ${loan.installments_count} cuota(s) ${loan.modality}es\n` +
+                          `• Valor por Cuota: *$${Math.round(instVal).toLocaleString('es-AR')}*\n` +
+                          `• Total a Reintegrar: *$${Math.round(totalAmount).toLocaleString('es-AR')}*\n` +
+                          `• Tasa: ${loan.interest_rate}% ${loan.rate_type}\n\n` +
+                          `📅 *CRONOGRAMA DE PAGOS Y VENCIMIENTOS:*\n${scheduleText}\n\n` +
+                          `💳 *MEDIOS OFICIALES DE CANCELACIÓN:*\n` +
+                          `• Alias CBU: *${this.settings.alias_cbu || 'FAMILIA.ANDRADA.MP'}*\n` +
+                          `• CBU: ${this.settings.company_cbu || '0000003100045678912345'}\n` +
+                          `• Titular: ${this.settings.company_titular || 'Eduardo Andrada'}\n` +
+                          `• Entidad: ${this.settings.company_bank || 'Mercado Pago'}\n\n` +
+                          `_Recuerde remitir su comprobante de transferencia por este canal tras realizar cada pago para su debida imputación. ¡Muchas gracias por su confianza!_`;
+
+                // Auto-downloads based on user selected checkboxes in loanForm
+                if (this.loanForm && this.loanForm.download_pdf) {
+                    this.downloadLoanIAPDF(loan.id);
+                }
+                if (this.loanForm && this.loanForm.download_pagare_pdf) {
+                    this.downloadPagarePDF(loan.id);
+                }
+                if (this.loanForm && this.loanForm.download_ficha_pdf) {
+                    this.downloadClientFichaPDF(loan.client_id);
+                }
+
+                this.createdLoanSuccess = {
+                    ...loan,
+                    client: client,
+                    preview_message: msg,
+                    whatsapp_target: 'titular',
+                    custom_phone: '',
+                    additional_contacts: [],
+                    new_contact_name: '',
+                    new_contact_phone: ''
+                };
+                this.activeModal = 'loanCreatedSuccess';
+            },
+
+            sendLoanWhatsApp(phone, message) {
+                if (!phone) {
+                    alert("Debe especificar un número de teléfono o WhatsApp válido.");
+                    return;
+                }
+                let clean = String(phone).replace(/[^0-9]/g, '');
+                if (clean.length === 10) clean = '549' + clean;
+                else if (clean.length === 11 && clean.startsWith('15')) clean = '549' + clean.slice(2);
+                else if (clean.length === 12 && clean.startsWith('54') && !clean.startsWith('549')) clean = '549' + clean.slice(2);
+
+                const waUrl = `https://wa.me/${clean}?text=${encodeURIComponent(message || '')}`;
+                window.open(waUrl, '_blank');
+            },
+
+            downloadLoanIAPDF(loanId) {
+                if (!loanId) return;
+                window.open(`/api/loans/${loanId}/resumen_ia_pdf`, '_blank');
+            },
+
+            downloadPagarePDF(loanId) {
+                if (!loanId) return;
+                window.open(`/api/loans/${loanId}/pagare_pdf`, '_blank');
+            },
+
+            addLoanExtraContact() {
+                if (!this.createdLoanSuccess) return;
+                const name = (this.createdLoanSuccess.new_contact_name || '').trim();
+                const phone = (this.createdLoanSuccess.new_contact_phone || '').trim();
+                if (!phone) {
+                    alert("Por favor ingrese un número de teléfono para el contacto adicional.");
+                    return;
+                }
+                this.createdLoanSuccess.additional_contacts.push({
+                    name: name || 'Contacto Extra',
+                    phone: phone
+                });
+                this.createdLoanSuccess.new_contact_name = '';
+                this.createdLoanSuccess.new_contact_phone = '';
+            },
+
+            removeLoanExtraContact(idx) {
+                if (this.createdLoanSuccess && this.createdLoanSuccess.additional_contacts) {
+                    this.createdLoanSuccess.additional_contacts.splice(idx, 1);
                 }
             },
 
@@ -1417,14 +2171,26 @@ function registerPrestamosApp() {
             },
 
             async deleteExpense(id) {
-                if (!confirm("¿Eliminar este gasto?")) return;
+                const expenseId = typeof id === 'object' ? id.id : id;
+                if (!expenseId) {
+                    alert("Error: ID de gasto no válido.");
+                    return;
+                }
+                if (!confirm("¿Confirma eliminar este gasto de la lista?")) return;
                 try {
-                    const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+                    const res = await fetch(`/api/expenses/${expenseId}`, { method: 'DELETE' });
                     if (res.ok) {
-                        await this.loadAllData();
+                        this.expenses = (this.expenses || []).filter(e => e.id !== expenseId);
+                        this.selectedExpenseIds = (this.selectedExpenseIds || []).filter(eid => eid !== expenseId);
+                        await this.fetchExpenses();
+                        await this.fetchStats();
+                    } else {
+                        const errData = await res.json().catch(() => ({}));
+                        alert(errData.error || "Error al eliminar gasto del servidor.");
                     }
                 } catch (err) {
-                    alert("Error al eliminar gasto.");
+                    console.error("deleteExpense error:", err);
+                    alert("Error de conexión al eliminar el gasto.");
                 }
             },
 
@@ -1463,10 +2229,12 @@ function registerPrestamosApp() {
                     });
                     const data = await res.json();
                     if (data.success) {
-                        alert(`Se eliminaron ${data.deleted_count} gastos.`);
+                        this.expenses = (this.expenses || []).filter(e => !this.selectedExpenseIds.includes(e.id));
                         this.selectedExpenseIds = [];
                         this.selectAllExpenses = false;
-                        await this.loadAllData();
+                        await this.fetchExpenses();
+                        await this.fetchStats();
+                        alert(`Se eliminaron ${data.deleted_count} gastos.`);
                     }
                 } catch (err) {
                     alert("Error al eliminar los gastos seleccionados.");

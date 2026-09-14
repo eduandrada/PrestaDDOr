@@ -98,9 +98,20 @@
           </button>
 
           <!-- Dark Mode Toggle -->
-          <button @click="toggleDarkMode()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition">
+          <button @click="toggleDarkMode()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition" title="Modo Oscuro">
             <svg x-show="!darkMode" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
             <svg x-show="darkMode" class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+          </button>
+
+          <!-- Ajustes / Settings Gear Button -->
+          <button @click="openSettingsModal()" 
+                  class="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-700 transition flex items-center space-x-1.5 shadow-sm hover:scale-105 active:scale-95"
+                  title="Ajustes y Configuración General de la Empresa">
+            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            <span class="hidden sm:inline text-xs font-bold">Ajustes</span>
           </button>
         </div>
 
@@ -108,52 +119,56 @@
     </div>
   </header>
 
-  <!-- BARRA DE NOTICIAS & INFORMACIÓN EN VIVO (MARQUEE INTELIGENTE & COMPACTO) -->
-  <div class="contenedor-noticias shadow-sm">
-    <div class="noticias-movimiento">
+  <!-- BARRA DE NOTICIAS & INFORMACIÓN EN VIVO (MARQUEE INTELIGENTE & CONFIGURABLE) -->
+  <div x-show="isMarqueeVisible()" class="contenedor-noticias shadow-sm">
+    <div class="noticias-movimiento" :style="getMarqueeDurationStyle()">
       
-      <!-- 1. NOTICIAS LOCALES CLICKABLES -->
-      <span class="noticia-item noticia-clickable" @click="openExternalNews('https://www.elesquiu.com')">
-        <span class="fuente-esquiu">El Esquiú</span>
-        <span>🏛️ <b>Política & Región:</b> Noticia destacada Catamarca ↗</span>
-      </span>
-      <span class="noticia-item noticia-clickable" @click="openExternalNews('https://www.elancasti.com.ar')">
-        <span class="fuente-ancasti">El Ancasti</span>
-        <span>🚧 <b>Obras & Economía:</b> Avances en el Valle Central ↗</span>
-      </span>
-      <span class="noticia-item noticia-clickable" @click="openExternalNews('https://www.launion.digital')">
-        <span class="fuente-launion">La Unión</span>
-        <span>🏥 <b>Salud & Comunidad:</b> Novedades provinciales ↗</span>
-      </span>
+      <!-- 1. NOTICIAS EN VIVO DE CATAMARCA & ANUNCIOS CONFIGURABLES -->
+      <template x-if="settings.marquee_show_news !== '0'">
+        <template x-for="(news, idx) in marqueeNews" :key="'news-' + idx">
+          <span class="noticia-item noticia-clickable" @click="news.url ? openExternalNews(news.url) : null">
+            <span :class="news.badge_class || 'fuente-esquiu'" x-text="news.source"></span>
+            <span x-html="'<b>' + news.title + '</b>' + (news.url ? ' ↗' : '')"></span>
+          </span>
+        </template>
+      </template>
 
-      <!-- 2. PIZARRA FAMILIAR (MUESTRA LAS 2 ÚLTIMAS PUBLICACIONES) -->
-      <template x-for="item in top2Notices" :key="item.id">
-        <span class="noticia-item noticia-clickable" @click="switchTab('pizarra')">
-          <span class="fuente-pizarra">📌 Pizarra (<span x-text="item.author || 'Familia'"></span>)</span>
-          <b x-text="item.message || item.content || item.title"></b>
-        </span>
+      <!-- 2. PIZARRA FAMILIAR -->
+      <template x-if="settings.marquee_show_pizarra !== '0'">
+        <template x-for="item in top2Notices" :key="item.id">
+          <span class="noticia-item noticia-clickable" @click="switchTab('pizarra')">
+            <span class="fuente-pizarra">📌 Pizarra (<span x-text="item.author || 'Familia'"></span>)</span>
+            <b x-text="item.message || item.content || item.title"></b>
+          </span>
+        </template>
       </template>
 
       <!-- 3. FECHA -->
-      <span class="noticia-item">
-        <span class="fuente-reloj">🗓️ Fecha</span>
-        <b x-text="currentDateStr"></b>
-      </span>
+      <template x-if="settings.marquee_show_datetime !== '0'">
+        <span class="noticia-item">
+          <span class="fuente-reloj">🗓️ Fecha</span>
+          <b x-text="currentDateStr"></b>
+        </span>
+      </template>
 
       <!-- 4. HORA -->
-      <span class="noticia-item">
-        <span class="fuente-reloj">🕒 Hora</span>
-        <b x-text="currentTimeStr"></b>
-      </span>
+      <template x-if="settings.marquee_show_datetime !== '0'">
+        <span class="noticia-item">
+          <span class="fuente-reloj">🕒 Hora</span>
+          <b x-text="currentTimeStr"></b>
+        </span>
+      </template>
 
       <!-- 5. TEMPERATURA -->
-      <span class="noticia-item">
-        <span class="fuente-catamarca">📍 Catamarca</span>
-        <b x-text="catamarcaWeather.icon + ' ' + catamarcaWeather.temp + ' (' + catamarcaWeather.condition + ')'"></b>
-      </span>
+      <template x-if="settings.marquee_show_weather !== '0'">
+        <span class="noticia-item">
+          <span class="fuente-catamarca">📍 Catamarca</span>
+          <b x-text="catamarcaWeather.icon + ' ' + catamarcaWeather.temp + ' (' + catamarcaWeather.condition + ')'"></b>
+        </span>
+      </template>
 
-      <!-- 6. CALENDARIO (PRÓXIMO EVENTO RESUMIDO) -->
-      <template x-if="latestCalendarEvent">
+      <!-- 6. CALENDARIO -->
+      <template x-if="settings.marquee_show_calendar !== '0' && latestCalendarEvent">
         <span class="noticia-item noticia-clickable" @click="switchTab('calendar')">
           <span class="fuente-calendar">📅 Calendario (<span x-text="latestCalendarEvent.due_date"></span>)</span>
           <b x-text="latestCalendarEvent.title + (latestCalendarEvent.due_time ? ' - ' + latestCalendarEvent.due_time : '')"></b>
@@ -694,6 +709,13 @@
 
             <div class="text-xs text-slate-500 space-y-1">
               <p x-show="client.address">📍 <span x-text="client.address"></span></p>
+              <template x-if="client.has_guarantor">
+                <p class="text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1.5 flex-wrap">
+                  <span class="px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 text-[10px] font-black">🛡️ Garante:</span>
+                  <span x-text="client.guarantor_name"></span>
+                  <span class="text-[10px] text-slate-400 font-mono font-normal" x-text="'(+' + client.guarantor_phone + ')'"></span>
+                </p>
+              </template>
               <p x-show="client.notes" class="italic">📝 "<span x-text="client.notes"></span>"</p>
             </div>
 
@@ -702,8 +724,11 @@
                 📜 Historial / Ver Perfil
               </button>
               <div class="flex flex-wrap items-center gap-1.5">
+                <button x-show="client.has_guarantor" @click="openGuarantorModal(client)" class="px-2 py-1 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700 shadow-sm transition" title="Ver Garante Solidario">🛡️ Garante</button>
                 <button @click="openNewLoanModal(client.id)" class="px-2 py-1 bg-brand-600 text-white rounded font-bold hover:bg-brand-700 shadow-sm transition" title="Crear préstamo para este cliente">➕ Préstamo</button>
                 <button @click="openExpressPagareModal(client)" class="px-2 py-1 bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 rounded font-bold hover:bg-purple-200">⚡ Pagaré</button>
+                <button @click="openClientQrRequestsModal(client)" class="px-2 py-1 bg-purple-700 text-white rounded font-bold hover:bg-purple-800 shadow-sm transition" title="Ver Solicitudes QR de este cliente">🔔 Solicitudes QR</button>
+                <button @click="openClientVaultModal(client)" class="px-2 py-1 bg-brand-600 text-white rounded font-bold hover:bg-brand-700 shadow-sm transition" title="Ver Bóveda de Documentos de este cliente">🗂️ Bóveda</button>
                 <button @click="openQuoteModal({ client_id: client.id, client_name: client.name, whatsapp: client.whatsapp, email: client.email, amount: client.metrics.recommended_limit || 50000 })" class="px-2 py-1 bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded font-bold hover:bg-indigo-200">🎯 Presupuesto</button>
                 <button @click="downloadVCard(client.id)" class="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded font-bold hover:bg-slate-200">📇 vCard</button>
                 <button @click="openEditClientModal(client)" class="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded font-bold hover:bg-slate-200">✏️</button>
@@ -968,6 +993,9 @@
           <button @click="openExpressPagareModal()" class="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-black shadow flex items-center justify-center space-x-1.5 whitespace-nowrap transition hover:scale-105 active:scale-95">
             <span>⚡ Pagaré Express QR</span>
           </button>
+          <button @click="openDocumentTemplatesModal()" class="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow flex items-center justify-center space-x-1.5 whitespace-nowrap transition active:scale-95">
+            <span>📄 Documentos</span>
+          </button>
           <button @click="openNewLoanModal()" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow whitespace-nowrap">
             + Registrar Préstamo
           </button>
@@ -1034,10 +1062,16 @@
                   <span :class="{
                     'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300': loan.status === 'completado',
                     'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300': loan.status === 'activo',
-                    'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 animate-pulse-slow': loan.status === 'en_mora'
-                  }" class="px-2.5 py-1 rounded-md text-[11px] font-black uppercase" x-text="loan.status"></span>
+                    'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 animate-pulse-slow': loan.status === 'en_mora',
+                    'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-extrabold animate-pulse': loan.status === 'pendiente_otorgamiento' || loan.status === 'pendiente'
+                  }" class="px-2.5 py-1 rounded-md text-[11px] font-black uppercase" x-text="loan.status === 'pendiente_otorgamiento' || loan.status === 'pendiente' ? '⏳ En Proceso' : loan.status"></span>
                 </td>
                 <td class="p-4 text-right space-x-1.5">
+                  <template x-if="loan.status === 'pendiente_otorgamiento' || loan.status === 'pendiente'">
+                    <button @click="approveBiometricRequest({ token: '', client_id: loan.client_id, amount: loan.amount, client_name: loan.client_name })" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-extrabold shadow-sm transition" title="Aprobar y Otorgar Préstamo">
+                      ✅ Aprobar & Otorgar
+                    </button>
+                  </template>
                   <button @click="viewLoan(loan)" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-sm">
                     Ver Cuotas
                   </button>
@@ -1069,8 +1103,9 @@
               <span :class="{
                 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300': loan.status === 'completado',
                 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300': loan.status === 'activo',
-                'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 animate-pulse-slow': loan.status === 'en_mora'
-              }" class="px-2 py-0.5 rounded text-[9px] font-black uppercase" x-text="loan.status"></span>
+                'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 animate-pulse-slow': loan.status === 'en_mora',
+                'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-extrabold animate-pulse': loan.status === 'pendiente_otorgamiento' || loan.status === 'pendiente'
+              }" class="px-2 py-0.5 rounded text-[9px] font-black uppercase" x-text="loan.status === 'pendiente_otorgamiento' || loan.status === 'pendiente' ? '⏳ En Proceso' : loan.status"></span>
             </div>
 
             <div class="grid grid-cols-2 gap-2 text-xs">
@@ -1090,9 +1125,14 @@
               </div>
             </div>
 
-            <div class="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div class="flex flex-wrap justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-800 gap-1.5">
               <span class="text-[10px] font-bold text-slate-500 capitalize" x-text="loan.modality + ' (' + loan.installments_count + ' cuotas)'"></span>
               <div class="flex items-center space-x-1.5">
+                <template x-if="loan.status === 'pendiente_otorgamiento' || loan.status === 'pendiente'">
+                  <button @click="approveBiometricRequest({ token: '', client_id: loan.client_id, amount: loan.amount, client_name: loan.client_name })" class="px-2 py-1 bg-emerald-600 text-white rounded-lg text-xs font-extrabold shadow-sm transition">
+                    ✅ Aprobar
+                  </button>
+                </template>
                 <button @click="viewLoan(loan)" class="px-3 py-1 bg-brand-600 text-white rounded-lg text-xs font-bold">
                   Ver Cuotas
                 </button>
@@ -3190,10 +3230,13 @@
   <!-- ================================================================= -->
 
   <!-- MODAL: CLIENTE (Nuevo / Editar) -->
-  <div x-cloak x-show="activeModal === 'newClient' || activeModal === 'editClient'" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 max-w-md w-full shadow-2xl space-y-4">
+  <div x-cloak x-show="activeModal === 'newClient' || activeModal === 'editClient'" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
       <div class="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
-        <h3 class="text-base font-black text-slate-900 dark:text-white" x-text="activeModal === 'editClient' ? '✏️ Editar Cliente' : '👤 Nuevo Cliente'"></h3>
+        <div class="flex items-center space-x-2">
+          <span class="text-xl" x-text="activeModal === 'editClient' ? '✏️' : '👤'"></span>
+          <h3 class="text-base font-black text-slate-900 dark:text-white" x-text="activeModal === 'editClient' ? 'Editar Cliente' : 'Nuevo Cliente'"></h3>
+        </div>
         <button @click="activeModal = null" class="text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold text-sm">✕</button>
       </div>
       
@@ -3214,7 +3257,7 @@
         <div>
           <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">CUIT / CUIL *</label>
           <input type="text" x-model="clientForm.cuit" placeholder="ej. 20123456789" class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono focus:ring-2 focus:ring-brand-500">
-          <p class="text-[10px] text-slate-400 mt-0.5">Utilizado para la consulta automática en la Central de Deudores BCRA</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">Utilizado para consulta en Central de Deudores BCRA</p>
         </div>
         <div>
           <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">Email (Opcional)</label>
@@ -3224,11 +3267,106 @@
           <label class="block text-xs font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">Notas (Opcional)</label>
           <textarea x-model="clientForm.notes" rows="2" placeholder="Observaciones o notas de contacto..." class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-brand-500"></textarea>
         </div>
+
+        <!-- CASILLA CONDICIONAL CONTACTO GARANTE -->
+        <div class="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+          <label class="flex items-center space-x-2.5 cursor-pointer select-none">
+            <input type="checkbox" x-model="clientForm.has_guarantor" class="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 dark:border-slate-600">
+            <span class="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              <span>🛡️</span>
+              <span>¿Agregar contacto Garante / Fiador Solidario?</span>
+            </span>
+          </label>
+          <p class="text-[10px] text-slate-400 pl-6.5">Marca para desplegar el formulario del garante solidario de pago.</p>
+
+          <!-- CUADRO DESPLEGABLE CON DATOS DEL GARANTE -->
+          <div x-show="clientForm.has_guarantor" x-transition class="pt-2.5 space-y-2.5 border-t border-slate-200 dark:border-slate-700">
+            <div>
+              <label class="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">Nombre y Apellido del Garante *</label>
+              <input type="text" x-model="clientForm.guarantor_name" placeholder="Ej: Carlos Alberto Gómez" class="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold focus:ring-2 focus:ring-brand-500">
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">Domicilio Real del Garante *</label>
+              <input type="text" x-model="clientForm.guarantor_address" placeholder="Ej: San Martín 560, Catamarca" class="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-brand-500">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">CUIT / CUIL *</label>
+                <input type="text" x-model="clientForm.guarantor_cuit" placeholder="20123456789" class="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono focus:ring-2 focus:ring-brand-500">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">Teléfono / WhatsApp *</label>
+                <input type="text" x-model="clientForm.guarantor_phone" placeholder="5493834112233" class="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono focus:ring-2 focus:ring-brand-500">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- OPCIONES INTERACTIVAS DE WHATSAPP Y PDF AL GUARDAR -->
+        <div class="p-3 bg-brand-50/60 dark:bg-brand-950/30 rounded-2xl border border-brand-200 dark:border-brand-900 space-y-3">
+          <div class="text-[11px] font-black uppercase text-brand-700 dark:text-brand-300 tracking-wider flex items-center gap-1.5">
+            <span>⚡ Opciones de Notificación & Documentación</span>
+          </div>
+
+          <!-- Opción WhatsApp -->
+          <div class="space-y-2">
+            <label class="flex items-center space-x-2 cursor-pointer select-none">
+              <input type="checkbox" x-model="clientForm.send_whatsapp" class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600">
+              <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                <span>📲</span>
+                <span>Enviar mensaje redactado de WhatsApp</span>
+              </span>
+            </label>
+
+            <!-- Selector de Contacto Destinatario si se marca WhatsApp -->
+            <div x-show="clientForm.send_whatsapp" x-transition class="pl-6 space-y-2 pt-1">
+              <label class="block text-[10px] font-bold uppercase text-slate-500">Elegir Contacto Destinatario:</label>
+              <div class="space-y-1 text-xs">
+                <label class="flex items-center space-x-2 cursor-pointer">
+                  <input type="radio" value="client" x-model="clientForm.whatsapp_target" class="text-brand-600">
+                  <span class="text-slate-700 dark:text-slate-300 font-medium">📱 Cliente Titular (+<span x-text="clientForm.whatsapp || '...' "></span>)</span>
+                </label>
+                <label x-show="clientForm.has_guarantor" class="flex items-center space-x-2 cursor-pointer">
+                  <input type="radio" value="guarantor" x-model="clientForm.whatsapp_target" class="text-brand-600">
+                  <span class="text-slate-700 dark:text-slate-300 font-medium">🛡️ Garante (+<span x-text="clientForm.guarantor_phone || '...' "></span>)</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                  <input type="radio" value="custom" x-model="clientForm.whatsapp_target" class="text-brand-600">
+                  <span class="text-slate-700 dark:text-slate-300 font-medium">✏️ Otro número personalizado</span>
+                </label>
+              </div>
+              <div x-show="clientForm.whatsapp_target === 'custom'" class="pt-1">
+                <input type="text" x-model="clientForm.custom_phone" placeholder="Ej. 5493834998877" class="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono">
+              </div>
+              
+              <!-- Botón rápido para enviar de inmediato -->
+              <div class="pt-1">
+                <button type="button" @click="sendClientWelcomeWhatsApp(clientForm, clientForm.whatsapp_target, clientForm.custom_phone)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-extrabold flex items-center gap-1 shadow-sm transition">
+                  <span>🟢 Enviar WhatsApp Ahora</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Opción PDF -->
+          <div class="space-y-1.5 border-t border-brand-200/60 dark:border-brand-900/60 pt-2">
+            <label class="flex items-center space-x-2 cursor-pointer select-none">
+              <input type="checkbox" x-model="clientForm.download_pdf" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-600">
+              <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                <span>📄</span>
+                <span>Generar & Descargar Ficha Oficial en PDF</span>
+              </span>
+            </label>
+            <p x-show="clientForm.download_pdf" x-transition class="text-[10px] text-indigo-600 dark:text-indigo-400 pl-6 font-medium">
+              Al guardar, se abrirá automáticamente la Ficha Oficial en PDF con datos del cliente y garante.
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div class="flex justify-end space-x-3 pt-2">
+      <div class="flex justify-end space-x-3 pt-2 border-t border-slate-100 dark:border-slate-800">
         <button @click="activeModal = null" class="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-white transition">Cancelar</button>
-        <button @click="saveClient()" class="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-1">
+        <button @click="saveClient()" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-black shadow-md transition flex items-center space-x-1.5 active:scale-95">
           <span>💾 Guardar Cliente</span>
         </button>
       </div>
@@ -3254,6 +3392,15 @@
               }" class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">
                 <span x-text="selectedClientHistory.metrics.traffic_light === 'verde' ? '🟢 Confiable' : (selectedClientHistory.metrics.traffic_light === 'amarillo' ? '🟡 En Seguimiento' : '🔴 Moroso')"></span>
               </span>
+            </template>
+
+            <!-- Guarantor Badge (Direct click to open guarantor profile) -->
+            <template x-if="selectedClientHistory && selectedClientHistory.client && selectedClientHistory.client.has_guarantor">
+              <button @click="openGuarantorModal(selectedClientHistory.client)" 
+                      class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-200 transition cursor-pointer flex items-center space-x-1 shadow-sm">
+                <span>🛡️ Garante:</span>
+                <span class="underline" x-text="selectedClientHistory.client.guarantor_name"></span>
+              </button>
             </template>
           </div>
 
@@ -3282,8 +3429,27 @@
         <button @click="openNewLoanModal(selectedClientHistory.client.id); activeModal = 'newLoan';" class="px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1">
           <span>➕ Préstamo</span>
         </button>
+
+        <!-- Garante Button (if client has guarantor) -->
+        <template x-if="selectedClientHistory && selectedClientHistory.client && selectedClientHistory.client.has_guarantor">
+          <button @click="openGuarantorModal(selectedClientHistory.client)" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1">
+            <span>🛡️ Ver Garante</span>
+          </button>
+        </template>
+
+        <!-- Ficha / Contrato PDF Button -->
+        <button @click="downloadClientFichaPDF(selectedClientHistory.client.id)" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1" title="Descargar Ficha y Contrato del Cliente e/ Garante en PDF">
+          <span>📄 Ficha PDF</span>
+        </button>
+
         <button @click="openExpressPagareModal(selectedClientHistory.client)" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1">
           <span>⚡ Pagaré QR</span>
+        </button>
+        <button @click="openClientQrRequestsModal(selectedClientHistory.client)" class="px-2.5 py-1 bg-purple-800 hover:bg-purple-900 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1" title="Ver Solicitudes y Notificaciones QR del Cliente">
+          <span>🔔 Solicitudes QR</span>
+        </button>
+        <button @click="openClientVaultModal(selectedClientHistory.client)" class="px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1" title="Ver Bóveda de Documentos del Cliente">
+          <span>🗂️ Ver Bóveda</span>
         </button>
         <button @click="openQuoteModal({ client_id: selectedClientHistory.client.id, client_name: selectedClientHistory.client.name, whatsapp: selectedClientHistory.client.whatsapp, email: selectedClientHistory.client.email, amount: selectedClientHistory.metrics ? selectedClientHistory.metrics.recommended_limit : 50000 })" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center space-x-1">
           <span>🎯 Presupuesto</span>
@@ -3439,6 +3605,14 @@
 
       <!-- BÓVEDA Y GALERÍA DE DOCUMENTOS DEL CLIENTE -->
       <div class="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+        <div class="flex flex-wrap gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
+          <button type="button" @click="openClientQrRequestsModal(selectedClientHistory.client)" class="flex-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow">
+            <span>🔔 Solicitudes & Notificaciones QR</span>
+          </button>
+          <button type="button" @click="openClientVaultModal(selectedClientHistory.client)" class="flex-1 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow">
+            <span>🗂️ Ver Bóveda del Cliente</span>
+          </button>
+        </div>
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <h4 class="font-bold text-xs uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
             <span>🗂️ Bóveda de Documentos & Resguardos</span>
@@ -3454,6 +3628,9 @@
             </button>
             <button @click="openDocUploadModal(selectedClientHistory.client.id, 'pagare_firmado')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold shadow flex items-center gap-1">
               <span>✍️ + Pagaré Firmado</span>
+            </button>
+            <button @click="openDocUploadModal(selectedClientHistory.client.id, 'recibo_sueldo')" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold shadow flex items-center gap-1">
+              <span>💵 + Recibo Sueldo</span>
             </button>
             <button @click="openDocUploadModal(selectedClientHistory.client.id, 'otro')" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-[10px] font-bold shadow flex items-center gap-1">
               <span>📂 + Otro Resguardo</span>
@@ -3482,6 +3659,76 @@
           <p>No hay fotos de DNI ni Pagarés subidos para este cliente.</p>
           <p class="text-[10px] mt-1 text-slate-500">Usa los botones superiores para tomar una foto del DNI o Pagaré firmado.</p>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SOLICITUDES & NOTIFICACIONES QR DE PAGARÉ EXPRESS -->
+  <div x-cloak x-show="activeModal === 'clientQrRequestsModal'" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+            <span>🔔 Solicitudes Pagaré Express QR</span>
+          </h3>
+          <p class="text-xs text-slate-500" x-text="selectedClientHistory ? selectedClientHistory.client.name : ''"></p>
+        </div>
+        <button type="button" @click="activeModal = null" class="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">✕</button>
+      </div>
+
+      <div class="space-y-3">
+        <template x-for="req in clientQrRequests" :key="req.id">
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3 shadow-sm">
+            <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 dark:border-slate-700/60 pb-2 text-xs">
+              <div>
+                <span class="text-slate-400 text-[10px] font-bold block">FECHA DE SOLICITUD</span>
+                <span class="font-mono font-bold text-slate-700 dark:text-slate-200" x-text="req.created_at"></span>
+              </div>
+              <div>
+                <span class="text-slate-400 text-[10px] font-bold block">MONTO SOLICITADO</span>
+                <span class="font-black text-emerald-600 dark:text-emerald-400 text-sm" x-text="'$' + (req.amount||0).toLocaleString('es-AR')"></span>
+              </div>
+              <div>
+                <span class="text-slate-400 text-[10px] font-bold block">PLAN</span>
+                <span class="font-bold text-slate-800 dark:text-slate-200" x-text="req.installments_count + ' cuotas (' + req.modality + ')'"></span>
+              </div>
+              <div>
+                <span class="text-slate-400 text-[10px] font-bold block">ESTADO</span>
+                <span :class="req.status === 'firmado' ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300' : (req.status === 'otorgado' ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300')" class="px-2 py-0.5 rounded text-[10px] font-black uppercase" x-text="req.status"></span>
+              </div>
+            </div>
+
+            <!-- Previsualización de Firma Biométrica y Selfie -->
+            <div class="grid grid-cols-2 gap-3" x-show="req.signature_data || req.selfie_data">
+              <div x-show="req.signature_data" class="bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-center">
+                <span class="text-[10px] font-bold text-slate-400 block mb-1">✍️ Firma Digital Registrada</span>
+                <img :src="req.signature_data" class="w-full h-20 object-contain mx-auto bg-slate-950 rounded-lg p-1">
+              </div>
+              <div x-show="req.selfie_data" class="bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-center">
+                <span class="text-[10px] font-bold text-slate-400 block mb-1">📸 Selfie / Escaneo Facial</span>
+                <img :src="req.selfie_data" class="w-full h-20 object-cover mx-auto rounded-lg">
+              </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="flex flex-wrap gap-2 pt-1">
+              <template x-if="req.status === 'firmado' || req.status === 'pendiente'">
+                <button type="button" @click="approveBiometricRequest(req)" class="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow flex items-center justify-center gap-1.5">
+                  <span>✅ Aprobar & Activar Préstamo</span>
+                </button>
+              </template>
+              <button type="button" @click="deleteBiometricRequest(req)" class="px-3 py-2 bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 hover:bg-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1">
+                <span>🗑️ Rechazar / Eliminar</span>
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="clientQrRequests.length === 0">
+          <div class="p-8 text-center text-slate-400 text-xs font-medium bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+            🔔 No hay solicitudes de Pagaré Express QR pendientes o activas para este cliente.
+          </div>
+        </template>
       </div>
     </div>
   </div>
@@ -3515,6 +3762,44 @@
               <option :value="c.id" x-text="c.name + ' (+ ' + c.whatsapp + ')'"></option>
             </template>
           </select>
+        </div>
+
+        <!-- Garante Solidario del Préstamo (Seleccionar existente o registrar) -->
+        <div class="sm:col-span-2 p-3 bg-indigo-50/70 dark:bg-indigo-950/30 rounded-xl border border-indigo-200 dark:border-indigo-800/60 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-black uppercase text-indigo-900 dark:text-indigo-200">🛡️ Garante Solidario del Préstamo (Opcional)</label>
+            <label class="flex items-center space-x-1.5 cursor-pointer">
+              <input type="checkbox" x-model="loanForm.has_guarantor" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5">
+              <span class="text-[11px] font-bold text-indigo-800 dark:text-indigo-300">Asignar Garante</span>
+            </label>
+          </div>
+          <div x-show="loanForm.has_guarantor" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
+            <div class="sm:col-span-2">
+              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Seleccionar Garante desde Base de Clientes (Si ya existe)</label>
+              <select x-model="loanForm.existing_guarantor_client_id" @change="onSelectExistingGuarantor($event)" class="w-full p-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 text-xs font-semibold">
+                <option value="">-- Ninguno (o Ingresar Garante Manual abajo) --</option>
+                <template x-for="c in clients" :key="'guar-' + c.id">
+                  <option :value="c.id" x-text="c.name + ' (DNI: ' + (c.dni || 'S/D') + ' - ' + c.whatsapp + ')'" :disabled="c.id == loanForm.client_id"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Nombre Completo Garante</label>
+              <input type="text" x-model="loanForm.guarantor_name" placeholder="Ej: Roberto Gómez" class="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">DNI Garante</label>
+              <input type="text" x-model="loanForm.guarantor_dni" placeholder="Ej: 28999888" class="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Teléfono / WhatsApp Garante</label>
+              <input type="text" x-model="loanForm.guarantor_phone" placeholder="Ej: 3834112233" class="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Domicilio Garante</label>
+              <input type="text" x-model="loanForm.guarantor_address" placeholder="Ej: Av. Belgrano 1234, Catamarca" class="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs">
+            </div>
+          </div>
         </div>
 
         <div>
@@ -3580,6 +3865,40 @@
           </div>
         </div>
 
+        <!-- Opciones de Notificación WhatsApp y Documentación al Otorgar -->
+        <div class="sm:col-span-2 p-3.5 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800/60 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-black uppercase text-emerald-900 dark:text-emerald-200">
+              <span>⚡ Opciones de Entrega al Cliente (Opcionales / Automático)</span>
+            </label>
+            <label class="flex items-center space-x-1.5 cursor-pointer bg-emerald-100 dark:bg-emerald-900/60 px-2.5 py-1 rounded-lg border border-emerald-300 dark:border-emerald-700">
+              <input type="checkbox" x-model="loanForm.auto_deliver" @change="toggleAutoDeliverLoanOptions()" class="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5">
+              <span class="text-[11px] font-black text-emerald-900 dark:text-emerald-100">⚡ Seleccionar Todo (Modo Automático)</span>
+            </label>
+          </div>
+          
+          <p class="text-[10px] text-slate-500 dark:text-slate-400">Marca solo los documentos o notificaciones que desees emitir automáticamente al guardar el préstamo:</p>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
+            <label class="flex items-center space-x-2 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-emerald-50/50">
+              <input type="checkbox" x-model="loanForm.send_whatsapp" class="rounded text-emerald-600 focus:ring-emerald-500">
+              <span class="font-bold text-slate-800 dark:text-slate-200">🟢 Enviar Resumen por WhatsApp</span>
+            </label>
+            <label class="flex items-center space-x-2 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-emerald-50/50">
+              <input type="checkbox" x-model="loanForm.download_pagare_pdf" class="rounded text-emerald-600 focus:ring-emerald-500">
+              <span class="font-bold text-slate-800 dark:text-slate-200">✍️ Descargar Pagaré Digital (PDF)</span>
+            </label>
+            <label class="flex items-center space-x-2 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-emerald-50/50">
+              <input type="checkbox" x-model="loanForm.download_pdf" class="rounded text-emerald-600 focus:ring-emerald-500">
+              <span class="font-bold text-slate-800 dark:text-slate-200">📊 Descargar Resumen IA (PDF)</span>
+            </label>
+            <label class="flex items-center space-x-2 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-emerald-50/50">
+              <input type="checkbox" x-model="loanForm.download_ficha_pdf" class="rounded text-emerald-600 focus:ring-emerald-500">
+              <span class="font-bold text-slate-800 dark:text-slate-200">📜 Descargar Contrato / Ficha (PDF)</span>
+            </label>
+          </div>
+        </div>
+
         <div class="sm:col-span-2 space-y-1">
           <label class="block text-xs font-bold uppercase text-slate-500">✍️ Firma Biométrica / Digital del Deudor (Pagaré Digital)</label>
           <div class="border border-slate-300 dark:border-slate-700 rounded-xl bg-white p-2">
@@ -3612,7 +3931,13 @@
             <span>✏️ Editar</span>
           </button>
           <button @click="openPagarePDF(selectedLoan.id)" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-1">
-            <span>📄 Pagaré Digital PDF</span>
+            <span>📄 Pagaré PDF</span>
+          </button>
+          <a :href="'/api/loans/' + selectedLoan.id + '/resumen_prevencimiento_pdf'" target="_blank" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-1" title="Descargar Resumen Pre-Vencimiento Día 24 en PDF">
+            <span>📄 Resumen Día 24</span>
+          </a>
+          <button @click="deliverAllLoanDocuments(selectedLoan)" class="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black shadow flex items-center space-x-1" title="Entregar automáticamente todos los documentos por WhatsApp y PDF">
+            <span>⚡ Entregar Todo</span>
           </button>
           <button @click="activeModal = null" class="text-slate-400 font-bold text-sm">✕</button>
         </div>
@@ -3973,6 +4298,7 @@
             <option value="dni_frente">🪪 DNI (Frente)</option>
             <option value="dni_dorso">🪪 DNI (Dorso)</option>
             <option value="pagare_firmado">✍️ Pagaré Firmado (Foto)</option>
+            <option value="recibo_sueldo">💵 Recibo de Sueldo (PDF, Foto, Word, Doc)</option>
             <option value="domicilio">🏠 Comprobante de Domicilio</option>
             <option value="otro">📄 Otro Documento / Resguardo</option>
           </select>
@@ -3984,10 +4310,10 @@
         </div>
 
         <div>
-          <label class="block font-bold uppercase text-slate-500 mb-1">Seleccionar o Tomar Foto *</label>
+          <label class="block font-bold uppercase text-slate-500 mb-1">Seleccionar o Adjuntar Archivo *</label>
           <label class="w-full py-3 px-4 rounded-xl border-2 border-dashed border-brand-500/50 hover:border-brand-500 bg-brand-50/50 dark:bg-brand-950/20 text-brand-700 dark:text-brand-300 font-bold text-xs cursor-pointer flex items-center justify-center space-x-2 transition">
-            <span>📷 Tomar Foto con Cámara / Abrir Galería</span>
-            <input type="file" accept="image/*" capture="environment" class="hidden" @change="onDocFileSelected($event)">
+            <span>📷 Adjuntar Foto, PDF, Word o Documento</span>
+            <input type="file" accept="image/*,.pdf,.doc,.docx,.txt" class="hidden" @change="onDocFileSelected($event)">
           </label>
         </div>
 
@@ -4631,7 +4957,7 @@
       <!-- Expiration & Auto-Deletion Notice Badge -->
       <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-300 text-[11px] flex items-center space-x-2 font-bold">
         <span class="text-base">⏱️</span>
-        <span><b>Expiración de Seguridad:</b> Este QR expira automáticamente a los 30 minutos de su emisión y se elimina de inmediato al ser otorgado el préstamo.</span>
+        <span><b>Expiración de Seguridad:</b> Este QR expira automáticamente a los <span x-text="settingsForm?.qr_biometric_expiry_minutes || 30"></span> minutos de su emisión y se elimina de inmediato al ser otorgado el préstamo.</span>
       </div>
 
       <!-- FORM STEP: QR Generation Parameters -->
@@ -4702,6 +5028,72 @@
     </div>
   </div>
 
+  <!-- MODAL: DOCUMENTOS Y CONTRATOS MODELO (DESCARGA E IMPRESIÓN) -->
+  <div x-cloak x-show="activeModal === 'documentTemplatesModal'" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-xl">📄</span>
+          <div>
+            <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Documentos & Legales en Blanco</h3>
+            <p class="text-[11px] text-slate-400">Modelos imprimibles oficiales de la empresa</p>
+          </div>
+        </div>
+        <button @click="activeModal = null" class="text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold">✕</button>
+      </div>
+
+      <div class="space-y-3">
+        <a href="/api/documents/pagare_blanco_pdf" target="_blank" class="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-brand-50 dark:hover:bg-brand-950/30 transition flex items-center justify-between group">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-300 flex items-center justify-center font-bold text-lg">✍️</div>
+            <div>
+              <h4 class="font-bold text-xs text-slate-900 dark:text-white group-hover:text-brand-600">Pagaré en Blanco Imprimible</h4>
+              <p class="text-[10px] text-slate-400">Modelo oficial con cláusulas de mora y domicilio</p>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-brand-600">Descargar 📥</span>
+        </a>
+
+        <a href="/api/documents/contrato_blanco_pdf" target="_blank" class="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-brand-50 dark:hover:bg-brand-950/30 transition flex items-center justify-between group">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 flex items-center justify-center font-bold text-lg">📜</div>
+            <div>
+              <h4 class="font-bold text-xs text-slate-900 dark:text-white group-hover:text-brand-600">Contrato de Mutuo Comercial</h4>
+              <p class="text-[10px] text-slate-400">Modelo de contrato de préstamo de dinero</p>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-brand-600">Descargar 📥</span>
+        </a>
+
+        <a href="/api/documents/leyes_prestamos_pdf" target="_blank" class="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-brand-50 dark:hover:bg-brand-950/30 transition flex items-center justify-between group">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300 flex items-center justify-center font-bold text-lg">⚖️</div>
+            <div>
+              <h4 class="font-bold text-xs text-slate-900 dark:text-white group-hover:text-brand-600">Marco Legal & Leyes de Préstamo (CCyCN)</h4>
+              <p class="text-[10px] text-slate-400">Art. 1525+, Ley 24.240 y normativa vigente</p>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-brand-600">Descargar 📥</span>
+        </a>
+
+        <a href="/api/documents/reglas_app_pdf" target="_blank" class="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-brand-50 dark:hover:bg-brand-950/30 transition flex items-center justify-between group">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-300 flex items-center justify-center font-bold text-lg">📋</div>
+            <div>
+              <h4 class="font-bold text-xs text-slate-900 dark:text-white group-hover:text-brand-600">Reglas de la App & Términos de Cobranza</h4>
+              <p class="text-[10px] text-slate-400">Políticas de vencimientos, cargos y modalidades</p>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-brand-600">Descargar 📥</span>
+        </a>
+      </div>
+
+      <div class="pt-2 text-right">
+        <button @click="activeModal = null" class="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: GOLDEN TICKET GANADOR DE SORTEO -->
   <div x-cloak x-show="goldenTicketModal" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
     <div class="relative bg-gradient-to-tr from-amber-600 via-amber-400 to-amber-700 p-1 rounded-3xl max-w-md w-full shadow-2xl animate-bounce-short">
@@ -4750,6 +5142,955 @@
         </a>
         <button @click="flyerModal.open = false" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold">Cerrar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CLIENTE REGISTRADO CON ÉXITO Y ACCIONES WHATSAPP / PDF -->
+  <div x-cloak x-show="activeModal === 'clientCreatedSuccess' && createdClientSuccess" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-start border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xl font-bold">
+            ✓
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-white">¡Cliente Registrado con Éxito!</h3>
+            <p class="text-xs text-slate-500" x-text="createdClientSuccess ? createdClientSuccess.name : ''"></p>
+          </div>
+        </div>
+        <button @click="activeModal = null" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold">✕</button>
+      </div>
+
+      <!-- Resumen Ficha -->
+      <div class="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-1.5 text-xs">
+        <div class="flex justify-between">
+          <span class="text-slate-500">DNI:</span>
+          <span class="font-bold text-slate-800 dark:text-slate-200" x-text="createdClientSuccess?.dni || 'N/A'"></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">Teléfono / WA:</span>
+          <span class="font-bold text-slate-800 dark:text-slate-200" x-text="createdClientSuccess?.whatsapp ? '+' + createdClientSuccess.whatsapp : 'Sin registrar'"></span>
+        </div>
+        <template x-if="createdClientSuccess?.has_guarantor">
+          <div class="pt-2 border-t border-slate-200 dark:border-slate-700/50 space-y-1">
+            <div class="flex items-center space-x-1.5 text-indigo-600 dark:text-indigo-400 font-bold">
+              <span>🛡️ Garante Registrado:</span>
+              <span x-text="createdClientSuccess?.guarantor_name"></span>
+            </div>
+            <div class="text-[11px] text-slate-500 flex justify-between">
+              <span>Tel. Garante:</span>
+              <span class="font-semibold text-slate-700 dark:text-slate-300" x-text="createdClientSuccess?.guarantor_phone ? '+' + createdClientSuccess.guarantor_phone : 'N/A'"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Panel de Envío WhatsApp -->
+      <div class="space-y-2.5 p-3.5 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-2xl border border-emerald-200 dark:border-emerald-800/50">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-black uppercase text-emerald-800 dark:text-emerald-300 flex items-center space-x-1">
+            <span>💬 Enviar Notificación WhatsApp</span>
+          </label>
+        </div>
+
+        <!-- Selector de Destinatario -->
+        <div class="space-y-1">
+          <span class="text-[11px] text-slate-500 dark:text-slate-400">Elegir a qué contacto enviar:</span>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button type="button" 
+                    @click="createdClientSuccess.whatsapp_target = 'client'" 
+                    :class="createdClientSuccess?.whatsapp_target === 'client' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                    class="py-1.5 px-2 rounded-xl text-[11px] font-bold border transition text-center truncate">
+              👤 Cliente
+            </button>
+            <button type="button" 
+                    x-show="createdClientSuccess?.has_guarantor"
+                    @click="createdClientSuccess.whatsapp_target = 'guarantor'" 
+                    :class="createdClientSuccess?.whatsapp_target === 'guarantor' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                    class="py-1.5 px-2 rounded-xl text-[11px] font-bold border transition text-center truncate">
+              🛡️ Garante
+            </button>
+            <button type="button" 
+                    @click="createdClientSuccess.whatsapp_target = 'custom'" 
+                    :class="createdClientSuccess?.whatsapp_target === 'custom' ? 'bg-amber-600 text-white border-amber-600' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                    class="py-1.5 px-2 rounded-xl text-[11px] font-bold border transition text-center truncate">
+              📱 Otro Tel.
+            </button>
+          </div>
+        </div>
+
+        <!-- Teléfono Custom -->
+        <div x-show="createdClientSuccess?.whatsapp_target === 'custom'" class="pt-1">
+          <input type="tel" x-model="createdClientSuccess.custom_phone" placeholder="Ej: 5491133445566" class="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+        </div>
+
+        <!-- Mensaje redactado -->
+        <div class="space-y-1">
+          <span class="text-[10px] text-slate-500 dark:text-slate-400 font-semibold uppercase">Mensaje Redactado:</span>
+          <textarea x-model="createdClientSuccess.preview_message" rows="3" class="w-full p-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-emerald-500"></textarea>
+        </div>
+
+        <button @click="sendClientWelcomeWhatsApp(createdClientSuccess, createdClientSuccess.whatsapp_target)" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md flex items-center justify-center space-x-2 transition active:scale-98">
+          <span>🟢 Enviar Mensaje por WhatsApp</span>
+        </button>
+      </div>
+
+      <!-- Acciones Adicionales -->
+      <div class="grid grid-cols-2 gap-2 pt-1">
+        <button @click="downloadClientFichaPDF(createdClientSuccess.id)" class="py-2.5 px-3 bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl text-xs font-black shadow flex items-center justify-center space-x-1.5 transition">
+          <span>📄 Descargar Ficha PDF</span>
+        </button>
+        <button @click="openNewLoanModal(createdClientSuccess.id); activeModal = 'newLoan';" class="py-2.5 px-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-black shadow flex items-center justify-center space-x-1.5 transition">
+          <span>➕ Crear Préstamo</span>
+        </button>
+      </div>
+
+      <div class="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+        <button @click="activeModal = null" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Finalizar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PRÉSTAMO OTORGADO CON ÉXITO - NOTIFICACIONES IA & MULTICONTACTO -->
+  <div x-cloak x-show="activeModal === 'loanCreatedSuccess' && createdLoanSuccess" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 max-w-xl w-full shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+      
+      <!-- Header -->
+      <div class="flex justify-between items-start border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xl font-bold shadow-sm">
+            🎉
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-white">¡Préstamo Otorgado con Éxito!</h3>
+            <p class="text-xs text-slate-500" x-text="'Préstamo #' + createdLoanSuccess.id + ' • ' + (createdLoanSuccess.client ? createdLoanSuccess.client.name : '')"></p>
+          </div>
+        </div>
+        <button @click="activeModal = null" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold">✕</button>
+      </div>
+
+      <!-- Resumen Financiero del Préstamo -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+        <div class="p-2.5 bg-slate-50 dark:bg-slate-800/70 rounded-xl border border-slate-200 dark:border-slate-700/60">
+          <span class="block text-[10px] text-slate-400 font-bold uppercase">Capital</span>
+          <span class="font-black text-sm text-slate-900 dark:text-white">$<span x-text="createdLoanSuccess?.amount ? createdLoanSuccess.amount.toLocaleString('es-AR') : '0'"></span></span>
+        </div>
+        <div class="p-2.5 bg-slate-50 dark:bg-slate-800/70 rounded-xl border border-slate-200 dark:border-slate-700/60">
+          <span class="block text-[10px] text-slate-400 font-bold uppercase">A Devolver</span>
+          <span class="font-black text-sm text-emerald-600 dark:text-emerald-400">$<span x-text="createdLoanSuccess?.installments ? createdLoanSuccess.installments.reduce((sum, i) => sum + i.amount, 0).toLocaleString('es-AR') : createdLoanSuccess?.amount.toLocaleString('es-AR')"></span></span>
+        </div>
+        <div class="p-2.5 bg-slate-50 dark:bg-slate-800/70 rounded-xl border border-slate-200 dark:border-slate-700/60">
+          <span class="block text-[10px] text-slate-400 font-bold uppercase">Cuotas</span>
+          <span class="font-black text-sm text-indigo-600 dark:text-indigo-400" x-text="createdLoanSuccess?.installments_count + ' ' + createdLoanSuccess?.modality"></span>
+        </div>
+        <div class="p-2.5 bg-slate-50 dark:bg-slate-800/70 rounded-xl border border-slate-200 dark:border-slate-700/60">
+          <span class="block text-[10px] text-slate-400 font-bold uppercase">1er Vence</span>
+          <span class="font-black text-xs text-amber-600 dark:text-amber-400" x-text="createdLoanSuccess?.installments && createdLoanSuccess.installments.length > 0 ? createdLoanSuccess.installments[0].due_date : 'A convenir'"></span>
+        </div>
+      </div>
+
+      <!-- Panel de Envío WhatsApp con IA -->
+      <div class="space-y-3 p-3.5 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-2xl border border-emerald-200 dark:border-emerald-800/50">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-black uppercase text-emerald-800 dark:text-emerald-300 flex items-center space-x-1">
+            <span>💬 Notificación WhatsApp Redactada con IA</span>
+          </label>
+        </div>
+
+        <!-- Selector de Contactos / Destinatarios Principales -->
+        <div class="space-y-1.5">
+          <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">Destinatarios Principales:</span>
+          <div class="flex flex-wrap gap-2">
+            <!-- Titular -->
+            <button type="button" 
+                    @click="createdLoanSuccess.whatsapp_target = 'titular'"
+                    :class="createdLoanSuccess?.whatsapp_target === 'titular' ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'"
+                    class="py-1.5 px-3 rounded-xl text-xs font-bold transition flex items-center space-x-1 shadow-sm">
+              <span>👤 Titular:</span>
+              <span class="font-mono text-[11px]" x-text="createdLoanSuccess?.client?.whatsapp ? '+' + createdLoanSuccess.client.whatsapp : 'Sin WA'"></span>
+            </button>
+
+            <!-- Garante (si existe) -->
+            <template x-if="createdLoanSuccess?.client?.has_guarantor">
+              <button type="button" 
+                      @click="createdLoanSuccess.whatsapp_target = 'garante'"
+                      :class="createdLoanSuccess?.whatsapp_target === 'garante' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'"
+                      class="py-1.5 px-3 rounded-xl text-xs font-bold transition flex items-center space-x-1 shadow-sm">
+                <span>🛡️ Garante:</span>
+                <span class="font-mono text-[11px]" x-text="createdLoanSuccess?.client?.guarantor_phone ? '+' + createdLoanSuccess.client.guarantor_phone : 'Sin WA'"></span>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- Múltiples Personas / Contactos Adicionales -->
+        <div class="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300">👥 Enviar a Más Personas (Familiares, Apoderados, Otros):</span>
+          </div>
+
+          <!-- Input para agregar contacto extra -->
+          <div class="flex gap-1.5">
+            <input type="text" x-model="createdLoanSuccess.new_contact_name" placeholder="Nombre / Parentesco" class="w-1/3 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white">
+            <input type="tel" x-model="createdLoanSuccess.new_contact_phone" placeholder="Teléfono / WA (ej: 3834112233)" class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-mono">
+            <button type="button" @click="addLoanExtraContact()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition">
+              + Agregar
+            </button>
+          </div>
+
+          <!-- Lista de Contactos Adicionales Agregados -->
+          <template x-if="createdLoanSuccess?.additional_contacts && createdLoanSuccess.additional_contacts.length > 0">
+            <div class="space-y-1 pt-1">
+              <template x-for="(c, idx) in createdLoanSuccess.additional_contacts" :key="idx">
+                <div class="flex items-center justify-between p-1.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg text-xs border border-slate-200 dark:border-slate-700">
+                  <div class="flex items-center space-x-2">
+                    <span class="font-bold text-slate-800 dark:text-slate-200" x-text="c.name"></span>
+                    <span class="font-mono text-slate-500 text-[11px]" x-text="'+' + c.phone"></span>
+                  </div>
+                  <div class="flex items-center space-x-1.5">
+                    <button type="button" @click="sendLoanWhatsApp(c.phone, createdLoanSuccess.preview_message)" class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold shadow transition flex items-center space-x-1">
+                      <span>🟢 Enviar</span>
+                    </button>
+                    <button type="button" @click="removeLoanExtraContact(idx)" class="text-rose-500 hover:text-rose-700 text-xs px-1">✕</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Mensaje redactado por IA -->
+        <div class="space-y-1">
+          <div class="flex justify-between items-center">
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-semibold uppercase">Mensaje Redactado con IA:</span>
+            <button type="button" @click="copyToClipboard(createdLoanSuccess.preview_message)" class="text-[10px] font-bold text-indigo-600 hover:underline">📋 Copiar</button>
+          </div>
+          <textarea x-model="createdLoanSuccess.preview_message" rows="4" class="w-full p-2.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-1 focus:ring-emerald-500 font-mono"></textarea>
+        </div>
+
+        <!-- Botón de Envío Principal -->
+        <button type="button" 
+                @click="sendLoanWhatsApp(createdLoanSuccess.whatsapp_target === 'titular' ? createdLoanSuccess.client?.whatsapp : (createdLoanSuccess.whatsapp_target === 'garante' ? createdLoanSuccess.client?.guarantor_phone : createdLoanSuccess.custom_phone), createdLoanSuccess.preview_message)" 
+                class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md flex items-center justify-center space-x-2 transition active:scale-98">
+          <span>🟢 Enviar por WhatsApp al Destinatario Seleccionado</span>
+        </button>
+      </div>
+
+      <!-- Botón 1-Clic: Entregar Todo Automáticamente -->
+      <button type="button" @click="deliverAllLoanDocuments(createdLoanSuccess)" class="w-full py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-600 hover:from-purple-700 hover:to-emerald-700 text-white rounded-xl text-xs font-black shadow-lg flex items-center justify-center space-x-2 transition active:scale-98 cursor-pointer">
+        <span>⚡ Entregar Todo Automáticamente al Cliente (WhatsApp + Pagaré + Resúmenes)</span>
+      </button>
+
+      <!-- Acciones de Descarga de Documentación -->
+      <div class="grid grid-cols-2 gap-2 pt-1">
+        <button type="button" @click="downloadLoanIAPDF(createdLoanSuccess.id)" class="py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow flex items-center justify-center space-x-1.5 transition">
+          <span>📄 Descargar Resumen IA (PDF)</span>
+        </button>
+        <button type="button" @click="downloadPagarePDF(createdLoanSuccess.id)" class="py-2.5 px-3 bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl text-xs font-black shadow flex items-center justify-center space-x-1.5 transition">
+          <span>⚡ Pagaré Digital (PDF)</span>
+        </button>
+        <a :href="'/api/loans/' + createdLoanSuccess.id + '/resumen_prevencimiento_pdf'" target="_blank" class="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow flex items-center justify-center space-x-1.5 transition col-span-2 text-center">
+          <span>📄 Descargar Resumen Pre-Vencimiento Día 24 (PDF)</span>
+        </a>
+      </div>
+
+      <div class="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+        <button type="button" @click="activeModal = null" class="px-5 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Finalizar</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: PERFIL Y DETALLES DEL GARANTE SOLIDARIO -->
+  <div x-cloak x-show="activeModal === 'guarantorModal' && selectedGuarantorClient" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl border border-indigo-200 dark:border-indigo-900/60 p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+      
+      <!-- Header -->
+      <div class="flex justify-between items-start border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xl font-bold shadow-sm">
+            🛡️
+          </div>
+          <div>
+            <span class="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">Ficha de Garante Solidario</span>
+            <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-white" x-text="selectedGuarantorClient?.guarantor_name"></h3>
+          </div>
+        </div>
+        <button @click="activeModal = null" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold">✕</button>
+      </div>
+
+      <!-- Datos del Garante -->
+      <div class="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-2 text-xs">
+        <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-700/40">
+          <span class="text-slate-500 font-semibold">Nombre y Apellido:</span>
+          <span class="font-bold text-slate-900 dark:text-white" x-text="selectedGuarantorClient?.guarantor_name"></span>
+        </div>
+        <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-700/40">
+          <span class="text-slate-500 font-semibold">CUIT / CUIL:</span>
+          <span class="font-bold font-mono text-slate-900 dark:text-white" x-text="selectedGuarantorClient?.guarantor_cuit"></span>
+        </div>
+        <div class="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-700/40">
+          <span class="text-slate-500 font-semibold">Domicilio Real:</span>
+          <span class="font-bold text-slate-900 dark:text-white text-right" x-text="selectedGuarantorClient?.guarantor_address"></span>
+        </div>
+        <div class="flex justify-between items-center py-1">
+          <span class="text-slate-500 font-semibold">Teléfono / WhatsApp:</span>
+          <span class="font-bold text-emerald-600 dark:text-emerald-400" x-text="'+' + selectedGuarantorClient?.guarantor_phone"></span>
+        </div>
+      </div>
+
+      <!-- Cliente Titular Respaldado -->
+      <div class="p-3 bg-indigo-50/50 dark:bg-indigo-950/30 rounded-2xl border border-indigo-100 dark:border-indigo-800/40 text-xs space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500">Titular de los Préstamos:</span>
+          <span class="font-black text-indigo-700 dark:text-indigo-300 text-sm" x-text="selectedGuarantorClient?.name"></span>
+        </div>
+        <div class="flex items-center justify-between text-[11px] text-slate-500">
+          <span>DNI Titular: <b class="text-slate-800 dark:text-slate-200" x-text="selectedGuarantorClient?.dni"></b></span>
+          <span>Tel: <b class="text-slate-800 dark:text-slate-200" x-text="'+' + selectedGuarantorClient?.whatsapp"></b></span>
+        </div>
+      </div>
+
+      <!-- Botones de Acción de Cobro y Documentación -->
+      <div class="space-y-2">
+        <button @click="sendGuarantorWhatsApp(selectedGuarantorClient)" class="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md flex items-center justify-center space-x-2 transition">
+          <span>🟢 Enviar Notificación de Cobro por WhatsApp</span>
+        </button>
+        <div class="grid grid-cols-2 gap-2">
+          <button @click="downloadGuarantorCobroPDF(selectedGuarantorClient.id)" class="py-2.5 px-3 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-black shadow flex items-center justify-center space-x-1 transition" title="Descargar Notificación Formal de Deuda para el Garante">
+            <span>⚖️ Intimación PDF</span>
+          </button>
+          <button @click="downloadClientFichaPDF(selectedGuarantorClient.id)" class="py-2.5 px-3 bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl text-xs font-black shadow flex items-center justify-center space-x-1 transition" title="Descargar Ficha y Contrato Mutuo">
+            <span>📄 Ficha Contrato PDF</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-800">
+        <button @click="openEditClientModal(selectedGuarantorClient)" class="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline">
+          ✏️ Editar Datos del Garante
+        </button>
+        <button @click="activeModal = null" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Cerrar</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: AJUSTES GENERALES & GESTIÓN INTEGRAL (TABULADO, COMPLETO & 0ms LAG) -->
+  <div x-cloak x-show="activeModal === 'settingsModal'" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 max-w-4xl w-full shadow-2xl space-y-4 max-h-[94vh] flex flex-col">
+      
+      <!-- Header del Modal de Ajustes -->
+      <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3 flex-shrink-0">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-xl font-bold shadow-sm">
+            ⚙️
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-white">Ajustes & Gestión Integral</h3>
+            <p class="text-xs text-slate-500">Configuración unificada: Empresa, Finanzas, Marquee Catamarca, IA & Backups</p>
+          </div>
+        </div>
+        <button @click="activeModal = null" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold transition">✕</button>
+      </div>
+
+      <!-- Barra de Navegación de Pestañas (Tabs) -->
+      <div class="flex items-center space-x-1 sm:space-x-2 overflow-x-auto pb-1 border-b border-slate-100 dark:border-slate-800/80 flex-shrink-0 scrollbar-none text-xs font-bold">
+        <button type="button" @click="settingsTab = 'empresa'" :class="settingsTab === 'empresa' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'" class="px-3 py-2 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
+          <span>🏢</span>
+          <span>Empresa & Banco</span>
+        </button>
+        <button type="button" @click="settingsTab = 'parametros'" :class="settingsTab === 'parametros' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'" class="px-3 py-2 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
+          <span>⚡</span>
+          <span>Préstamos & Tasas</span>
+        </button>
+        <button type="button" @click="settingsTab = 'noticias'" :class="settingsTab === 'noticias' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'" class="px-3 py-2 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
+          <span>📰</span>
+          <span>Marquee & Catamarca</span>
+        </button>
+        <button type="button" @click="settingsTab = 'notificaciones'" :class="settingsTab === 'notificaciones' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'" class="px-3 py-2 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
+          <span>🤖</span>
+          <span>WhatsApp & IA</span>
+        </button>
+        <button type="button" @click="settingsTab = 'sueldos'" :class="settingsTab === 'sueldos' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'" class="px-3 py-2 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
+          <span>👥</span>
+          <span>Sueldos Familiares</span>
+        </button>
+        <button type="button" @click="settingsTab = 'backup'" :class="settingsTab === 'backup' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'" class="px-3 py-2 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
+          <span>💾</span>
+          <span>Copias de Seguridad</span>
+        </button>
+        <button type="button" @click="settingsTab = 'pwa'" :class="settingsTab === 'pwa' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'" class="px-3 py-2 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
+          <span>📱</span>
+          <span>Instalar PWA / Favoritos</span>
+        </button>
+        <button type="button" @click="settingsTab = 'boveda'; loadGlobalVault();" :class="settingsTab === 'boveda' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'" class="px-3 py-2 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
+          <span>🗂️</span>
+          <span>Bóveda & Resguardos</span>
+        </button>
+        <button type="button" @click="settingsTab = 'auditoria'; fetchAuditLogs();" :class="settingsTab === 'auditoria' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'" class="px-3 py-2 rounded-xl transition flex items-center space-x-1.5 whitespace-nowrap">
+          <span>📜</span>
+          <span>Auditoría</span>
+        </button>
+      </div>
+
+      <!-- Contenedor del Formulario con Scroll Interno -->
+      <form @submit.prevent="saveSettings()" class="space-y-4 overflow-y-auto flex-1 pr-1">
+        
+        <!-- PESTAÑA 1: EMPRESA & DATOS BANCARIOS -->
+        <div x-show="settingsTab === 'empresa'" class="space-y-4">
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <div class="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700/50 pb-2">
+              <span class="text-sm">🏢</span>
+              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Identidad Comercial & Contacto</h4>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Nombre Comercial / Razón Social</label>
+                <input type="text" x-model="settingsForm.company_name" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold focus:ring-1 focus:ring-brand-500" required>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">CUIT / CUIL de la Empresa</label>
+                <input type="text" x-model="settingsForm.company_cuit" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono" placeholder="20-xxxxxxxx-x">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">WhatsApp Oficial de Cobranzas</label>
+                <input type="text" x-model="settingsForm.company_phone" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold" placeholder="+54 9 383 4xxxxxx">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Email de Contacto Oficial</label>
+                <input type="email" x-model="settingsForm.company_email" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Domicilio Comercial</label>
+                <input type="text" x-model="settingsForm.company_address" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+              </div>
+
+              <!-- Logo de la Empresa para PDFs e Impresiones -->
+              <div class="sm:col-span-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">🖼️ Logo Oficial de la Empresa (Para Ficha, Pagaré, Mutuo & PDFs)</label>
+                <p class="text-[10px] text-slate-400 mb-2">Medidas recomendadas: 400x120px (horizontal) o 300x300px (cuadrado). Formatos: PNG, JPG, WebP, SVG (Máx. 1MB).</p>
+                <div class="flex items-center space-x-3">
+                  <div class="w-28 h-12 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden p-1 shadow-inner">
+                    <template x-if="settingsForm.company_logo_data">
+                      <img :src="settingsForm.company_logo_data" alt="Logo Previsualización" class="max-h-full max-w-full object-contain">
+                    </template>
+                    <template x-if="!settingsForm.company_logo_data">
+                      <span class="text-[10px] text-slate-400 font-bold">Sin Logo</span>
+                    </template>
+                  </div>
+                  <label class="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-sm flex items-center space-x-1">
+                    <span>📤 Subir Logo...</span>
+                    <input type="file" accept="image/*" class="hidden" @change="onLogoSelected($event)">
+                  </label>
+                  <button type="button" x-show="settingsForm.company_logo_data" @click="settingsForm.company_logo_data = ''" class="px-3 py-2 bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-bold hover:bg-rose-200 transition">Quitar Logo</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <div class="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700/50 pb-2">
+              <span class="text-sm">💳</span>
+              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Datos Bancarios para Transferencias de Cuotas</h4>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Titular de la Cuenta Bancaria</label>
+                <input type="text" x-model="settingsForm.company_titular" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Banco / Billetera Virtual</label>
+                <input type="text" x-model="settingsForm.company_bank" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white" placeholder="Ej: Mercado Pago / Santander">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Alias CBU / CVU</label>
+                <input type="text" x-model="settingsForm.alias_cbu" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 font-mono uppercase font-bold">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">CBU / CVU Oficial (22 dígitos)</label>
+                <input type="text" x-model="settingsForm.company_cbu" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono">
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Texto de Pago / Datos Adicionales QR</label>
+                <input type="text" x-model="settingsForm.qr_text" placeholder="Instrucciones al transferir (ej: Enviar comprobante por WhatsApp)" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 2: PARÁMETROS FINANCIEROS & PRÉSTAMOS -->
+        <div x-show="settingsTab === 'parametros'" class="space-y-4">
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <div class="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700/50 pb-2">
+              <span class="text-sm">⚡</span>
+              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Condiciones de Préstamos Predeterminadas</h4>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Tasa de Interés Sugerida</label>
+                <div class="relative">
+                  <input type="number" step="0.5" x-model="settingsForm.default_interest_rate" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-bold">%</span>
+                </div>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Modalidad Habitual</label>
+                <select x-model="settingsForm.default_modality" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+                  <option value="diario">Diario</option>
+                  <option value="semanal">Semanal</option>
+                  <option value="quincenal">Quincenal</option>
+                  <option value="mensual">Mensual</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Cuotas Sugeridas</label>
+                <input type="number" min="1" x-model="settingsForm.default_installments_count" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Días de Gracia por Defecto</label>
+                <div class="relative">
+                  <input type="number" min="0" max="30" x-model="settingsForm.default_grace_days" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-bold">días</span>
+                </div>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Recargo Punitorio Diario</label>
+                <div class="relative">
+                  <input type="number" step="0.1" min="0" max="50" x-model="settingsForm.default_late_fee" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-bold">%</span>
+                </div>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Alerta Anticipada Vencimiento</label>
+                <div class="relative">
+                  <input type="number" min="1" max="15" x-model="settingsForm.overdue_alert_days" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-bold">días</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <div class="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700/50 pb-2">
+              <span class="text-sm">🛡️</span>
+              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Límites Financieros, Umbrales & Garantes</h4>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Límite Préstamo Sugerido ($)</label>
+                <input type="number" step="1000" x-model="settingsForm.default_max_loan_limit" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Exigir Garante a partir de ($)</label>
+                <input type="number" step="1000" x-model="settingsForm.guarantor_required_threshold" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Umbral Gasto Hormiga ($)</label>
+                <input type="number" step="100" x-model="settingsForm.ant_expense_threshold" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">⏰ Validez QR / Enlace Biométrico (min)</label>
+                <div class="relative">
+                  <input type="number" min="5" max="1440" x-model="settingsForm.qr_biometric_expiry_minutes" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+                  <span class="absolute right-3 top-2 text-[10px] text-slate-400 font-bold">min</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 3: MARQUEE & NOTICIAS DE CATAMARCA -->
+        <div x-show="settingsTab === 'noticias'" class="space-y-4">
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/50 pb-2">
+              <div class="flex items-center space-x-2">
+                <span class="text-sm">📰</span>
+                <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Marquee & Barra Informativa</h4>
+              </div>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" x-model="settingsForm.marquee_enabled" :checked="settingsForm.marquee_enabled === '1' || settingsForm.marquee_enabled === 1 || settingsForm.marquee_enabled === true" @change="settingsForm.marquee_enabled = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-4 h-4">
+                <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Marquee Activo</span>
+              </label>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <label class="block text-[11px] font-bold text-slate-500">⚡ Velocidad del Marquee (Segundos)</label>
+                  <span class="text-xs font-black text-brand-600 dark:text-brand-400" x-text="(settingsForm.marquee_speed_seconds || 38) + ' seg'"></span>
+                </div>
+                <input type="range" min="10" max="120" step="1" x-model="settingsForm.marquee_speed_seconds" class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-brand-600">
+                <div class="flex justify-between text-[9px] text-slate-400 font-bold mt-1">
+                  <span>🚀 Ultra Rápido (10s)</span>
+                  <span>⚖️ Normal (38s)</span>
+                  <span>🐢 Lento (120s)</span>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">📢 Anuncio Express de la Empresa</label>
+                <input type="text" x-model="settingsForm.custom_marquee_text" placeholder="Ej: 📣 Atención: Cobranzas abiertas hasta las 18hs | Préstamos a sola firma" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold">
+              </div>
+            </div>
+
+            <!-- Palabras Maestras de Filtrado Inteligente de Noticias -->
+            <div class="pt-2 border-t border-slate-200/60 dark:border-slate-700/40">
+              <label class="block text-[11px] font-bold text-slate-500 mb-1">🧠 Palabras Maestras para Motor Inteligente de Noticias</label>
+              <input type="text" x-model="settingsForm.marquee_keywords" placeholder="Ej: Catamarca, Policiales, Elecciones, Política, Economía, País, Sueldos" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium">
+              <p class="text-[10px] text-slate-400 mt-1">El motor inteligente buscará y clasificará las noticias según estas palabras clave separadas por coma.</p>
+            </div>
+
+            <!-- Fuentes Periodísticas por Link (RSS / Sitios Personalizados) -->
+            <div class="pt-2 border-t border-slate-200/60 dark:border-slate-700/40">
+              <label class="block text-[11px] font-bold text-slate-500 mb-1">🔗 Agregar / Editar Fuentes Periodísticas por Link (RSS / Web)</label>
+              <textarea x-model="settingsForm.custom_rss_sources" rows="2" placeholder="Un link por línea. Ej:&#10;https://www.elesquiu.com/rss&#10;https://www.elancasti.com.ar/rss" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono"></textarea>
+            </div>
+
+            <div class="pt-2 border-t border-slate-200/60 dark:border-slate-700/40">
+              <span class="block text-[10px] uppercase font-black tracking-wider text-slate-400 mb-2">Elementos Habilitados en la Cinta</span>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input type="checkbox" x-model="settingsForm.marquee_show_news" :checked="settingsForm.marquee_show_news !== '0'" @change="settingsForm.marquee_show_news = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Noticias Locales</span>
+                </label>
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input type="checkbox" x-model="settingsForm.marquee_show_pizarra" :checked="settingsForm.marquee_show_pizarra !== '0'" @change="settingsForm.marquee_show_pizarra = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Dólar / Inflación</span>
+                </label>
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input type="checkbox" x-model="settingsForm.marquee_show_weather" :checked="settingsForm.marquee_show_weather !== '0'" @change="settingsForm.marquee_show_weather = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Clima Catamarca</span>
+                </label>
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input type="checkbox" x-model="settingsForm.marquee_show_calendar" :checked="settingsForm.marquee_show_calendar !== '0'" @change="settingsForm.marquee_show_calendar = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Calendario ANSES</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Diarios de Catamarca Habilitados -->
+            <div class="pt-2 border-t border-slate-200/60 dark:border-slate-700/40" x-show="settingsForm.marquee_show_news !== '0'">
+              <span class="block text-[10px] uppercase font-black tracking-wider text-slate-400 mb-2">Fuentes Periodísticas de Catamarca Habilitadas</span>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input type="checkbox" x-model="settingsForm.news_source_esquiu" :checked="settingsForm.news_source_esquiu !== '0'" @change="settingsForm.news_source_esquiu = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">El Esquiú</span>
+                </label>
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input type="checkbox" x-model="settingsForm.news_source_ancasti" :checked="settingsForm.news_source_ancasti !== '0'" @change="settingsForm.news_source_ancasti = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">El Ancasti</span>
+                </label>
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input type="checkbox" x-model="settingsForm.news_source_catamarca_actual" :checked="settingsForm.news_source_catamarca_actual !== '0'" @change="settingsForm.news_source_catamarca_actual = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Catamarca Actual</span>
+                </label>
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+                  <input type="checkbox" x-model="settingsForm.news_source_la_union" :checked="settingsForm.news_source_la_union !== '0'" @change="settingsForm.news_source_la_union = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">La Unión Digital</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 4: WHATSAPP, IA & DOCUMENTOS -->
+        <div x-show="settingsTab === 'notificaciones'" class="space-y-4">
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <div class="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700/50 pb-2">
+              <span class="text-sm">🤖</span>
+              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Automatización & WhatsApp</h4>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Prefijo Telefónico País</label>
+                <input type="text" x-model="settingsForm.whatsapp_prefix" placeholder="549" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono font-bold">
+                <span class="text-[10px] text-slate-400">Por defecto 549 para celulares de Argentina</span>
+              </div>
+              <div class="space-y-2 pt-4">
+                <label class="flex items-center space-x-2 cursor-pointer">
+                  <input type="checkbox" x-model="settingsForm.whatsapp_auto_include_cbu" :checked="settingsForm.whatsapp_auto_include_cbu !== '0'" @change="settingsForm.whatsapp_auto_include_cbu = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-4 h-4">
+                  <span class="text-xs font-bold text-slate-700 dark:text-slate-200">Incluir CBU / Alias en mensajes</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                  <input type="checkbox" x-model="settingsForm.auto_generate_pagare" :checked="settingsForm.auto_generate_pagare !== '0'" @change="settingsForm.auto_generate_pagare = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-4 h-4">
+                  <span class="text-xs font-bold text-slate-700 dark:text-slate-200">Generar Pagaré Express por defecto</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-200/60 dark:border-slate-700/40 space-y-3">
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <label class="text-[11px] font-bold text-slate-500">Plantilla Mensaje Otorgamiento de Préstamo</label>
+                  <span class="text-[10px] text-slate-400 font-mono">Variables: {nombre}, {monto}, {cuotas}, {monto_cuota}, {alias}</span>
+                </div>
+                <textarea x-model="settingsForm.whatsapp_template_loan" rows="2" class="w-full p-2.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-1 focus:ring-brand-500"></textarea>
+              </div>
+
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <label class="text-[11px] font-bold text-slate-500">Plantilla Recordatorio / Cobranza de Cuota</label>
+                  <span class="text-[10px] text-slate-400 font-mono">Variables: {nombre}, {cuota}, {monto}, {vencimiento}, {alias}</span>
+                </div>
+                <textarea x-model="settingsForm.whatsapp_template_payment" rows="2" class="w-full p-2.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-1 focus:ring-brand-500"></textarea>
+              </div>
+
+              <div class="pt-2 border-t border-slate-200/60 dark:border-slate-700/40">
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">✍️ Nombre / Título Personalizado del Pagaré Digital & Firma Biométrica</label>
+                <input type="text" x-model="settingsForm.biometric_sign_title" placeholder="Firma Digital Biométrica 2026" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold">
+                <span class="text-[10px] text-slate-400">Título visible para el cliente al escanear el QR o firmar el Pagaré Express.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 5: SUELDOS FAMILIARES & HOGAR -->
+        <div x-show="settingsTab === 'sueldos'" class="space-y-4">
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <div class="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-700/50 pb-2">
+              <span class="text-sm">👥</span>
+              <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Sueldos Familiares Mensuales</h4>
+            </div>
+            <p class="text-xs text-slate-500">Estos montos alimentan los cálculos de solvencia del Módulo de Finanzas Personales del Hogar.</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Ingreso Mensual Eduardo ($)</label>
+                <input type="number" step="1000" x-model="settingsForm.user_salary_eduardo" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">Ingreso Mensual Maira ($)</label>
+                <input type="number" step="1000" x-model="settingsForm.user_salary_maira" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+              </div>
+            </div>
+
+            <!-- Resumen Total Familiar -->
+            <div class="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800 flex justify-between items-center">
+              <span class="text-xs font-bold text-indigo-700 dark:text-indigo-300">Total Ingresos Familiares Proyectados:</span>
+              <span class="text-sm font-black text-indigo-900 dark:text-indigo-200" x-text="'$' + (parseFloat(settingsForm.user_salary_eduardo || 0) + parseFloat(settingsForm.user_salary_maira || 0)).toLocaleString('es-AR')"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 6: COPIAS DE SEGURIDAD & BASE DE DATOS -->
+        <div x-show="settingsTab === 'backup'" class="space-y-4">
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/50 pb-2">
+              <div class="flex items-center space-x-2">
+                <span class="text-sm">💾</span>
+                <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Copias de Seguridad (Backup & Restore)</h4>
+              </div>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400">
+                🟢 Auto-Backup Activo
+              </span>
+            </div>
+
+            <p class="text-xs text-slate-500">
+              El sistema realiza una copia espejo automática en formato JSON ante cada operación. Además podés descargar tu respaldo o restaurarlo en cualquier momento.
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <!-- Descargar Backup -->
+              <div class="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                <div class="flex items-center space-x-2">
+                  <span class="text-lg">📥</span>
+                  <span class="text-xs font-black text-slate-800 dark:text-slate-200">Exportar Base de Datos</span>
+                </div>
+                <p class="text-[11px] text-slate-400">Descarga un archivo JSON completo con todos los clientes, préstamos, pagos y ajustes.</p>
+                <button type="button" @click="downloadBackupFile()" class="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center justify-center space-x-1.5">
+                  <span>⬇️ Descargar Copia JSON</span>
+                </button>
+              </div>
+
+              <!-- Restaurar Backup -->
+              <div class="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+                <div class="flex items-center space-x-2">
+                  <span class="text-lg">📤</span>
+                  <span class="text-xs font-black text-slate-800 dark:text-slate-200">Restaurar Respaldo</span>
+                </div>
+                <p class="text-[11px] text-slate-400">Restaura la información desde un archivo JSON exportado previamente.</p>
+                <input type="file" x-ref="backupFileInput" @change="handleRestoreBackup($event)" accept=".json" class="hidden">
+                <button type="button" @click="$refs.backupFileInput.click()" class="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5">
+                  <span>📂 Seleccionar Archivo JSON</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA PWA / FAVORITOS -->
+        <div x-show="settingsTab === 'pwa'" class="space-y-4">
+          <div class="p-5 bg-gradient-to-br from-brand-900 via-slate-900 to-indigo-950 text-white rounded-2xl shadow-lg border border-brand-500/30 space-y-4">
+            <div class="flex items-center space-x-3">
+              <div class="w-12 h-12 rounded-2xl bg-brand-500/30 flex items-center justify-center text-2xl">📱</div>
+              <div>
+                <h4 class="font-extrabold text-base">Instalar Aplicación en Pantalla de Inicio (PWA)</h4>
+                <p class="text-xs text-brand-200">Acceso rápido e instantáneo desde tu Celular o Computadora como App Nativa.</p>
+              </div>
+            </div>
+
+            <!-- Botón Principal de Instalación PWA -->
+            <div class="pt-2">
+              <button type="button" @click="installPwa()" class="w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-600 active:scale-98 text-white rounded-xl font-extrabold text-sm shadow-lg flex items-center justify-center space-x-2 transition cursor-pointer">
+                <span>📲 Instalar Aplicación Ahora en este Dispositivo</span>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-brand-800/80 text-xs">
+              <div class="p-3 bg-white/10 rounded-xl space-y-1">
+                <div class="font-bold text-amber-300 flex items-center space-x-1">
+                  <span>🤖 Android (Chrome/Edge/Brave)</span>
+                </div>
+                <p class="text-[11px] text-slate-200">1. Toca los 3 puntos superiores (⋮).</p>
+                <p class="text-[11px] text-slate-200">2. Elige "Agregar a la pantalla principal" o "Instalar aplicación".</p>
+              </div>
+              <div class="p-3 bg-white/10 rounded-xl space-y-1">
+                <div class="font-bold text-sky-300 flex items-center space-x-1">
+                  <span>🍏 iPhone / iPad (Safari)</span>
+                </div>
+                <p class="text-[11px] text-slate-200">1. Toca el botón Compartir (cuadrado con flecha ⎋).</p>
+                <p class="text-[11px] text-slate-200">2. Selecciona "Agregar a inicio" (+).</p>
+              </div>
+              <div class="p-3 bg-white/10 rounded-xl space-y-1">
+                <div class="font-bold text-purple-300 flex items-center space-x-1">
+                  <span>💻 PC / Mac (Chrome/Edge)</span>
+                </div>
+                <p class="text-[11px] text-slate-200">1. Haz clic en el ícono de instalar (⊕) en la barra de navegación.</p>
+                <p class="text-[11px] text-slate-200">2. O presiona (Ctrl + D) para añadir a Favoritos.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA: BÓVEDA DE DOCUMENTOS & RESGUARDOS (GLOBAL) -->
+        <div x-show="settingsTab === 'boveda'" class="space-y-4">
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/50 pb-2">
+              <div class="flex items-center space-x-2">
+                <span class="text-sm">🗂️</span>
+                <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Bóveda de Documentos & Resguardos Digitales</h4>
+              </div>
+              <button type="button" @click="loadGlobalVault()" class="px-2.5 py-1 bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 rounded-lg text-xs font-bold hover:bg-brand-200 transition">🔄 Actualizar</button>
+            </div>
+
+            <!-- Filtros -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-500 mb-1">Filtrar por Tipo de Documento</label>
+                <select x-model="globalVaultDocTypeFilter" @change="loadGlobalVault()" class="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+                  <option value="todos">📁 Todos los Documentos</option>
+                  <option value="dni_frente">🪪 DNI Frente</option>
+                  <option value="dni_dorso">🪪 DNI Dorso</option>
+                  <option value="recibo_sueldo">📄 Recibos de Sueldo</option>
+                  <option value="servicio_impuesto">🏠 Factura Servicio / Impuesto</option>
+                  <option value="firma_digital">✍️ Firma Digital</option>
+                  <option value="selfie_deudor">📸 Selfie Biométrica</option>
+                  <option value="garante_doc">🛡️ Documentos de Garante</option>
+                  <option value="pagare_firmado">📜 Pagaré Firmado</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-500 mb-1">Buscar por Nombre de Cliente</label>
+                <input type="text" x-model="globalVaultSearch" placeholder="Buscar cliente..." class="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium">
+              </div>
+            </div>
+
+            <!-- Grid de Documentos -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto pt-2 pr-1">
+              <template x-for="doc in filteredGlobalVaultDocs()" :key="doc.id">
+                <div class="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-[10px] font-black px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 uppercase" x-text="doc.doc_type"></span>
+                      <span class="text-[10px] text-slate-400 font-mono" x-text="doc.created_at"></span>
+                    </div>
+                    <h5 class="text-xs font-bold text-slate-900 dark:text-white mt-1 line-clamp-1" x-text="doc.title"></h5>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 font-semibold" x-text="'👤 ' + doc.client_name"></p>
+                  </div>
+
+                  <!-- Preview & Action -->
+                  <div class="space-y-2 pt-1">
+                    <template x-if="doc.image_data && doc.image_data.startsWith('data:image')">
+                      <img :src="doc.image_data" class="w-full h-24 object-cover rounded-lg border border-slate-200 dark:border-slate-800" alt="Preview Documento">
+                    </template>
+                    <template x-if="doc.image_data && !doc.image_data.startsWith('data:image')">
+                      <div class="w-full h-20 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400 text-xs font-bold">
+                        📄 Documento PDF / Archivo
+                      </div>
+                    </template>
+                    <div class="flex gap-1.5">
+                      <a :href="doc.image_data" :download="doc.title + '.png'" class="flex-1 text-center px-2 py-1 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-[11px] font-bold transition">
+                        📥 Descargar
+                      </a>
+                      <button type="button" @click="deleteClientDocument(doc.id, doc.client_id); loadGlobalVault();" class="px-2 py-1 bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 rounded-lg text-[11px] font-bold hover:bg-rose-200 transition">
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <template x-if="filteredGlobalVaultDocs().length === 0">
+                <div class="col-span-full p-8 text-center text-slate-400 text-xs font-medium bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-800">
+                  🗂️ No se encontraron documentos registrados en la Bóveda con los filtros seleccionados.
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- PESTAÑA 7: AUDITORÍA DEL SISTEMA -->
+        <div x-show="settingsTab === 'auditoria'" class="space-y-4">
+          <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-700/50 pb-2">
+              <div class="flex items-center space-x-2">
+                <span class="text-sm">📜</span>
+                <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Historial & Registro de Auditoría</h4>
+              </div>
+              <button type="button" @click="fetchAuditLogs()" class="px-2.5 py-1 text-xs bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition">
+                🔄 Actualizar
+              </button>
+            </div>
+
+            <div>
+              <input type="text" x-model="auditSearch" placeholder="🔍 Buscar por acción, cliente o fecha..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+            </div>
+
+            <div class="max-h-60 overflow-y-auto space-y-1.5 pr-1">
+              <template x-for="log in filteredAuditLogs" :key="log.id || log.date">
+                <div class="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs flex justify-between items-center">
+                  <div>
+                    <span class="font-bold text-slate-800 dark:text-slate-200" x-text="log.title"></span>
+                    <p class="text-[11px] text-slate-500" x-text="log.description"></p>
+                  </div>
+                  <span class="text-[10px] text-slate-400 font-mono" x-text="log.date"></span>
+                </div>
+              </template>
+              <div x-show="!filteredAuditLogs || filteredAuditLogs.length === 0" class="text-center py-6 text-xs text-slate-400">
+                No hay eventos registrados recientemente.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones de Acción Fijos al Pie -->
+        <div class="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 flex-shrink-0">
+          <button type="button" @click="activeModal = null" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition">
+            Cerrar
+          </button>
+          <button type="submit" class="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-black shadow-lg flex items-center space-x-2 transition active:scale-95">
+            <span>💾 Guardar Ajustes</span>
+          </button>
+        </div>
+
+      </form>
+
     </div>
   </div>
 
