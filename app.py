@@ -10,7 +10,7 @@ import requests
 import urllib.request
 from datetime import datetime, date, timedelta, timezone
 from flask import Flask, render_template, render_template_string, request, jsonify, send_file, Response, make_response
-from models import db, Client, Loan, Installment, Payment, Expense, Setting, ClientDocument, PersonalBill, BiometricRequest, Raffle, ShoppingItem, NoticeBoardItem, HomeCalendarItem
+from models import db, Client, Loan, Installment, Payment, Expense, Setting, ClientDocument, PersonalBill, BiometricRequest, ClientRegistrationRequest, Raffle, ShoppingItem, NoticeBoardItem, HomeCalendarItem
 
 app = Flask(__name__)
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'database.db')).replace('\\', '/')
@@ -6755,3 +6755,295 @@ def download_arqueo_caja_pdf():
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = f'inline; filename=Arqueo_Caja_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf'
     return response
+
+
+# ------------------------------------------------------------------------------------
+# API CLIENT EXPRESS QR REGISTRATION SYSTEM
+# ------------------------------------------------------------------------------------
+
+def cleanup_client_registration_requests():
+    try:
+        now = datetime.utcnow()
+        try:
+            expiry_mins = int(Setting.get_val('qr_registration_expiry_minutes', '60'))
+        except Exception:
+            expiry_mins = 60
+        cutoff_time = now - timedelta(minutes=expiry_mins)
+        expired = ClientRegistrationRequest.query.filter(ClientRegistrationRequest.created_at < cutoff_time, ClientRegistrationRequest.status == 'pendiente').all()
+        for r in expired:
+            db.session.delete(r)
+        if expired:
+            db.session.commit()
+    except Exception as e:
+        print(f"[Cleanup Client Registration Error]: {e}")
+
+
+@app.route('/api/client_registration_requests', methods=['GET', 'POST'])
+def handle_client_registration_requests():
+    cleanup_client_registration_requests()
+    if request.method == 'POST':
+        token = uuid.uuid4().hex
+        req_item = ClientRegistrationRequest(
+            token=token,
+            status='pendiente',
+            created_at=datetime.utcnow()
+        )
+        db.session.add(req_item)
+        db.session.commit()
+
+        host_url = request.host_url.rstrip('/')
+        sign_url = f"{host_url}/registrar_cliente/{token}"
+        qr_img_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(sign_url)}"
+        company_name = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+        expiry_mins = Setting.get_val('qr_registration_expiry_minutes', '60')
+        wa_msg = f"¡Hola! Te invitamos a registrarte como cliente en {company_name}. Ingresa al enlace para completar tus datos (Válido por {expiry_mins} minutos): {sign_url}"
+        wa_url = f"https://wa.me/?text={urllib.parse.quote(wa_msg)}"
+
+        return jsonify({
+            "success": True,
+            "token": token,
+            "sign_url": sign_url,
+            "qr_img_url": qr_img_url,
+            "wa_url": wa_url,
+            "request": req_item.to_dict()
+        }), 201
+
+    reqs = ClientRegistrationRequest.query.order_by(ClientRegistrationRequest.created_at.desc()).all()
+    return jsonify([r.to_dict() for r in reqs])
+
+
+@app.route('/registrar_cliente/<token>', methods=['GET'])
+def render_client_registration_page(token):
+    cleanup_client_registration_requests()
+    req_item = ClientRegistrationRequest.query.filter_by(token=token).first()
+
+    if not req_item or req_item.is_expired or req_item.status in ['registrado', 'aprobado', 'cancelado']:
+        st_title = "¡Registro Completado!" if (req_item and req_item.status in ['registrado', 'aprobado']) else "QR Expirado o No Disponible"
+        st_desc = "Tu registro de cliente ya fue enviado y se encuentra pendiente de aprobación por la administración." if (req_item and req_item.status in ['registrado', 'aprobado']) else "Este enlace o código QR de registro ya fue utilizado o ha expirado por seguridad."
+        return render_template_string(f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{st_title}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>body {{ background: #0f172a; color: #f8fafc; font-family: system-ui, sans-serif; }}</style>
+</head>
+<body class="min-h-screen p-6 flex items-center justify-center">
+    <div class="max-w-md w-full bg-slate-900/95 border border-slate-800 p-6 rounded-3xl text-center space-y-4 shadow-2xl">
+        <div class="w-16 h-16 rounded-2xl bg-indigo-500/20 text-indigo-400 mx-auto flex items-center justify-center text-3xl border border-indigo-500/30">
+            📱
+        </div>
+        <h1 class="text-xl font-black text-white">{st_title}</h1>
+        <p class="text-xs text-slate-300 leading-relaxed">{st_desc}</p>
+        <div class="p-3 bg-slate-800/80 rounded-2xl text-[11px] text-slate-400 border border-slate-700">
+            Por favor, ponte en contacto con la administración si requieres asistencias adicionales.
+        </div>
+    </div>
+</body>
+</html>"""), 200
+
+    company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+    html_page = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Registro Express de Cliente - {company}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {{ background: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }}
+        .glass-card {{ background: rgba(30, 41, 59, 0.90); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }}
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-6 flex items-center justify-center">
+    <div class="max-w-lg w-full space-y-4">
+        <div class="glass-card p-5 sm:p-6 rounded-3xl space-y-4 shadow-2xl border-indigo-500/30">
+            <div class="flex items-center gap-3 pb-3 border-b border-slate-700">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-2xl shadow-lg">
+                    📱
+                </div>
+                <div>
+                    <h1 class="text-lg font-black text-white">Registro Express de Cliente</h1>
+                    <p class="text-xs text-slate-400">{company}</p>
+                </div>
+            </div>
+
+            <form id="clientRegisterForm" onsubmit="submitClientRegistration(event, '{token}')" class="space-y-3">
+                <div>
+                    <label class="text-xs font-bold text-slate-200 block mb-1">Nombre Completo *</label>
+                    <input type="text" id="regName" required placeholder="Ej: Juan Eduardo Pérez" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-slate-200 block mb-1">WhatsApp / Teléfono *</label>
+                    <input type="text" id="regWhatsapp" required placeholder="Ej: 5493834443322" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-slate-200 block mb-1">Domicilio Real / Referencias *</label>
+                    <input type="text" id="regAddress" required placeholder="Ej: Av. Belgrano 1234, Dpto 2B" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-slate-200 block mb-1">CUIT / CUIL * (11 dígitos - Consulta BCRA)</label>
+                    <input type="text" id="regCuit" required placeholder="Ej: 20123456789" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-bold text-slate-300 block mb-1">Email (Opcional)</label>
+                        <input type="email" id="regEmail" placeholder="usuario@gmail.com" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-300 block mb-1">Alias o CBU/CVU (Opcional)</label>
+                        <input type="text" id="regBankAlias" placeholder="JUAN.PEREZ.MP" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-slate-300 block mb-1">Notas / Ocupación (Opcional)</label>
+                    <textarea id="regNotes" rows="2" placeholder="Ej: Empleado de comercio / Referencias laborales..." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"></textarea>
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" id="regBtn" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-xs shadow-lg shadow-indigo-500/20 transition">
+                        📱 Enviar Solicitud de Registro Express
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div id="regSuccess" class="glass-card p-6 rounded-3xl text-center space-y-3 hidden border-emerald-500/40">
+            <div class="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center text-3xl">✅</div>
+            <h2 class="text-lg font-black text-white">¡Registro Enviado Exitosamente!</h2>
+            <p class="text-xs text-slate-300">Tus datos fueron recibidos por la administración para su evaluación e inscripción.</p>
+        </div>
+    </div>
+
+    <script>
+        async function submitClientRegistration(e, token) {{
+            e.preventDefault();
+            const btn = document.getElementById('regBtn');
+            btn.disabled = true;
+            btn.innerText = 'Enviando Registro...';
+
+            const payload = {{
+                name: document.getElementById('regName').value,
+                whatsapp: document.getElementById('regWhatsapp').value,
+                address: document.getElementById('regAddress').value,
+                cuit: document.getElementById('regCuit').value,
+                email: document.getElementById('regEmail').value,
+                bank_alias: document.getElementById('regBankAlias').value,
+                notes: document.getElementById('regNotes').value
+            }};
+
+            try {{
+                const res = await fetch(`/registrar_cliente/${{token}}`, {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify(payload)
+                }});
+                const data = await res.json();
+                if (data.success) {{
+                    document.getElementById('clientRegisterForm').style.display = 'none';
+                    document.getElementById('regSuccess').classList.remove('hidden');
+                }} else {{
+                    alert(data.error || 'Error al procesar el registro');
+                    btn.disabled = false;
+                    btn.innerText = '📱 Enviar Solicitud de Registro Express';
+                }}
+            }} catch(err) {{
+                alert('Error de conexión: ' + err.message);
+                btn.disabled = false;
+                btn.innerText = '📱 Enviar Solicitud de Registro Express';
+            }}
+        }}
+    </script>
+</body>
+</html>"""
+    return render_template_string(html_page)
+
+
+@app.route('/registrar_cliente/<token>', methods=['POST'])
+def process_client_registration(token):
+    cleanup_client_registration_requests()
+    req_item = ClientRegistrationRequest.query.filter_by(token=token).first()
+    if not req_item or req_item.is_expired or req_item.status in ['registrado', 'aprobado']:
+        return jsonify({"error": "⚠️ Este enlace de registro QR ya fue utilizado o expiró."}), 400
+
+    data = request.json or {}
+    name = str(data.get('name') or '').strip()
+    whatsapp = str(data.get('whatsapp') or '').strip()
+    address = str(data.get('address') or '').strip()
+    cuit = str(data.get('cuit') or '').strip()
+
+    if not name or not whatsapp or not address or not cuit:
+        return jsonify({"error": "Nombre, WhatsApp, Domicilio y CUIT son obligatorios"}), 400
+
+    req_item.name = name
+    req_item.whatsapp = "".join(c for c in whatsapp if c.isdigit())
+    req_item.address = address
+    req_item.cuit = "".join(c for c in cuit if c.isdigit())
+    req_item.email = str(data.get('email') or '').strip()
+    req_item.bank_alias = str(data.get('bank_alias') or '').strip()
+    req_item.notes = str(data.get('notes') or '').strip()
+    req_item.status = 'registrado'
+    req_item.submitted_at = datetime.utcnow()
+    db.session.commit()
+
+    return jsonify({"success": True, "message": "Solicitud de registro enviada correctamente."})
+
+
+@app.route('/api/client_registration_requests/<token>/approve', methods=['POST'])
+def approve_client_registration_request(token):
+    req_item = ClientRegistrationRequest.query.filter_by(token=token).first()
+    if not req_item:
+        return jsonify({"error": "Solicitud no encontrada"}), 404
+
+    if req_item.status == 'aprobado' and req_item.approved_client_id:
+        client = Client.query.get(req_item.approved_client_id)
+        if client:
+            return jsonify({"success": True, "client": client.to_dict(), "message": "El cliente ya estaba aprobado previamente."})
+
+    # Check if client exists by whatsapp or cuit
+    client = Client.query.filter((Client.whatsapp == req_item.whatsapp) | (Client.cuit == req_item.cuit)).first()
+    if not client:
+        client = Client(
+            name=req_item.name,
+            whatsapp=req_item.whatsapp,
+            cuit=req_item.cuit,
+            address=req_item.address,
+            email=req_item.email,
+            bank_alias=req_item.bank_alias,
+            notes=f"Registrado vía Cliente Express QR. {req_item.notes or ''}"
+        )
+        db.session.add(client)
+        db.session.commit()
+
+    req_item.status = 'aprobado'
+    req_item.approved_client_id = client.id
+    db.session.commit()
+
+    wa_url = ""
+    if client.whatsapp:
+        clean_phone = client.whatsapp.replace('+', '').replace(' ', '').replace('-', '')
+        company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+        msg = f"¡Hola {client.name}! Tu registro como cliente ha sido APROBADO exitosamente en {company}. Ya te encuentras dado de alta en nuestro sistema."
+        wa_url = f"https://wa.me/{clean_phone}?text={urllib.parse.quote(msg)}"
+
+    return jsonify({
+        "success": True,
+        "message": "Cliente aprobado e inscripto exitosamente.",
+        "client": client.to_dict(),
+        "wa_url": wa_url
+    })
+
+
+@app.route('/api/client_registration_requests/<token>', methods=['DELETE'])
+def delete_client_registration_request(token):
+    req_item = ClientRegistrationRequest.query.filter_by(token=token).first()
+    if req_item:
+        db.session.delete(req_item)
+        db.session.commit()
+    return jsonify({"success": True})

@@ -545,6 +545,61 @@ class BiometricRequest(db.Model):
         }
 
 
+class ClientRegistrationRequest(db.Model):
+    __tablename__ = 'client_registration_requests'
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(64), unique=True, nullable=False)
+    name = db.Column(db.String(120), nullable=True)
+    whatsapp = db.Column(db.String(30), nullable=True)
+    cuit = db.Column(db.String(20), nullable=True)
+    address = db.Column(db.String(255), nullable=True)
+    email = db.Column(db.String(120), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    bank_alias = db.Column(db.String(100), nullable=True)
+    dni_frente_data = db.Column(db.Text, nullable=True)
+    dni_dorso_data = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(30), default='pendiente') # 'pendiente', 'registrado', 'aprobado', 'cancelado'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+    approved_client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=True)
+
+    @property
+    def remaining_seconds(self):
+        if not self.created_at:
+            return 0
+        try:
+            expiry_mins = int(Setting.get_val('qr_registration_expiry_minutes', '60'))
+        except Exception:
+            expiry_mins = 60
+        elapsed = (datetime.utcnow() - self.created_at).total_seconds()
+        return max(0, int((expiry_mins * 60) - elapsed))
+
+    @property
+    def is_expired(self):
+        return self.remaining_seconds <= 0
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "token": self.token,
+            "name": self.name or "",
+            "whatsapp": self.whatsapp or "",
+            "cuit": self.cuit or "",
+            "address": self.address or "",
+            "email": self.email or "",
+            "notes": self.notes or "",
+            "bank_alias": self.bank_alias or "",
+            "dni_frente_data": self.dni_frente_data or "",
+            "dni_dorso_data": self.dni_dorso_data or "",
+            "status": self.status,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S") if self.created_at else "",
+            "submitted_at": self.submitted_at.strftime("%Y-%m-%d %H:%M:%S") if self.submitted_at else None,
+            "remaining_seconds": self.remaining_seconds,
+            "is_expired": self.is_expired
+        }
+
+
+
 class Raffle(db.Model):
     __tablename__ = 'raffles'
     id = db.Column(db.Integer, primary_key=True)

@@ -1,0 +1,2 @@
+from utils.notification import send_whatsapp
+__all__ = ['send_whatsapp']

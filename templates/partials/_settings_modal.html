@@ -1,0 +1,191 @@
+<div x-cloak x-show="activeModal === 'settingsModal'" x-transition class="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md" @keydown.escape.window="activeModal === 'settingsModal' && (activeModal=null)">
+  <div class="settings-modal-card w-full max-w-5xl h-[94dvh] max-h-[94dvh] overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl" @click.stop>
+    <div class="settings-modal-header flex items-center justify-between p-4 sm:p-5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+      <div>
+        <div class="text-[10px] font-black uppercase tracking-widest text-brand-600">Centro de configuración</div>
+        <h2 class="text-xl font-black text-slate-900 dark:text-white">⚙️ Ajustes completos de la aplicación</h2>
+        <p class="text-xs text-slate-500 mt-1">Identidad · Noticias · PWA · Base de datos · Historial · Notificaciones</p>
+      </div>
+      <button type="button" @click="activeModal=null" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 font-black hover:bg-rose-100 hover:text-rose-600">✕</button>
+    </div>
+
+    <div class="settings-modal-body flex flex-col md:flex-row flex-1 min-h-0">
+      <aside class="settings-modal-tabs md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 p-3 bg-slate-50/80 dark:bg-slate-950/40">
+        <div class="grid grid-cols-2 md:grid-cols-1 gap-2 text-xs font-black">
+          <button type="button" @click="settingsTab='empresa'" :class="settingsTab==='empresa'?'bg-brand-600 text-white shadow':'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'" class="p-3 rounded-xl text-left">🏢 Empresa</button>
+          <button type="button" @click="settingsTab='app'" :class="settingsTab==='app'?'bg-brand-600 text-white shadow':'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'" class="p-3 rounded-xl text-left">📱 Aplicación</button>
+          <button type="button" @click="settingsTab='noticias'" :class="settingsTab==='noticias'?'bg-brand-600 text-white shadow':'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'" class="p-3 rounded-xl text-left">📰 Noticias</button>
+          <button type="button" @click="settingsTab='datos'" :class="settingsTab==='datos'?'bg-brand-600 text-white shadow':'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'" class="p-3 rounded-xl text-left">💾 Base de datos</button>
+          <button type="button" @click="settingsTab='auditoria'" :class="settingsTab==='auditoria'?'bg-brand-600 text-white shadow':'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'" class="p-3 rounded-xl text-left">📜 Historial</button>
+          <button type="button" @click="settingsTab='notificaciones'" :class="settingsTab==='notificaciones'?'bg-brand-600 text-white shadow':'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800'" class="p-3 rounded-xl text-left">🔔 Avisos</button>
+        </div>
+      </aside>
+
+      <main class="settings-modal-content flex-1 min-h-0 overflow-y-auto p-4 sm:p-5">
+        <!-- EMPRESA -->
+        <section x-show="settingsTab==='empresa'" class="space-y-5">
+          <div><h3 class="font-black text-lg">Identidad y datos del titular</h3><p class="text-xs text-slate-500">Estos datos aparecen en el encabezado, comprobantes y comunicaciones.</p></div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label class="settings-field"><span>Nombre de la empresa / titular</span><input x-model="settingsForm.company_name" placeholder="Gestión Préstamos"></label>
+            <label class="settings-field"><span>Nombre de alias</span><input x-model="settingsForm.alias" placeholder="MI.ALIAS.MP"></label>
+            <label class="settings-field"><span>CUIT / CUIL *</span><input x-model="settingsForm.cuit_cuil" required inputmode="numeric" maxlength="11"></label>
+            <label class="settings-field"><span>CVU / CBU</span><input x-model="settingsForm.cvu" inputmode="numeric" maxlength="22"></label>
+            <label class="settings-field"><span>Banco / billetera</span><input x-model="settingsForm.company_bank"></label>
+            <label class="settings-field"><span>Titular</span><input x-model="settingsForm.company_titular"></label>
+            <label class="settings-field"><span>Email</span><input type="email" x-model="settingsForm.email"></label>
+            <label class="settings-field"><span>Teléfono / WhatsApp</span><input x-model="settingsForm.phone"></label>
+            <label class="settings-field sm:col-span-2"><span>Dirección</span><input x-model="settingsForm.company_address"></label>
+            <label class="settings-field sm:col-span-2"><span>Notas</span><textarea x-model="settingsForm.notes" rows="3"></textarea></label>
+          </div>
+        </section>
+
+        <!-- APP -->
+        <section x-show="settingsTab==='app'" class="space-y-5">
+          <div><h3 class="font-black text-lg">Nombre y experiencia de la aplicación</h3><p class="text-xs text-slate-500">Podés cambiar cómo se llama la app y cómo aparece al instalarla.</p></div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label class="settings-field"><span>Nombre de la aplicación</span><input x-model="settingsForm.app_name" placeholder="Gestión Préstamos"></label>
+            <label class="settings-field"><span>Nombre corto / alias de la app</span><input x-model="settingsForm.app_alias" maxlength="24" placeholder="Préstamos"></label>
+            <label class="settings-field sm:col-span-2"><span>Subtítulo de la aplicación</span><input x-model="settingsForm.app_subtitle" placeholder="Sistema de préstamos y cobranzas"></label>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <div class="p-4 rounded-2xl border bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900">
+              <h4 class="font-black text-sm">📲 Instalar como PWA</h4><p class="text-xs text-slate-500 mt-1">Instala la aplicación como una app independiente cuando el navegador lo permita.</p>
+              <button type="button" @click="installPwa()" class="mt-3 w-full py-2.5 rounded-xl bg-indigo-600 text-white font-black text-xs">Instalar / Añadir a inicio</button>
+            </div>
+            <div class="p-4 rounded-2xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900">
+              <h4 class="font-black text-sm">⭐ Guardar favorito</h4><p class="text-xs text-slate-500 mt-1">El navegador controla los favoritos por seguridad; te mostramos el método correcto según tu equipo.</p>
+              <button type="button" @click="saveFavorite()" class="mt-3 w-full py-2.5 rounded-xl bg-emerald-600 text-white font-black text-xs">⭐ Guardar en favoritos</button>
+            </div>
+          </div>
+          <label class="settings-toggle"><input type="checkbox" x-model="settingsForm.pwa_enabled"><span>Permitir funciones PWA / instalación</span></label>
+        </section>
+
+        <!-- NEWS -->
+        <section x-show="settingsTab==='noticias'" class="space-y-5">
+          <div>
+            <h3 class="font-black text-lg">📰 Gestión completa del Marquee</h3>
+            <p class="text-xs text-slate-500">Desde aquí controlás la velocidad, actualización, cantidad, búsquedas, fuentes y qué diarios pueden aparecer en la marquesina.</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label class="settings-field sm:col-span-2">
+              <span>🔎 Categorías / búsquedas actuales</span>
+              <input x-model="settingsForm.news_categories" placeholder="Catamarca, política Catamarca, policiales Catamarca">
+            </label>
+            <label class="settings-field">
+              <span>📌 Cantidad máxima de noticias</span>
+              <input type="number" min="5" max="50" x-model.number="settingsForm.news_limit">
+            </label>
+            <label class="settings-field">
+              <span>🔄 Actualizar noticias cada (minutos)</span>
+              <input type="number" min="1" max="60" x-model.number="settingsForm.news_refresh_minutes">
+            </label>
+          </div>
+
+          <div class="p-4 rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/70 dark:bg-indigo-950/20">
+            <div class="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <h4 class="font-black text-sm">🏃 Velocidad del Marquee</h4>
+                <p class="text-[11px] text-slate-500">Tiempo aproximado para recorrer la barra completa. Menor tiempo = más rápido.</p>
+              </div>
+              <span class="px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border text-xs font-black" x-text="Math.round(settingsForm.news_speed_seconds || 45) + ' s'">45 s</span>
+            </div>
+            <input type="range" min="10" max="180" step="5" x-model.number="settingsForm.news_speed_seconds" class="w-full accent-indigo-600">
+            <div class="flex justify-between text-[10px] text-slate-400 mt-1"><span>⚡ 10 s · rápida</span><span>45 s · normal</span><span>180 s · lenta</span></div>
+          </div>
+
+          <label class="settings-toggle"><input type="checkbox" x-model="settingsForm.news_enabled"><span>Mostrar noticias en la marquesina superior</span></label>
+
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div class="p-4 bg-slate-50 dark:bg-slate-950/50 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h4 class="font-black text-sm">🗞️ Diarios / fuentes que aparecen</h4>
+                <p class="text-[11px] text-slate-500">La lista se arma automáticamente con las fuentes reales recibidas por el Marquee. Podés ocultar una fuente sin borrar las demás.</p>
+              </div>
+              <button type="button" @click="resetNewsSourceFilters()" class="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border text-[11px] font-black">Mostrar todos</button>
+            </div>
+            <div class="p-3 space-y-2 max-h-64 overflow-y-auto">
+              <template x-if="detectedNewsSources.length">
+                <template x-for="source in detectedNewsSources" :key="source.name">
+                  <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer">
+                    <input type="checkbox" :checked="isNewsSourceEnabled(source.name)" @change="toggleNewsSource(source.name)" class="w-4 h-4">
+                    <span class="min-w-0 flex-1">
+                      <b class="block text-xs truncate" x-text="source.name"></b>
+                      <small class="text-[10px] text-slate-400" x-text="source.count + ' noticia(s) detectada(s)' + (source.url ? ' · fuente enlazada' : '')"></small>
+                    </span>
+                    <span class="text-[10px] font-black" :class="isNewsSourceEnabled(source.name) ? 'text-emerald-600' : 'text-slate-400'" x-text="isNewsSourceEnabled(source.name) ? 'ACTIVA' : 'OCULTA'"></span>
+                  </label>
+                </template>
+              </template>
+              <div x-show="!detectedNewsSources.length" class="p-5 text-center text-xs text-slate-400">
+                Todavía no hay fuentes detectadas. Presioná <b>Actualizar ahora</b> para consultar las fuentes actuales y armar la lista.
+              </div>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div>
+                <h4 class="font-black text-sm">➕ Fuentes RSS adicionales</h4>
+                <p class="text-[11px] text-slate-500">Mantenemos las fuentes actuales. Podés sumar una o varias URL RSS, una por línea.</p>
+              </div>
+            </div>
+            <textarea x-model="settingsForm.news_custom_feed" rows="3" class="w-full" placeholder="https://ejemplo.com/rss.xml
+https://otro-diario.com/feed"></textarea>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" @click="fetchNews()" class="px-4 py-2.5 rounded-xl bg-slate-800 text-white text-xs font-black">🔄 Actualizar ahora</button>
+            <span class="text-[11px] text-slate-400" x-text="newsUpdatedAt ? 'Última actualización: '+newsUpdatedAt : 'Sin actualización registrada'"></span>
+          </div>
+        </section>
+
+        <!-- DATABASE -->
+        <section x-show="settingsTab==='datos'" class="space-y-5">
+          <div><h3 class="font-black text-lg">Base de datos, respaldos y mantenimiento</h3><p class="text-xs text-slate-500">Desde aquí podés consultar, descargar y restaurar la base. Restaurar reemplaza los datos actuales.</p></div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" x-show="databaseInfo">
+            <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800"><b x-text="databaseInfo.clients || 0"></b><span class="block text-[10px] text-slate-500">Clientes</span></div>
+            <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800"><b x-text="databaseInfo.loans || 0"></b><span class="block text-[10px] text-slate-500">Préstamos</span></div>
+            <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800"><b x-text="databaseInfo.payments || 0"></b><span class="block text-[10px] text-slate-500">Cobros</span></div>
+            <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800"><b x-text="databaseInfo.expenses || 0"></b><span class="block text-[10px] text-slate-500">Gastos</span></div>
+            <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800"><b x-text="databaseInfo.installments || 0"></b><span class="block text-[10px] text-slate-500">Cuotas</span></div>
+            <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800"><b x-text="(databaseInfo.size_mb || 0)+' MB'"></b><span class="block text-[10px] text-slate-500">Tamaño DB</span></div>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <button type="button" @click="refreshDatabaseInfo()" class="p-4 rounded-2xl border text-left hover:bg-slate-50 dark:hover:bg-slate-800"><b>🔄 Actualizar información</b><span class="block text-xs text-slate-500 mt-1">Vuelve a consultar el estado de la base.</span></button>
+            <button type="button" @click="downloadBackup()" class="p-4 rounded-2xl border text-left hover:bg-slate-50 dark:hover:bg-slate-800"><b>💾 Descargar backup</b><span class="block text-xs text-slate-500 mt-1">Guarda una copia completa en JSON.</span></button>
+            <label class="p-4 rounded-2xl border text-left hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"><b>📥 Restaurar backup</b><span class="block text-xs text-slate-500 mt-1">Selecciona un JSON generado por esta app.</span><input type="file" accept="application/json,.json" class="hidden" @change="restoreBackupFromSettings($event)"></label>
+            <button type="button" @click="openGeneralHistoryModal()" class="p-4 rounded-2xl border text-left hover:bg-slate-50 dark:hover:bg-slate-800"><b>📜 Ver / eliminar historial</b><span class="block text-xs text-slate-500 mt-1">Abre el historial detallado con filtros y eliminación selectiva.</span></button>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <label class="settings-toggle"><input type="checkbox" x-model="settingsForm.database_auto_backup"><span>Realizar backup automático</span></label>
+            <label class="settings-field"><span>Retención de backups</span><input type="number" min="1" max="30" x-model.number="settingsForm.database_backup_retention"></label>
+          </div>
+        </section>
+
+        <!-- HISTORY -->
+        <section x-show="settingsTab==='auditoria'" class="space-y-4">
+          <div class="flex items-center justify-between"><div><h3 class="font-black text-lg">Historial y auditoría</h3><p class="text-xs text-slate-500">Actividad reciente de cobros, préstamos, clientes y gastos.</p></div><button type="button" @click="fetchAuditLogs()" class="px-3 py-2 rounded-xl bg-slate-800 text-white text-xs font-black">🔄 Actualizar</button></div>
+          <div class="max-h-80 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            <template x-for="log in filteredAuditLogs" :key="log.id"><div class="p-3 border-b border-slate-100 dark:border-slate-800 flex gap-3"><span x-text="log.icon"></span><div class="min-w-0 flex-1"><b class="text-xs" x-text="log.title"></b><p class="text-[11px] text-slate-500" x-text="log.description"></p></div><span class="text-[10px] text-slate-400" x-text="log.date"></span></div></template>
+            <div x-show="!filteredAuditLogs.length" class="p-8 text-center text-xs text-slate-400">No hay registros.</div>
+          </div>
+          <button type="button" @click="openGeneralHistoryModal()" class="w-full py-2.5 rounded-xl bg-rose-600 text-white text-xs font-black">🗑️ Ver y eliminar historial detallado</button>
+        </section>
+
+        <!-- NOTIFICATIONS -->
+        <section x-show="settingsTab==='notificaciones'" class="space-y-5">
+          <div><h3 class="font-black text-lg">Notificaciones de préstamos</h3><p class="text-xs text-slate-500">Configura qué ocurre al otorgar un nuevo préstamo.</p></div>
+          <label class="settings-toggle"><input type="checkbox" x-model="settingsForm.notify_whatsapp"><span>📱 Enviar aviso por WhatsApp</span></label>
+          <label class="settings-toggle"><input type="checkbox" x-model="settingsForm.notify_pdf"><span>📄 Generar comprobante PDF</span></label>
+          <div class="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200">Para WhatsApp automático se deben configurar las credenciales de Twilio en las variables de entorno del servidor. Nunca se guardan contraseñas dentro de los ajustes.</div>
+        </section>
+      </main>
+    </div>
+
+    <div class="settings-modal-footer flex flex-wrap justify-end gap-2 p-3 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <button type="button" @click="activeModal=null" class="settings-close-btn order-2 sm:order-1 px-4 py-2.5 rounded-xl font-bold text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800">Cerrar</button>
+      <button type="button" @click="saveSettings()" class="settings-save-btn order-1 sm:order-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 text-white font-black text-xs shadow-lg">💾 Guardar todos los ajustes</button>
+    </div>
+  </div>
+</div>

@@ -1028,6 +1028,72 @@ function registerPrestamosApp() {
                         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                         return {
+            clientRegistrationRequests: [],
+            clientRegistrationQrData: null,
+            showClientQrRegistrationModal: false,
+            activeClientSubTab: 'lista',
+
+            async generateClientRegistrationQr() {
+                try {
+                    const res = await fetch('/api/client_registration_requests', { method: 'POST' });
+                    const data = await res.json();
+                    if (data.success) {
+                        this.clientRegistrationQrData = data;
+                        this.showClientQrRegistrationModal = true;
+                    }
+                } catch(e) {
+                    alert("Error al generar QR de registro: " + e.message);
+                }
+            },
+
+            closeClientQrRegistrationModal() {
+                this.showClientQrRegistrationModal = false;
+                this.clientRegistrationQrData = null;
+            },
+
+            async fetchClientRegistrationRequests() {
+                try {
+                    const res = await fetch('/api/client_registration_requests');
+                    if (res.ok) {
+                        this.clientRegistrationRequests = await res.json();
+                    }
+                } catch(e) {
+                    console.error("Error al obtener solicitudes de registro:", e);
+                }
+            },
+
+            async approveClientRegistration(req) {
+                if (!req || !req.token) return;
+                if (!confirm(`¿Confirmas la APROBACIÓN del registro del cliente ${req.name}?`)) return;
+                try {
+                    const res = await fetch(`/api/client_registration_requests/${req.token}/approve`, { method: 'POST' });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert("✅ Cliente APROBADO y REGISTRADO exitosamente.");
+                        if (data.wa_url) {
+                            window.open(data.wa_url, '_blank');
+                        }
+                        await this.fetchClientRegistrationRequests();
+                        await this.fetchClients();
+                    } else {
+                        alert(data.error || "Error al aprobar el registro.");
+                    }
+                } catch(e) {
+                    alert("Error al conectar con el servidor: " + e.message);
+                }
+            },
+
+            async deleteClientRegistrationRequest(req) {
+                if (!req || !req.token) return;
+                if (!confirm("¿Eliminar/Rechazar esta solicitud de registro de cliente?")) return;
+                try {
+                    await fetch(`/api/client_registration_requests/${req.token}`, { method: 'DELETE' });
+                    await this.fetchClientRegistrationRequests();
+                } catch(e) {
+                    alert("Error al eliminar solicitud: " + e.message);
+                }
+            },
+
             showArqueoModal: false,
             async openArqueoModal() { await this.fetchArqueoCaja(); this.showArqueoModal = true; },
             closeArqueoModal() { this.showArqueoModal = false; },

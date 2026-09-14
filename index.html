@@ -631,6 +631,66 @@
     <!-- TAB 2 & 3: CLIENTES, SCORING & SIMULADOR   -->
     <!-- ========================================== -->
     <div x-show="activeTab === 'clients'" x-transition class="space-y-6">
+      <!-- SUBTAB NAVEGACIÓN CLIENTES -->
+      <div class="flex items-center gap-2 mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
+        <button @click="activeClientSubTab = 'lista'" :class="activeClientSubTab === 'lista' ? 'bg-brand-600 text-white font-black' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-200'" class="px-3.5 py-1.5 rounded-xl text-xs transition flex items-center gap-1.5">
+          <span>👥 Lista de Clientes</span>
+        </button>
+        <button @click="activeClientSubTab = 'solicitudes'" :class="activeClientSubTab === 'solicitudes' ? 'bg-amber-500 text-white font-black animate-pulse shadow-md shadow-amber-500/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-200'" class="px-3.5 py-1.5 rounded-xl text-xs transition flex items-center gap-1.5">
+          <span>📥 Solicitudes Pendientes (Clientes & Pagarés QR)</span>
+          <template x-if="clientRegistrationRequests.filter(r => r.status === 'registrado').length > 0">
+            <span class="px-1.5 py-0.5 bg-red-600 text-white text-[10px] rounded-full font-black" x-text="clientRegistrationRequests.filter(r => r.status === 'registrado').length"></span>
+          </template>
+        </button>
+      </div>
+
+      <div x-show="activeClientSubTab === 'solicitudes'" x-cloak class="space-y-6 mb-6">
+        <!-- BLOQUE 1: NUEVAS SOLICITUDES DE CLIENTES REGISTRADOS POR QR -->
+        <div class="p-5 bg-slate-900 border border-slate-800 rounded-3xl space-y-4 shadow-xl">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-black text-white flex items-center gap-2">
+              <span>📱 Registros de Clientes Recibidos por QR</span>
+              <span class="text-[10px] px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full font-bold border border-purple-500/30" x-text="clientRegistrationRequests.filter(r => r.status === 'registrado').length + ' pendientes'"></span>
+            </h3>
+            <button @click="fetchClientRegistrationRequests()" class="text-xs text-indigo-400 hover:text-indigo-300 font-bold">🔄 Actualizar</button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <template x-for="req in clientRegistrationRequests.filter(r => r.status === 'registrado')" :key="req.token">
+              <div class="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3 relative">
+                <div class="flex items-start justify-between">
+                  <div>
+                    <h4 class="text-xs font-black text-white" x-text="req.name"></h4>
+                    <p class="text-[11px] text-slate-400" x-text="'📱 WA: ' + req.whatsapp"></p>
+                    <p class="text-[11px] text-slate-400" x-text="'🪪 CUIT: ' + req.cuit"></p>
+                    <p class="text-[11px] text-slate-400" x-text="'🏠 Domicilio: ' + req.address"></p>
+                    <template x-if="req.bank_alias">
+                      <p class="text-[11px] text-emerald-400 font-bold" x-text="'💳 Alias: ' + req.bank_alias"></p>
+                    </template>
+                  </div>
+                  <span class="text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded-full border border-amber-500/30 font-bold">Pendiente Aprobación</span>
+                </div>
+
+                <div class="flex items-center gap-2 pt-2 border-t border-slate-800">
+                  <button @click="approveClientRegistration(req)" class="flex-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-sm transition flex items-center justify-center gap-1">
+                    <span>✅ Aprobar & Crear Cliente</span>
+                  </button>
+                  <button @click="deleteClientRegistrationRequest(req)" class="px-3 py-1.5 bg-rose-950 text-rose-400 hover:bg-rose-900 rounded-xl text-xs font-bold transition">
+                    🗑️ Rechazar
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <template x-if="clientRegistrationRequests.filter(r => r.status === 'registrado').length === 0">
+            <div class="p-6 text-center text-slate-400 text-xs font-medium bg-slate-950/40 rounded-2xl border border-dashed border-slate-800">
+              📱 No hay nuevas solicitudes de registro de clientes QR pendientes
+            </div>
+          </template>
+        </div>
+      </div>
+
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 class="text-2xl font-black text-slate-900 dark:text-white">Clientes & Scoring</h2>
@@ -644,7 +704,7 @@
           </button>
           <button @click="openNewClientModal()" class="bg-slate-800 hover:bg-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold shadow transition active:scale-95 whitespace-nowrap">
             <span>+ Nuevo Cliente</span>
-          </button>
+          </button> <button @click="generateClientRegistrationQr()" class="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black shadow-lg shadow-purple-600/20 transition flex items-center gap-1.5" title="Generar QR para Registro Express Remoto de Cliente"><span>📱 Cliente Express QR</span></button>
         </div>
       </div>
 
@@ -6163,6 +6223,41 @@
           <span>📄 Exportar Arqueo PDF</span>
         </button>
       </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL GENERADOR CLIENTE EXPRESS QR -->
+  <div x-show="showClientQrRegistrationModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div @click.away="closeClientQrRegistrationModal()" class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 text-center relative">
+      <button @click="closeClientQrRegistrationModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm">✕</button>
+
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-3xl mx-auto shadow-lg shadow-purple-500/20">
+        📱
+      </div>
+
+      <div>
+        <h3 class="text-lg font-black text-white">Registro Express de Cliente QR</h3>
+        <p class="text-xs text-slate-400 mt-1">Escanea el código QR o comparte el enlace para que el cliente se registre de forma remota.</p>
+      </div>
+
+      <template x-if="clientRegistrationQrData">
+        <div class="space-y-4">
+          <div class="p-4 bg-white rounded-2xl inline-block shadow-xl border-4 border-purple-500/30">
+            <img :src="clientRegistrationQrData.qr_img_url" alt="QR Registro Cliente" class="w-48 h-48 mx-auto">
+          </div>
+
+          <div class="p-3 bg-slate-950 rounded-2xl text-[11px] text-slate-300 font-mono break-all select-all border border-slate-800" x-text="clientRegistrationQrData.sign_url"></div>
+
+          <div class="flex items-center gap-2">
+            <a :href="clientRegistrationQrData.wa_url" target="_blank" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2">
+              <span>💬 Enviar por WhatsApp</span>
+            </a>
+          </div>
+        </div>
+      </template>
+
+      <p class="text-[10px] text-slate-500">Este QR expira automáticamente al completarse el registro o transcurrido el tiempo límite.</p>
     </div>
   </div>
 

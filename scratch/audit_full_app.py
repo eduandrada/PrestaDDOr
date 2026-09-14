@@ -55,16 +55,18 @@ def run_audit():
             res = client.get('/api/clients')
             check("GET /api/clients", res.status_code == 200)
 
+            import time
+            unique_suffix = str(int(time.time()))
             res = client.post('/api/clients', data=json.dumps({
-                'name': 'Juan Carlos Test',
-                'whatsapp': '5491199887766',
-                'email': 'juancarlos@test.com',
+                'name': f'Juan Carlos Test {unique_suffix}',
+                'whatsapp': f'54911{unique_suffix[-6:]}',
+                'email': f'juancarlos_{unique_suffix}@test.com',
                 'address': 'Calle Falsa 123',
                 'notes': 'Cliente de auditoría'
             }), content_type='application/json')
             check("POST /api/clients (Crear)", res.status_code == 201)
             c_json = res.get_json()
-            client_id = c_json.get('client', {}).get('id') if isinstance(c_json, dict) and 'client' in c_json else c_json.get('id')
+            client_id = c_json.get('client', {}).get('id') if isinstance(c_json, dict) and 'client' in c_json else (c_json.get('id') if c_json else None)
 
             res = client.put(f'/api/clients/{client_id}', data=json.dumps({
                 'name': 'Juan Carlos Test Actualizado',
