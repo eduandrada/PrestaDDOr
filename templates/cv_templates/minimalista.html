@@ -4,83 +4,125 @@
     <meta charset="UTF-8">
     <title>Curriculum Vitae - {{ nombre }}</title>
     <style>
-        @page { size: A4; margin: 15mm 15mm 15mm 15mm; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1e293b; line-height: 1.5; margin: 0; padding: 0; background: #ffffff; }
-        .header { border-bottom: 2px solid {{ accent_color or '#0f766e' }}; padding-bottom: 12px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: flex-start; }
-        .name { font-size: 26px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; margin: 0; }
-        .title { font-size: 15px; color: {{ accent_color or '#0f766e' }}; text-transform: uppercase; font-weight: 700; margin-top: 3px; letter-spacing: 0.5px; }
-        .contact-bar { font-size: 11px; color: #475569; margin-top: 8px; font-weight: 500; }
-        .contact-item { display: inline-block; margin-right: 12px; }
-        .section-title { font-size: 13px; font-weight: 800; color: {{ accent_color or '#0f766e' }}; letter-spacing: 1px; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; margin-top: 18px; margin-bottom: 8px; text-transform: uppercase; }
-        p { margin: 0 0 8px 0; font-size: 13px; color: #334155; }
-        .content-block { margin-bottom: 12px; font-size: 12.5px; white-space: pre-line; color: #334155; }
-        .badge { display: inline-block; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 600; margin-right: 4px; margin-bottom: 4px; }
-        .avatar { width: 64px; h-64px; border-radius: 12px; object-fit: cover; border: 2px solid {{ accent_color or '#0f766e' }}; margin-left: 12px; }
+        @page { size: A4; margin: 12mm 15mm; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1e293b; line-height: 1.5; margin: 0; padding: 0; background: #ffffff; font-size: 12px; }
+        .cv-container { max-width: 800px; margin: 0 auto; padding: 10px 0; }
+        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        .name { font-size: 26px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; margin: 0 0 3px 0; line-height: 1.2; }
+        .title { font-size: 13px; color: {{ accent_color or '#0f766e' }}; text-transform: uppercase; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 8px; }
+        .contact-bar { font-size: 10.5px; color: #475569; font-weight: 500; display: flex; flex-wrap: wrap; gap: 10px; }
+        .contact-item { display: inline-flex; items-center: center; gap: 4px; }
+        .avatar-cell { width: 80px; text-align: right; vertical-align: top; }
+        .avatar { width: 75px; height: 75px; border-radius: 12px; object-fit: cover; border: 2.5px solid {{ accent_color or '#0f766e' }}; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .divider { height: 2px; background: linear-gradient(90deg, {{ accent_color or '#0f766e' }}, #cbd5e1); margin: 12px 0 16px 0; border: none; }
+        .section-header { display: flex; align-items: center; gap: 8px; margin-top: 16px; margin-bottom: 8px; }
+        .section-title { font-size: 12px; font-weight: 800; color: {{ accent_color or '#0f766e' }}; letter-spacing: 1px; text-transform: uppercase; }
+        .section-line { flex: 1; height: 1px; background: #e2e8f0; }
+        .content-block { font-size: 11.5px; color: #334155; line-height: 1.6; white-space: pre-line; margin-bottom: 10px; }
+        .badges-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+        .badge { background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px; padding: 3px 8px; font-size: 10.5px; font-weight: 600; display: inline-block; }
+        @media print {
+            body { background: transparent; }
+            .cv-container { padding: 0; }
+        }
     </style>
 </head>
 <body>
-    <table style="width: 100%; border-collapse: collapse;">
-        <tr>
-            <td style="vertical-align: top;">
-                <div class="name">{{ nombre }}</div>
-                <div class="title">{{ puesto }}</div>
-                <div class="contact-bar">
-                    <span class="contact-item">✉ {{ email }}</span>
-                    <span class="contact-item">📱 {{ telefono }}</span>
-                    {% if ubicacion %}<span class="contact-item">📍 {{ ubicacion }}</span>{% endif %}
-                    {% if linkedin %}<span class="contact-item">🔗 {{ linkedin }}</span>{% endif %}
-                    {% if github %}<span class="contact-item">💻 {{ github }}</span>{% endif %}
-                    {% if web %}<span class="contact-item">🌐 {{ web }}</span>{% endif %}
-                </div>
-            </td>
-            {% if foto_url %}
-            <td style="width: 70px; text-align: right; vertical-align: top;">
-                <img src="{{ foto_url }}" class="avatar" alt="Foto">
-            </td>
-            {% endif %}
-        </tr>
-    </table>
-    
-    <div style="border-bottom: 2px solid {{ accent_color or '#0f766e' }}; margin-top: 10px; margin-bottom: 15px;"></div>
+    <div class="cv-container">
+        <table class="header-table">
+            <tr>
+                <td style="vertical-align: top;">
+                    <div class="name">{{ nombre }}</div>
+                    <div class="title">{{ puesto }}</div>
+                    <div class="contact-bar">
+                        <span class="contact-item">✉ {{ email }}</span>
+                        <span class="contact-item">📱 {{ telefono }}</span>
+                        {% if ubicacion %}<span class="contact-item">📍 {{ ubicacion }}</span>{% endif %}
+                        {% if linkedin %}<span class="contact-item">🔗 {{ linkedin }}</span>{% endif %}
+                        {% if github %}<span class="contact-item">💻 {{ github }}</span>{% endif %}
+                        {% if web %}<span class="contact-item">🌐 {{ web }}</span>{% endif %}
+                    </div>
+                </td>
+                {% if foto_url %}
+                <td class="avatar-cell">
+                    <img src="{{ foto_url }}" class="avatar" alt="Foto Perfil">
+                </td>
+                {% endif %}
+            </tr>
+        </table>
+        
+        <hr class="divider">
 
-    {% if sobre_mi %}
-    <div class="section-title">Perfil Profesional</div>
-    <div class="content-block">{{ sobre_mi }}</div>
-    {% endif %}
+        {% if sobre_mi %}
+        <div class="section-header">
+            <span class="section-title">Perfil Profesional</span>
+            <div class="section-line"></div>
+        </div>
+        <div class="content-block">{{ sobre_mi }}</div>
+        {% endif %}
 
-    {% if experiencia %}
-    <div class="section-title">Experiencia Laboral</div>
-    <div class="content-block">{{ experiencia }}</div>
-    {% endif %}
+        {% if experiencia %}
+        <div class="section-header">
+            <span class="section-title">Experiencia Laboral</span>
+            <div class="section-line"></div>
+        </div>
+        <div class="content-block">{{ experiencia }}</div>
+        {% endif %}
 
-    {% if educacion %}
-    <div class="section-title">Educación</div>
-    <div class="content-block">{{ educacion }}</div>
-    {% endif %}
+        {% if educacion %}
+        <div class="section-header">
+            <span class="section-title">Educación</span>
+            <div class="section-line"></div>
+        </div>
+        <div class="content-block">{{ educacion }}</div>
+        {% endif %}
 
-    {% if certificaciones %}
-    <div class="section-title">Certificaciones & Cursos</div>
-    <div class="content-block">{{ certificaciones }}</div>
-    {% endif %}
+        {% if certificaciones %}
+        <div class="section-header">
+            <span class="section-title">Certificaciones & Cursos</span>
+            <div class="section-line"></div>
+        </div>
+        <div class="content-block">{{ certificaciones }}</div>
+        {% endif %}
 
-    {% if habilidades %}
-    <div class="section-title">Habilidades & Competencias Clave</div>
-    <div class="content-block">{{ habilidades }}</div>
-    {% endif %}
+        {% if habilidades %}
+        <div class="section-header">
+            <span class="section-title">Habilidades Clave</span>
+            <div class="section-line"></div>
+        </div>
+        <div class="badges-container">
+            {% for skill in habilidades.split(',') %}
+                {% if skill.strip() %}
+                <span class="badge">{{ skill.strip() }}</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
 
-    {% if idiomas %}
-    <div class="section-title">Idiomas</div>
-    <div class="content-block">{{ idiomas }}</div>
-    {% endif %}
+        {% if idiomas %}
+        <div class="section-header" style="margin-top: 14px;">
+            <span class="section-title">Idiomas</span>
+            <div class="section-line"></div>
+        </div>
+        <div class="content-block">{{ idiomas }}</div>
+        {% endif %}
 
-    {% if proyectos %}
-    <div class="section-title">Proyectos Destacados</div>
-    <div class="content-block">{{ proyectos }}</div>
-    {% endif %}
+        {% if proyectos %}
+        <div class="section-header">
+            <span class="section-title">Proyectos Destacados</span>
+            <div class="section-line"></div>
+        </div>
+        <div class="content-block">{{ proyectos }}</div>
+        {% endif %}
 
-    {% if referencias %}
-    <div class="section-title">Referencias Laborales</div>
-    <div class="content-block">{{ referencias }}</div>
-    {% endif %}
+        {% if referencias %}
+        <div class="section-header">
+            <span class="section-title">Referencias</span>
+            <div class="section-line"></div>
+        </div>
+        <div class="content-block">{{ referencias }}</div>
+        {% endif %}
+    </div>
 </body>
 </html>

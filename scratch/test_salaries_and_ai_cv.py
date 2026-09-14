@@ -24,7 +24,6 @@ class TestSalariesAndAiCv(unittest.TestCase):
         with urllib.request.urlopen(req) as resp:
             self.assertEqual(resp.status, 200)
 
-        # Retrieve settings and verify
         get_req = urllib.request.Request(f"{BASE_URL}/api/settings")
         with urllib.request.urlopen(get_req) as get_resp:
             settings = json.loads(get_resp.read().decode('utf-8'))
@@ -34,7 +33,6 @@ class TestSalariesAndAiCv(unittest.TestCase):
             self.assertEqual(parsed[0]["name"], "💼 Freelance IT")
 
     def test_02_ai_cv_enhance_endpoint(self):
-        # Test profile enhancement
         payload = json.dumps({
             "action": "profile",
             "puesto": "Analista Senior",
@@ -48,7 +46,8 @@ class TestSalariesAndAiCv(unittest.TestCase):
             self.assertTrue(data.get('success'))
             self.assertIn("Perfil Profesional en Analista Senior", data.get('result', ''))
 
-    def test_03_generar_cv_2026_pro(self):
+    def test_03_generar_cv_2026_pro_with_base64_photo(self):
+        fake_base64_photo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         templates = ['minimalista', 'ejecutivo', 'creativa', 'tecnologica']
         for tmpl in templates:
             payload = json.dumps({
@@ -57,7 +56,7 @@ class TestSalariesAndAiCv(unittest.TestCase):
                 "email": "eduardo@example.com",
                 "telefono": "+54 9 383 4112233",
                 "ubicacion": "Catamarca, Argentina",
-                "foto_url": "https://example.com/avatar.jpg",
+                "foto_url": fake_base64_photo,
                 "linkedin": "linkedin.com/in/eduardoandrada",
                 "github": "github.com/eduandrada",
                 "web": "eduardoandrada.dev",
@@ -69,7 +68,8 @@ class TestSalariesAndAiCv(unittest.TestCase):
                 "idiomas": "Español (Nativo), Inglés (Avanzado C1)",
                 "proyectos": "• Sistema de Gestión P2P & Finanzas",
                 "referencias": "• Referencias disponibles a solicitud.",
-                "plantilla": tmpl
+                "plantilla": tmpl,
+                "accent_color": "#0284c7"
             }).encode('utf-8')
 
             req = urllib.request.Request(f"{BASE_URL}/generar-cv", data=payload, headers={'Content-Type': 'application/json'})
@@ -78,6 +78,7 @@ class TestSalariesAndAiCv(unittest.TestCase):
                 html = resp.read().decode('utf-8')
                 self.assertIn("Eduardo Andrada 2026", html)
                 self.assertIn("AWS Certified Solutions Architect 2026", html)
+                self.assertIn(fake_base64_photo, html)
 
 if __name__ == '__main__':
     unittest.main()

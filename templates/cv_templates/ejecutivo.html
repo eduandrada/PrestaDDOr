@@ -5,17 +5,19 @@
     <title>Curriculum Vitae - {{ nombre }}</title>
     <style>
         @page { size: A4; margin: 0; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; margin: 0; padding: 0; background: #ffffff; }
-        .wrapper { width: 100%; border-collapse: collapse; }
-        .sidebar { width: 30%; background: #0f172a; color: #f8fafc; padding: 25px 15px; vertical-align: top; }
-        .main { width: 70%; padding: 25px 25px; vertical-align: top; }
-        .sidebar-title { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #38bdf8; letter-spacing: 1px; border-bottom: 1px solid #334155; padding-bottom: 4px; margin-top: 20px; margin-bottom: 10px; }
-        .sidebar-item { font-size: 11px; margin-bottom: 8px; color: #cbd5e1; word-break: break-all; }
-        .name { font-size: 24px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -0.5px; }
-        .title { font-size: 14px; font-weight: 700; color: #0284c7; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; margin-bottom: 15px; }
-        .section-title { font-size: 12px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #0284c7; padding-bottom: 4px; margin-top: 20px; margin-bottom: 10px; }
-        .content-block { font-size: 12px; color: #334155; line-height: 1.5; white-space: pre-line; margin-bottom: 12px; }
-        .avatar { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 3px solid #38bdf8; display: block; margin: 0 auto 15px auto; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', 'Segoe UI', Arial, sans-serif; color: #1e293b; margin: 0; padding: 0; background: #ffffff; font-size: 11.5px; }
+        .wrapper { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .sidebar { width: 32%; background: #0f172a; color: #f8fafc; padding: 25px 18px; vertical-align: top; }
+        .main { width: 68%; padding: 25px 25px; vertical-align: top; background: #ffffff; }
+        .sidebar-title { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #38bdf8; letter-spacing: 1px; border-bottom: 1px solid #334155; padding-bottom: 4px; margin-top: 22px; margin-bottom: 10px; }
+        .sidebar-item { font-size: 10.5px; margin-bottom: 8px; color: #cbd5e1; word-break: break-word; line-height: 1.5; }
+        .name { font-size: 24px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -0.5px; line-height: 1.2; }
+        .title { font-size: 13px; font-weight: 700; color: #0284c7; text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; margin-bottom: 16px; }
+        .section-title { font-size: 11.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #0284c7; padding-bottom: 4px; margin-top: 18px; margin-bottom: 10px; }
+        .content-block { font-size: 11.5px; color: #334155; line-height: 1.6; white-space: pre-line; margin-bottom: 12px; }
+        .avatar { width: 95px; height: 95px; border-radius: 50%; object-fit: cover; border: 3px solid #38bdf8; display: block; margin: 0 auto 15px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .skill-pill { display: inline-block; background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 600; margin-right: 4px; margin-bottom: 4px; }
     </style>
 </head>
 <body>
@@ -37,7 +39,13 @@
 
                 {% if habilidades %}
                 <div class="sidebar-title">Habilidades Clave</div>
-                <div class="sidebar-item" style="white-space: pre-line;">{{ habilidades }}</div>
+                <div>
+                    {% for skill in habilidades.split(',') %}
+                        {% if skill.strip() %}
+                        <span class="skill-pill">{{ skill.strip() }}</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
                 {% endif %}
 
                 {% if idiomas %}

@@ -4,34 +4,44 @@
     <meta charset="UTF-8">
     <title>Curriculum Vitae - {{ nombre }}</title>
     <style>
-        @page { size: A4; margin: 15mm 15mm 15mm 15mm; }
-        body { font-family: 'Montserrat', 'Segoe UI', sans-serif; color: #1e1b4b; line-height: 1.5; margin: 0; background: #ffffff; }
-        .hero { background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 20px 20px; border-radius: 16px; color: #ffffff; margin-bottom: 20px; }
-        .name { font-size: 26px; font-weight: 900; letter-spacing: -0.5px; margin: 0; }
-        .title { font-size: 14px; text-transform: uppercase; font-weight: 700; color: #c7d2fe; margin-top: 3px; letter-spacing: 1px; }
-        .contact-bar { font-size: 11px; color: #e0e7ff; margin-top: 10px; }
-        .contact-item { display: inline-block; margin-right: 12px; }
-        .section-title { font-size: 13px; font-weight: 900; color: #4f46e5; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #c7d2fe; padding-bottom: 4px; margin-top: 18px; margin-bottom: 10px; }
-        .content-block { font-size: 12.5px; color: #312e81; white-space: pre-line; margin-bottom: 12px; }
-        .avatar { width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 3px solid #ffffff; float: right; }
+        @page { size: A4; margin: 12mm 15mm; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Outfit', 'Montserrat', 'Segoe UI', sans-serif; color: #1e1b4b; line-height: 1.5; margin: 0; background: #ffffff; font-size: 11.5px; }
+        .hero { background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 22px 24px; border-radius: 16px; color: #ffffff; margin-bottom: 18px; box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.2); }
+        .hero-table { width: 100%; border-collapse: collapse; }
+        .name { font-size: 25px; font-weight: 900; letter-spacing: -0.5px; margin: 0; line-height: 1.2; text-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .title { font-size: 13px; text-transform: uppercase; font-weight: 700; color: #c7d2fe; margin-top: 4px; letter-spacing: 1px; }
+        .contact-bar { font-size: 10.5px; color: #e0e7ff; margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; }
+        .contact-item { display: inline-flex; align-items: center; gap: 4px; }
+        .avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        .section-title { font-size: 12px; font-weight: 900; color: #4f46e5; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid #c7d2fe; padding-bottom: 4px; margin-top: 18px; margin-bottom: 8px; }
+        .content-block { font-size: 11.5px; color: #312e81; line-height: 1.6; white-space: pre-line; margin-bottom: 12px; }
+        .badge { display: inline-block; background: #e0e7ff; color: #3730a3; border-radius: 20px; padding: 3px 10px; font-size: 10.5px; font-weight: 700; margin-right: 5px; margin-bottom: 5px; }
     </style>
 </head>
 <body>
     <div class="hero">
-        {% if foto_url %}
-        <img src="{{ foto_url }}" class="avatar" alt="Foto">
-        {% endif %}
-        <div class="name">{{ nombre }}</div>
-        <div class="title">{{ puesto }}</div>
-        <div class="contact-bar">
-            <span class="contact-item">✉ {{ email }}</span>
-            <span class="contact-item">📱 {{ telefono }}</span>
-            {% if ubicacion %}<span class="contact-item">📍 {{ ubicacion }}</span>{% endif %}
-            {% if linkedin %}<span class="contact-item">🔗 {{ linkedin }}</span>{% endif %}
-            {% if github %}<span class="contact-item">💻 {{ github }}</span>{% endif %}
-            {% if web %}<span class="contact-item">🌐 {{ web }}</span>{% endif %}
-        </div>
-        <div style="clear: both;"></div>
+        <table class="hero-table">
+            <tr>
+                <td style="vertical-align: middle;">
+                    <div class="name">{{ nombre }}</div>
+                    <div class="title">{{ puesto }}</div>
+                    <div class="contact-bar">
+                        <span class="contact-item">✉ {{ email }}</span>
+                        <span class="contact-item">📱 {{ telefono }}</span>
+                        {% if ubicacion %}<span class="contact-item">📍 {{ ubicacion }}</span>{% endif %}
+                        {% if linkedin %}<span class="contact-item">🔗 {{ linkedin }}</span>{% endif %}
+                        {% if github %}<span class="contact-item">💻 {{ github }}</span>{% endif %}
+                        {% if web %}<span class="contact-item">🌐 {{ web }}</span>{% endif %}
+                    </div>
+                </td>
+                {% if foto_url %}
+                <td style="width: 90px; text-align: right; vertical-align: middle;">
+                    <img src="{{ foto_url }}" class="avatar" alt="Foto">
+                </td>
+                {% endif %}
+            </tr>
+        </table>
     </div>
 
     {% if sobre_mi %}
@@ -56,11 +66,17 @@
 
     {% if habilidades %}
     <div class="section-title">💡 Competencias & Habilidades</div>
-    <div class="content-block">{{ habilidades }}</div>
+    <div>
+        {% for skill in habilidades.split(',') %}
+            {% if skill.strip() %}
+            <span class="badge">{{ skill.strip() }}</span>
+            {% endif %}
+        {% endfor %}
+    </div>
     {% endif %}
 
     {% if idiomas %}
-    <div class="section-title">🌐 Idiomas</div>
+    <div class="section-title" style="margin-top: 14px;">🌐 Idiomas</div>
     <div class="content-block">{{ idiomas }}</div>
     {% endif %}
 
