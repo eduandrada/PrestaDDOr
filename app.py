@@ -39,18 +39,22 @@ with app.app_context():
     try:
         with db.engine.connect() as conn:
             from sqlalchemy import text
-            try:
-                conn.execute(text("ALTER TABLE biometric_requests ADD COLUMN bank_alias VARCHAR(100)"))
-                conn.commit()
-            except Exception: pass
-            try:
-                conn.execute(text("ALTER TABLE biometric_requests ADD COLUMN bank_holder VARCHAR(100)"))
-                conn.commit()
-            except Exception: pass
-            try:
-                conn.execute(text("ALTER TABLE loans ADD COLUMN created_by VARCHAR(100) DEFAULT 'Administración'"))
-                conn.commit()
-            except Exception: pass
+            migrations = [
+                ("biometric_requests", "bank_alias", "VARCHAR(100)"),
+                ("biometric_requests", "bank_holder", "VARCHAR(100)"),
+                ("loans", "created_by", "VARCHAR(100) DEFAULT 'Administración'"),
+                ("clients", "bank_alias", "VARCHAR(100)"),
+                ("clients", "has_guarantor", "BOOLEAN DEFAULT 0"),
+                ("clients", "guarantor_name", "VARCHAR(120)"),
+                ("clients", "guarantor_address", "VARCHAR(255)"),
+                ("clients", "guarantor_cuit", "VARCHAR(20)"),
+                ("clients", "guarantor_phone", "VARCHAR(30)"),
+            ]
+            for table, col, col_type in migrations:
+                try:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+                    conn.commit()
+                except Exception: pass
     except Exception: pass
 
 # Helper for initial settings & seed data
