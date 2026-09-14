@@ -2399,74 +2399,78 @@ def generate_loan_prevencimiento_pdf(loan_id):
 # ----------------------------------------------------
 @app.route('/api/installments/<int:installment_id>/pay', methods=['POST'])
 def pay_installment(installment_id):
-    inst = Installment.query.get_or_404(installment_id)
-    data = request.json
-    pay_amount = float(data.get('amount', inst.amount - inst.paid_amount))
-    method = data.get('payment_method', 'Transferencia')
-    notes = data.get('notes', '').strip()
+    try:
+        inst = Installment.query.get_or_404(installment_id)
+        data = request.json or {}
+        pay_amount = float(data.get('amount', inst.amount - inst.paid_amount))
+        method = data.get('payment_method', 'Transferencia')
+        notes = data.get('notes', '').strip()
 
-    receipt_num = f"REC-{datetime.now().strftime('%Y%m%d%H%M%S')}-{inst.id}"
+        receipt_num = f"REC-{datetime.now().strftime('%Y%m%d%H%M%S')}-{inst.id}"
 
-    # Waterfall Allocation: 1. Late Fee/Mora, 2. Interest, 3. Capital Principal
-    late_fee = inst.calculate_late_fee()
-    remaining_interest = max(0.0, inst.interest_portion - max(0.0, inst.paid_amount - inst.capital_portion))
-    remaining_capital = max(0.0, inst.capital_portion - min(inst.capital_portion, inst.paid_amount))
+        # Waterfall Allocation: 1. Late Fee/Mora, 2. Interest, 3. Capital Principal
+        late_fee = inst.calculate_late_fee()
+        remaining_interest = max(0.0, inst.interest_portion - max(0.0, inst.paid_amount - inst.capital_portion))
+        remaining_capital = max(0.0, inst.capital_portion - min(inst.capital_portion, inst.paid_amount))
 
-    alloc_late_fee = min(pay_amount, late_fee)
-    rem_after_fee = pay_amount - alloc_late_fee
-    alloc_interest = min(rem_after_fee, remaining_interest)
-    rem_after_interest = rem_after_fee - alloc_interest
-    alloc_capital = min(rem_after_interest, remaining_capital)
+        alloc_late_fee = min(pay_amount, late_fee)
+        rem_after_fee = pay_amount - alloc_late_fee
+        alloc_interest = min(rem_after_fee, remaining_interest)
+        rem_after_interest = rem_after_fee - alloc_interest
+        alloc_capital = min(rem_after_interest, remaining_capital)
 
-    pay = Payment(
-        installment_id=inst.id,
-        loan_id=inst.loan_id,
-        client_id=inst.loan.client_id,
-        amount=pay_amount,
-        payment_date=datetime.now(),
-        payment_method=method,
-        notes=notes,
-            bank_alias=str(data.get('bank_alias') or '').strip()[:100],
-        receipt_number=receipt_num
-    )
-    db.session.add(pay)
+        pay = Payment(
+            installment_id=inst.id,
+            loan_id=inst.loan_id,
+            client_id=inst.loan.client_id,
+            amount=pay_amount,
+            payment_date=datetime.now(),
+            payment_method=method,
+            notes=notes,
+            receipt_number=receipt_num
+        )
+        db.session.add(pay)
 
-    inst.paid_amount += pay_amount
-    inst.paid_date = date.today()
+        inst.paid_amount += pay_amount
+        inst.paid_date = date.today()
 
-    if inst.paid_amount >= (inst.amount + late_fee) - 0.01:
-        inst.status = 'pagado'
-    else:
-        inst.status = 'parcial'
+        if inst.paid_amount >= (inst.amount + late_fee) - 0.01:
+            inst.status = 'pagado'
+        else:
+            inst.status = 'parcial'
 
-    db.session.commit()
+        db.session.commit()
 
-    # Settings for Receipt footer
-    cbu = Setting.get_val('alias_cbu', '')
-    company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
+        # Settings for Receipt footer
+        cbu = Setting.get_val('alias_cbu', '')
+        company = Setting.get_val('company_name', 'Prestamos & Finanzas Familia Andrada')
 
-    return jsonify({
-        "success": True,
-        "payment": pay.to_dict(),
-        "installment": inst.to_dict(),
-        "loan": inst.loan.to_dict(),
-        "receipt_details": {
-            "receipt_number": receipt_num,
-            "company_name": "Mutuo con Interés",
-            "alias_cbu": cbu,
-            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "client_name": inst.loan.client.name,
-            "client_whatsapp": inst.loan.client.whatsapp,
-            "amount_paid": pay_amount,
-            "allocated_late_fee": round(alloc_late_fee, 2),
-            "allocated_interest": round(alloc_interest, 2),
-            "allocated_capital": round(alloc_capital, 2),
-            "installment_number": inst.number,
-            "total_installments": inst.loan.installments_count,
-            "remaining_installment_balance": max(0.0, round((inst.amount + late_fee) - inst.paid_amount, 2)),
-            "remaining_loan_balance": inst.loan.to_dict()["remaining_balance"]
-        }
-    })
+        return jsonify({
+            "success": True,
+            "payment": pay.to_dict(),
+            "installment": inst.to_dict(),
+            "loan": inst.loan.to_dict(),
+            "receipt_details": {
+                "receipt_number": receipt_num,
+                "company_name": company,
+                "alias_cbu": cbu,
+                "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "client_name": inst.loan.client.name,
+                "client_whatsapp": inst.loan.client.whatsapp,
+                "amount_paid": pay_amount,
+                "allocated_late_fee": round(alloc_late_fee, 2),
+                "allocated_interest": round(alloc_interest, 2),
+                "allocated_capital": round(alloc_capital, 2),
+                "installment_number": inst.number,
+                "total_installments": inst.loan.installments_count,
+                "remaining_installment_balance": max(0.0, round((inst.amount + late_fee) - inst.paid_amount, 2)),
+                "remaining_loan_balance": inst.loan.to_dict()["remaining_balance"]
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 400
+
 
 
 # ----------------------------------------------------

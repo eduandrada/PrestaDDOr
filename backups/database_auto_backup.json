@@ -121,13 +121,13 @@
     },
     {
       "id": 8,
-      "name": "Auditoría QR Test",
+      "name": "Auditoría Qr Test",
       "whatsapp": "3834112233",
-      "email": null,
+      "email": "",
       "address": "Av. San Martín 100",
-      "cuit": "20334455669",
-      "notes": null,
-      "bank_alias": null,
+      "cuit": "20334455662",
+      "notes": "",
+      "bank_alias": "",
       "has_guarantor": false,
       "guarantor_name": null,
       "guarantor_address": null,
@@ -5741,6 +5741,16 @@
       "id": 52,
       "key": "news_limit",
       "value": "15"
+    },
+    {
+      "id": 53,
+      "key": "custom_rss_sources",
+      "value": ""
+    },
+    {
+      "id": 54,
+      "key": "marquee_keywords",
+      "value": "Catamarca, Economía, Inflación, Finanzas, Salarios, Política"
     }
   ],
   "PersonalBill": [

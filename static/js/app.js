@@ -1390,22 +1390,25 @@ function registerPrestamosApp() {
 
             async saveSettings() {
                 try {
+                    const payload = { ...this.settingsForm, ...this.settings };
                     const res = await fetch('/api/settings', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.settingsForm)
+                        body: JSON.stringify(payload)
                     });
                     if (res.ok) {
-                        this.settings = { ...this.settings, ...this.settingsForm };
+                        this.settings = { ...this.settings, ...payload };
+                        this.settingsForm = { ...this.settingsForm, ...payload };
                         await this.fetchSettings();
                         await this.fetchNews();
                         this.showToast("✅ Ajustes guardados correctamente en la base de datos.", "success");
                         alert("✅ Ajustes del sistema guardados correctamente en la base de datos.");
                     } else {
-                        alert("Error al guardar ajustes.");
+                        const errData = await res.json().catch(() => ({}));
+                        alert("Error al guardar ajustes: " + (errData.error || "Formato de datos inválido"));
                     }
                 } catch (e) {
-                    alert("Error de conexión al guardar ajustes.");
+                    alert("Error de conexión al guardar ajustes: " + e.message);
                 }
             },
 
@@ -1935,13 +1938,15 @@ function registerPrestamosApp() {
                         body: JSON.stringify(this.paymentForm)
                     });
                     const data = await res.json();
-                    if (data.success) {
+                    if (res.ok && data.success) {
                         this.activeReceipt = data.receipt_details;
                         this.activeModal = 'receipt';
                         await this.loadAllData();
+                    } else {
+                        alert("Error al procesar el pago: " + (data.error || "No se pudo asentar el pago en el servidor"));
                     }
                 } catch (err) {
-                    alert("Error al procesar el pago.");
+                    alert("Error de conexión al procesar el pago: " + (err.message || err));
                 }
             },
 
