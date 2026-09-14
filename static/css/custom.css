@@ -246,6 +246,78 @@ body.privacy-mode .privacy-hidden {
   box-shadow: 0 2px 4px rgba(46,204,113,0.4);
 }
 
+.fuente-clarin {
+  background: linear-gradient(135deg, #e53935, #b71c1c);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin-right: 8px;
+  font-weight: 800;
+  box-shadow: 0 2px 4px rgba(229,57,53,0.4);
+}
+
+.fuente-infobae {
+  background: linear-gradient(135deg, #ff9800, #e65100);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin-right: 8px;
+  font-weight: 800;
+  box-shadow: 0 2px 4px rgba(255,152,0,0.4);
+}
+
+.fuente-lanacion {
+  background: linear-gradient(135deg, #1565c0, #0d47a1);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin-right: 8px;
+  font-weight: 800;
+  box-shadow: 0 2px 4px rgba(21,101,192,0.4);
+}
+
+.fuente-ambito {
+  background: linear-gradient(135deg, #00897b, #004d40);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin-right: 8px;
+  font-weight: 800;
+  box-shadow: 0 2px 4px rgba(0,137,123,0.4);
+}
+
+.fuente-tn {
+  background: linear-gradient(135deg, #7b1fa2, #4a148c);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin-right: 8px;
+  font-weight: 800;
+  box-shadow: 0 2px 4px rgba(123,31,162,0.4);
+}
+
+.fuente-cronista {
+  background: linear-gradient(135deg, #2e7d32, #1b5e20);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin-right: 8px;
+  font-weight: 800;
+  box-shadow: 0 2px 4px rgba(46,125,50,0.4);
+}
+
 @keyframes barraNoticias {
   0% { transform: translate3d(0, 0, 0); }
   100% { transform: translate3d(-100%, 0, 0); }

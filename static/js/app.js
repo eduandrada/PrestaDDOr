@@ -203,6 +203,8 @@ function registerPrestamosApp() {
             selectedGuarantorClient: null,
             createdLoanSuccess: null,
             marqueeNews: [],
+            isRefreshingNews: false,
+            newsRefreshMessage: '',
             clientForm: { 
                 id: null, 
                 name: '', 
@@ -524,6 +526,27 @@ function registerPrestamosApp() {
                     }
                 } catch (e) {
                     console.error("Error fetching Catamarca news:", e);
+                }
+            },
+
+            async refreshNewsManual() {
+                this.isRefreshingNews = true;
+                this.newsRefreshMessage = '';
+                try {
+                    const res = await fetch('/api/news/refresh', { method: 'POST' });
+                    const data = await res.json();
+                    if (data.success) {
+                        await this.fetchNews();
+                        this.newsRefreshMessage = `✅ ¡${data.count} noticias actualizadas con éxito a las ${data.updated_at}!`;
+                        setTimeout(() => { this.newsRefreshMessage = ''; }, 4500);
+                    } else {
+                        this.newsRefreshMessage = '⚠️ No se pudieron refrescar las noticias.';
+                    }
+                } catch (e) {
+                    console.error("Error al actualizar noticias:", e);
+                    this.newsRefreshMessage = '❌ Error al conectar con el servidor.';
+                } finally {
+                    this.isRefreshingNews = false;
                 }
             },
 

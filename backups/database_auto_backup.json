@@ -927,6 +927,54 @@
       "guarantor_cuit": null,
       "guarantor_phone": null,
       "created_at": "2026-09-14T02:12:26.523047"
+    },
+    {
+      "id": 59,
+      "name": "Cliente Express 1789351947",
+      "whatsapp": "54911351947",
+      "email": "express_1789351947@test.com",
+      "address": "Calle Falsa 742",
+      "cuit": "20935194788",
+      "notes": "Registrado vía Cliente Express QR. Cliente registrado desde QR remoto",
+      "bank_alias": "ALIAS.EXPRESS.MP",
+      "has_guarantor": false,
+      "guarantor_name": null,
+      "guarantor_address": null,
+      "guarantor_cuit": null,
+      "guarantor_phone": null,
+      "created_at": "2026-09-14T02:12:27.101881"
+    },
+    {
+      "id": 60,
+      "name": "Cliente Auditoria 1789410105",
+      "whatsapp": "54911410105",
+      "email": "",
+      "address": "Av. San Martín 100",
+      "cuit": "20941010599",
+      "notes": "",
+      "bank_alias": "ALIAS.AUDITORIA.MP",
+      "has_guarantor": false,
+      "guarantor_name": null,
+      "guarantor_address": null,
+      "guarantor_cuit": null,
+      "guarantor_phone": null,
+      "created_at": "2026-09-14T18:21:45.385656"
+    },
+    {
+      "id": 61,
+      "name": "Carlos Perez Test 1789410106",
+      "whatsapp": "5493834410106",
+      "email": "carlos@test.com",
+      "address": "Calle Falsa 123",
+      "cuit": "20178941010",
+      "notes": "Cliente de prueba auditoria",
+      "bank_alias": "",
+      "has_guarantor": false,
+      "guarantor_name": null,
+      "guarantor_address": null,
+      "guarantor_cuit": null,
+      "guarantor_phone": null,
+      "created_at": "2026-09-14T18:21:46.124440"
     }
   ],
   "Loan": [
@@ -2117,6 +2165,60 @@
       "signature_data": "",
       "created_by": "Administración",
       "created_at": "2026-09-14T02:12:26.913098"
+    },
+    {
+      "id": 67,
+      "client_id": 60,
+      "amount": 200000.0,
+      "interest_rate": 15.0,
+      "rate_type": "mensual",
+      "modality": "mensual",
+      "installments_count": 4,
+      "start_date": "2026-09-14",
+      "status": "activo",
+      "grace_days": 3,
+      "late_fee_type": "porcentaje",
+      "late_fee_value": 1.0,
+      "notes": "",
+      "signature_data": "",
+      "created_by": "Asesor Carlos",
+      "created_at": "2026-09-14T18:21:45.462201"
+    },
+    {
+      "id": 68,
+      "client_id": 9,
+      "amount": 100000.0,
+      "interest_rate": 15.0,
+      "rate_type": "mensual",
+      "modality": "mensual",
+      "installments_count": 4,
+      "start_date": "2026-09-14",
+      "status": "pendiente_otorgamiento",
+      "grace_days": 3,
+      "late_fee_type": "porcentaje",
+      "late_fee_value": 1.0,
+      "notes": "Pagaré Virtual Express firmado el 14/09/2026 15:21. Selfie y documentos registrados.",
+      "signature_data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "created_by": "Administración",
+      "created_at": "2026-09-14T18:21:46.075816"
+    },
+    {
+      "id": 69,
+      "client_id": 1,
+      "amount": 75000.0,
+      "interest_rate": 15.0,
+      "rate_type": "mensual",
+      "modality": "mensual",
+      "installments_count": 3,
+      "start_date": "2026-09-14",
+      "status": "activo",
+      "grace_days": 3,
+      "late_fee_type": "porcentaje",
+      "late_fee_value": 1.0,
+      "notes": "",
+      "signature_data": "",
+      "created_by": "Administración",
+      "created_at": "2026-09-14T18:21:46.496850"
     }
   ],
   "Installment": [
@@ -4999,6 +5101,138 @@
       "paid_amount": 0.0,
       "status": "pendiente",
       "paid_date": null
+    },
+    {
+      "id": 241,
+      "loan_id": 67,
+      "number": 1,
+      "due_date": "2026-10-14",
+      "amount": 80000.0,
+      "capital_portion": 50000.0,
+      "interest_portion": 30000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 242,
+      "loan_id": 67,
+      "number": 2,
+      "due_date": "2026-11-13",
+      "amount": 80000.0,
+      "capital_portion": 50000.0,
+      "interest_portion": 30000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 243,
+      "loan_id": 67,
+      "number": 3,
+      "due_date": "2026-12-13",
+      "amount": 80000.0,
+      "capital_portion": 50000.0,
+      "interest_portion": 30000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 244,
+      "loan_id": 67,
+      "number": 4,
+      "due_date": "2027-01-12",
+      "amount": 80000.0,
+      "capital_portion": 50000.0,
+      "interest_portion": 30000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 245,
+      "loan_id": 68,
+      "number": 1,
+      "due_date": "2026-10-14",
+      "amount": 40000.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 15000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 246,
+      "loan_id": 68,
+      "number": 2,
+      "due_date": "2026-11-13",
+      "amount": 40000.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 15000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 247,
+      "loan_id": 68,
+      "number": 3,
+      "due_date": "2026-12-13",
+      "amount": 40000.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 15000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 248,
+      "loan_id": 68,
+      "number": 4,
+      "due_date": "2027-01-12",
+      "amount": 40000.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 15000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 249,
+      "loan_id": 69,
+      "number": 1,
+      "due_date": "2026-10-14",
+      "amount": 36250.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 11250.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 250,
+      "loan_id": 69,
+      "number": 2,
+      "due_date": "2026-11-13",
+      "amount": 36250.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 11250.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 251,
+      "loan_id": 69,
+      "number": 3,
+      "due_date": "2026-12-13",
+      "amount": 36250.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 11250.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
     }
   ],
   "Payment": [
@@ -5384,6 +5618,51 @@
       "id": 43,
       "key": "biometric_sign_title",
       "value": "Firma Digital Biométrica 2026 Catamarca"
+    },
+    {
+      "id": 44,
+      "key": "bank_alias",
+      "value": ""
+    },
+    {
+      "id": 45,
+      "key": "news_source_catamarca_general",
+      "value": "1"
+    },
+    {
+      "id": 46,
+      "key": "news_source_clarin",
+      "value": "1"
+    },
+    {
+      "id": 47,
+      "key": "news_source_infobae",
+      "value": "1"
+    },
+    {
+      "id": 48,
+      "key": "news_source_lanacion",
+      "value": "0"
+    },
+    {
+      "id": 49,
+      "key": "news_source_ambito",
+      "value": "1"
+    },
+    {
+      "id": 50,
+      "key": "news_source_tn",
+      "value": "0"
+    },
+    {
+      "id": 51,
+      "key": "news_source_cronista",
+      "value": "0"
+    },
+    {
+      "id": 52,
+      "key": "news_limit",
+      "value": "15"
     }
   ],
   "PersonalBill": [
@@ -6059,6 +6338,16 @@
       "notes": null,
       "is_completed": false,
       "created_at": "2026-09-14T02:12:25.969423"
+    },
+    {
+      "id": 13,
+      "title": "Pago de Servicio Luz 1789410105",
+      "category": "servicio",
+      "due_date": "2026-09-20",
+      "due_time": "10:00",
+      "notes": null,
+      "is_completed": false,
+      "created_at": "2026-09-14T18:21:45.532434"
     }
   ]
 }

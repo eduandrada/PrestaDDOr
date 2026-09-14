@@ -5789,7 +5789,7 @@
           </div>
         </div>
 
-        <!-- PESTAÑA 3: MARQUEE & NOTICIAS DE CATAMARCA -->
+        <!-- PESTAÑA 3: MARQUEE & NOTICIAS DE DIARIOS -->
         <div x-show="settingsTab === 'noticias'" class="space-y-4">
           <div class="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-3">
             <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/50 pb-2">
@@ -5803,23 +5803,57 @@
               </label>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Actualización Manual Inmediata de Titulares -->
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-purple-50/80 dark:from-slate-800/80 dark:to-slate-800/50 rounded-2xl border border-blue-200/80 dark:border-slate-700 gap-3">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm">🔄</span>
+                  <span class="text-xs font-black text-slate-800 dark:text-white uppercase tracking-wider">Actualización Inmediata de Titulares</span>
+                </div>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Descarga en vivo las últimas noticias de todos los diarios activos sin esperar la caché periódica.</p>
+              </div>
+              <button type="button" @click="refreshNewsManual()" :disabled="isRefreshingNews" class="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black shadow-md flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50 cursor-pointer">
+                <span x-show="!isRefreshingNews">⚡ Actualizar Noticias Ahora</span>
+                <span x-show="isRefreshingNews" class="flex items-center gap-1.5">
+                  <svg class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                  <span>Descargando Diarios...</span>
+                </span>
+              </button>
+            </div>
+            <div x-show="newsRefreshMessage" x-transition class="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+              <span class="text-sm">📢</span>
+              <span x-text="newsRefreshMessage"></span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <div class="flex justify-between items-center mb-1">
-                  <label class="block text-[11px] font-bold text-slate-500">⚡ Velocidad del Marquee (Segundos)</label>
+                  <label class="block text-[11px] font-bold text-slate-500">⚡ Velocidad del Marquee</label>
                   <span class="text-xs font-black text-brand-600 dark:text-brand-400" x-text="(settingsForm.marquee_speed_seconds || 38) + ' seg'"></span>
                 </div>
                 <input type="range" min="10" max="120" step="1" x-model="settingsForm.marquee_speed_seconds" class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-brand-600">
                 <div class="flex justify-between text-[9px] text-slate-400 font-bold mt-1">
-                  <span>🚀 Ultra Rápido (10s)</span>
+                  <span>🚀 Rápido (10s)</span>
                   <span>⚖️ Normal (38s)</span>
                   <span>🐢 Lento (120s)</span>
                 </div>
               </div>
 
               <div>
-                <label class="block text-[11px] font-bold text-slate-500 mb-1">📢 Anuncio Express de la Empresa</label>
-                <input type="text" x-model="settingsForm.custom_marquee_text" placeholder="Ej: 📣 Atención: Cobranzas abiertas hasta las 18hs | Préstamos a sola firma" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold">
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">🔢 Cantidad de Titulares</label>
+                <select x-model="settingsForm.news_limit" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold">
+                  <option value="10">10 titulares</option>
+                  <option value="15">15 titulares (Recomendado)</option>
+                  <option value="20">20 titulares</option>
+                  <option value="25">25 titulares</option>
+                  <option value="30">30 titulares</option>
+                  <option value="50">50 titulares (Completo)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-bold text-slate-500 mb-1">📢 Anuncio Express Empresa</label>
+                <input type="text" x-model="settingsForm.custom_marquee_text" placeholder="Ej: 📣 Atención: Cobranzas abiertas hasta las 18hs" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold">
               </div>
             </div>
 
@@ -5841,7 +5875,7 @@
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
                   <input type="checkbox" x-model="settingsForm.marquee_show_news" :checked="settingsForm.marquee_show_news !== '0'" @change="settingsForm.marquee_show_news = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
-                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Noticias Locales</span>
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Noticias de Diarios</span>
                 </label>
                 <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
                   <input type="checkbox" x-model="settingsForm.marquee_show_pizarra" :checked="settingsForm.marquee_show_pizarra !== '0'" @change="settingsForm.marquee_show_pizarra = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
@@ -5860,23 +5894,64 @@
 
             <!-- Diarios de Catamarca Habilitados -->
             <div class="pt-2 border-t border-slate-200/60 dark:border-slate-700/40" x-show="settingsForm.marquee_show_news !== '0'">
-              <span class="block text-[10px] uppercase font-black tracking-wider text-slate-400 mb-2">Fuentes Periodísticas de Catamarca Habilitadas</span>
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+              <div class="flex items-center justify-between mb-2">
+                <span class="block text-[10px] uppercase font-black tracking-wider text-slate-400">🏛️ Diarios y Medios Locales de Catamarca</span>
+                <span class="text-[10px] text-brand-600 dark:text-brand-400 font-bold">Cobertura Provincial</span>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-brand-500 transition">
                   <input type="checkbox" x-model="settingsForm.news_source_esquiu" :checked="settingsForm.news_source_esquiu !== '0'" @change="settingsForm.news_source_esquiu = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
                   <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">El Esquiú</span>
                 </label>
-                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-brand-500 transition">
                   <input type="checkbox" x-model="settingsForm.news_source_ancasti" :checked="settingsForm.news_source_ancasti !== '0'" @change="settingsForm.news_source_ancasti = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
                   <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">El Ancasti</span>
                 </label>
-                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-brand-500 transition">
                   <input type="checkbox" x-model="settingsForm.news_source_catamarca_actual" :checked="settingsForm.news_source_catamarca_actual !== '0'" @change="settingsForm.news_source_catamarca_actual = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
                   <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Catamarca Actual</span>
                 </label>
-                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer">
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-brand-500 transition">
                   <input type="checkbox" x-model="settingsForm.news_source_la_union" :checked="settingsForm.news_source_la_union !== '0'" @change="settingsForm.news_source_la_union = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
                   <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">La Unión Digital</span>
+                </label>
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-brand-500 transition col-span-2 sm:col-span-2">
+                  <input type="checkbox" x-model="settingsForm.news_source_catamarca_general" :checked="settingsForm.news_source_catamarca_general !== '0'" @change="settingsForm.news_source_catamarca_general = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Catamarca Noticias Hoy (Búsqueda Integral)</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Principales Diarios Nacionales & Finanzas -->
+            <div class="pt-2 border-t border-slate-200/60 dark:border-slate-700/40" x-show="settingsForm.marquee_show_news !== '0'">
+              <div class="flex items-center justify-between mb-2">
+                <span class="block text-[10px] uppercase font-black tracking-wider text-slate-400">🗞️ Diarios Nacionales & Portales de Noticias</span>
+                <span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">Actualidad & Finanzas</span>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-brand-500 transition">
+                  <input type="checkbox" x-model="settingsForm.news_source_clarin" :checked="settingsForm.news_source_clarin !== '0'" @change="settingsForm.news_source_clarin = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Clarín</span>
+                </label>
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-brand-500 transition">
+                  <input type="checkbox" x-model="settingsForm.news_source_infobae" :checked="settingsForm.news_source_infobae !== '0'" @change="settingsForm.news_source_infobae = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Infobae</span>
+                </label>
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-brand-500 transition">
+                  <input type="checkbox" x-model="settingsForm.news_source_ambito" :checked="settingsForm.news_source_ambito !== '0'" @change="settingsForm.news_source_ambito = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Ámbito Financiero</span>
+                </label>
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-brand-500 transition">
+                  <input type="checkbox" x-model="settingsForm.news_source_lanacion" :checked="settingsForm.news_source_lanacion !== '0'" @change="settingsForm.news_source_lanacion = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">La Nación</span>
+                </label>
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-brand-500 transition">
+                  <input type="checkbox" x-model="settingsForm.news_source_tn" :checked="settingsForm.news_source_tn !== '0'" @change="settingsForm.news_source_tn = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">Todo Noticias (TN)</span>
+                </label>
+                <label class="flex items-center space-x-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-brand-500 transition">
+                  <input type="checkbox" x-model="settingsForm.news_source_cronista" :checked="settingsForm.news_source_cronista !== '0'" @change="settingsForm.news_source_cronista = $event.target.checked ? '1' : '0'" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200">El Cronista</span>
                 </label>
               </div>
             </div>

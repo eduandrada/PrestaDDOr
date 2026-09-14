@@ -322,6 +322,14 @@ def init_db_and_seeds():
         ('news_source_ancasti', '1'),
         ('news_source_catamarca_actual', '1'),
         ('news_source_la_union', '1'),
+        ('news_source_catamarca_general', '1'),
+        ('news_source_clarin', '1'),
+        ('news_source_infobae', '1'),
+        ('news_source_lanacion', '0'),
+        ('news_source_ambito', '1'),
+        ('news_source_tn', '0'),
+        ('news_source_cronista', '0'),
+        ('news_limit', '15'),
         ('custom_marquee_text', '')
     ]:
         if not Setting.query.filter_by(key=k).first():
@@ -2499,6 +2507,10 @@ def handle_settings():
         data = request.json or {}
         for key, val in data.items():
             Setting.set_val(key, str(val))
+        # Invalidate news cache whenever settings are saved
+        global _CATAMARCA_NEWS_CACHE
+        _CATAMARCA_NEWS_CACHE['timestamp'] = 0.0
+        _CATAMARCA_NEWS_CACHE['items'] = []
         return jsonify({"success": True})
     
     # Return all stored settings merged with default values
@@ -2544,6 +2556,16 @@ def handle_settings():
         "news_source_ancasti": '1',
         "news_source_catamarca_actual": '1',
         "news_source_la_union": '1',
+        "news_source_catamarca_general": '1',
+        "news_source_clarin": '1',
+        "news_source_infobae": '1',
+        "news_source_lanacion": '0',
+        "news_source_ambito": '1',
+        "news_source_tn": '0',
+        "news_source_cronista": '0',
+        "news_limit": '25',
+        "custom_rss_sources": '',
+        "marquee_keywords": 'Catamarca, Economía, Inflación, Finanzas, Salarios, Política',
         "custom_marquee_text": ''
     }
     for k, v in defaults.items():
@@ -2554,137 +2576,177 @@ def handle_settings():
 
 
 # ----------------------------------------------------
-# API NOTICIAS DE CATAMARCA & MARQUEE EN VIVO
+# API NOTICIAS DE DIARIOS & MARQUEE EN VIVO
 # ----------------------------------------------------
 import xml.etree.ElementTree as ET
+import concurrent.futures
+import re
 
 _CATAMARCA_NEWS_CACHE = {
     'timestamp': 0.0,
     'items': []
 }
 
+def clean_news_title(title):
+    if not title:
+        return ""
+    t = re.sub(r'<[^>]+>', '', title)
+    t = t.replace('<![CDATA[', '').replace(']]>', '').strip()
+    if ' - ' in t:
+        parts = t.rsplit(' - ', 1)
+        if len(parts) == 2 and len(parts[1].strip()) < 35:
+            t = parts[0].strip()
+    return t
+
 def get_fallback_catamarca_news():
     now_str = datetime.now().strftime('%d/%m')
     return [
         {
-            "source": "El Esquiú",
-            "badge_class": "fuente-esquiu",
-            "title": f"🏛️ Política & Región: Planes de financiamiento y reactivación económica en Catamarca ({now_str})",
-            "url": "https://www.elesquiu.com"
-        },
-        {
             "source": "El Ancasti",
             "badge_class": "fuente-ancasti",
-            "title": f"🚧 Economía & Valle Central: Obras de conectividad e inversiones productivas ({now_str})",
+            "title": f"Valle Central & Economía: Actividad comercial y novedades en Catamarca ({now_str})",
             "url": "https://www.elancasti.com.ar"
+        },
+        {
+            "source": "El Esquiú",
+            "badge_class": "fuente-esquiu",
+            "title": f"Política & Región: Planes productivos e infraestructura provincial ({now_str})",
+            "url": "https://www.elesquiu.com"
         },
         {
             "source": "Catamarca Actual",
             "badge_class": "fuente-catamarca",
-            "title": f"📈 Comercio & Finanzas: Crecimiento de microcréditos para emprendedores locales ({now_str})",
+            "title": f"Finanzas & Sociedad: Crecimiento de microcréditos locales ({now_str})",
             "url": "https://www.catamarcactual.com.ar"
-        },
-        {
-            "source": "La Unión",
-            "badge_class": "fuente-launion",
-            "title": f"🏥 Sociedad & Comunidad: Operativos sanitarios y servicios en el interior provincial ({now_str})",
-            "url": "https://launion.digital"
         }
     ]
 
-def fetch_catamarca_rss(source_name, rss_url, default_site_url, badge_class, fallback_title):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+def fetch_single_feed(name, url, badge_class, max_items=6):
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'}
     try:
-        req = urllib.request.Request(rss_url, headers=headers)
-        with urllib.request.urlopen(req, timeout=2.2) as resp:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=4.5) as resp:
             content = resp.read()
             root = ET.fromstring(content)
-            channel = root.find('channel')
-            if channel is not None:
-                items = []
-                for item_el in channel.findall('item')[:2]:
-                    title_el = item_el.find('title')
-                    link_el = item_el.find('link')
-                    t_text = title_el.text.strip() if title_el is not None and title_el.text else ''
-                    l_text = link_el.text.strip() if link_el is not None and link_el.text else default_site_url
-                    if t_text:
-                        # Clean CDATA or extra brackets if any
-                        t_text = t_text.replace('<![CDATA[', '').replace(']]>', '').strip()
-                        items.append({
-                            "source": source_name,
-                            "badge_class": badge_class,
-                            "title": t_text,
-                            "url": l_text
-                        })
-                if items:
-                    return items
+            items = []
+            for it in root.findall('.//item')[:max_items]:
+                raw_t = it.findtext('title') or ''
+                title = clean_news_title(raw_t)
+                link = (it.findtext('link') or '').strip()
+                if title:
+                    items.append({
+                        "source": name,
+                        "badge_class": badge_class,
+                        "title": title,
+                        "url": link or None
+                    })
+            return items
     except Exception:
-        pass
-    return [{
-        "source": source_name,
-        "badge_class": badge_class,
-        "title": fallback_title,
-        "url": default_site_url
-    }]
+        return []
 
-@app.route('/api/news', methods=['GET'])
-def get_catamarca_news():
+def collect_live_news(force_refresh=False):
     global _CATAMARCA_NEWS_CACHE
     import time
     now_ts = time.time()
 
+    # TTL 300 seconds (5 minutes) unless force_refresh is requested
+    if not force_refresh and (now_ts - _CATAMARCA_NEWS_CACHE['timestamp'] < 300) and _CATAMARCA_NEWS_CACHE['items']:
+        return _CATAMARCA_NEWS_CACHE['items']
+
     # Read enabled sources from settings
-    src_esquiu = Setting.get_val('news_source_esquiu', '1') in ['1', 'true', True]
     src_ancasti = Setting.get_val('news_source_ancasti', '1') in ['1', 'true', True]
+    src_esquiu = Setting.get_val('news_source_esquiu', '1') in ['1', 'true', True]
     src_catamarca_actual = Setting.get_val('news_source_catamarca_actual', '1') in ['1', 'true', True]
     src_la_union = Setting.get_val('news_source_la_union', '1') in ['1', 'true', True]
+    src_catamarca_general = Setting.get_val('news_source_catamarca_general', '1') in ['1', 'true', True]
+    src_clarin = Setting.get_val('news_source_clarin', '1') in ['1', 'true', True]
+    src_infobae = Setting.get_val('news_source_infobae', '1') in ['1', 'true', True]
+    src_lanacion = Setting.get_val('news_source_lanacion', '0') in ['1', 'true', True]
+    src_ambito = Setting.get_val('news_source_ambito', '1') in ['1', 'true', True]
+    src_tn = Setting.get_val('news_source_tn', '0') in ['1', 'true', True]
+    src_cronista = Setting.get_val('news_source_cronista', '0') in ['1', 'true', True]
+    custom_sources_raw = Setting.get_val('custom_rss_sources', '').strip()
+
+    try:
+        news_limit = int(Setting.get_val('news_limit', '25'))
+    except Exception:
+        news_limit = 25
+
+    active_feeds = []
+    if src_ancasti:
+        active_feeds.append(('El Ancasti', 'https://news.google.com/rss/search?q=site:elancasti.com.ar&hl=es-419&gl=AR&ceid=AR:es-419', 'fuente-ancasti', 6))
+    if src_esquiu:
+        active_feeds.append(('El Esquiú', 'https://news.google.com/rss/search?q=site:elesquiu.com&hl=es-419&gl=AR&ceid=AR:es-419', 'fuente-esquiu', 6))
+    if src_catamarca_actual:
+        active_feeds.append(('Catamarca Actual', 'https://news.google.com/rss/search?q=site:catamarcactual.com.ar&hl=es-419&gl=AR&ceid=AR:es-419', 'fuente-catamarca', 6))
+    if src_la_union:
+        active_feeds.append(('La Unión', 'https://news.google.com/rss/search?q=site:launion.digital&hl=es-419&gl=AR&ceid=AR:es-419', 'fuente-launion', 6))
+    if src_catamarca_general:
+        active_feeds.append(('Catamarca Hoy', 'https://news.google.com/rss/search?q=Catamarca&hl=es-419&gl=AR&ceid=AR:es-419', 'fuente-catamarca', 8))
+    if src_clarin:
+        active_feeds.append(('Clarín', 'https://www.clarin.com/rss/lo-ultimo/', 'fuente-clarin', 6))
+    if src_infobae:
+        active_feeds.append(('Infobae', 'https://www.infobae.com/arc/outboundfeeds/rss/?outputType=xml', 'fuente-infobae', 6))
+    if src_ambito:
+        active_feeds.append(('Ámbito', 'https://www.ambito.com/rss/home.xml', 'fuente-ambito', 6))
+    if src_lanacion:
+        active_feeds.append(('La Nación', 'https://www.lanacion.com.ar/arc/outboundfeeds/rss/?outputType=xml', 'fuente-lanacion', 6))
+    if src_tn:
+        active_feeds.append(('TN', 'https://tn.com.ar/rss.xml', 'fuente-tn', 6))
+    if src_cronista:
+        active_feeds.append(('El Cronista', 'https://www.cronista.com/files/rss/news.xml', 'fuente-cronista', 6))
+
+    # Add custom user feeds
+    if custom_sources_raw:
+        for idx, line in enumerate(custom_sources_raw.splitlines()):
+            line = line.strip()
+            if line.startswith(('http://', 'https://')):
+                active_feeds.append((f'Personalizada {idx+1}', line, 'fuente-catamarca', 5))
+
+    collected = []
+    if active_feeds:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(active_feeds), 10)) as executor:
+            futures = [executor.submit(fetch_single_feed, f[0], f[1], f[2], f[3]) for f in active_feeds]
+            for fut in concurrent.futures.as_completed(futures):
+                try:
+                    res = fut.result()
+                    if res:
+                        collected.extend(res)
+                except Exception:
+                    pass
+
+    # Deduplicate by title
+    seen_titles = set()
+    unique_news = []
+    for it in collected:
+        k = it['title'].lower()
+        if k not in seen_titles:
+            seen_titles.add(k)
+            unique_news.append(it)
+
+    if not unique_news:
+        unique_news = get_fallback_catamarca_news()
+
+    # Prioritize by keywords if defined
+    keywords_raw = Setting.get_val('marquee_keywords', '').strip()
+    if keywords_raw:
+        kw_list = [k.strip().lower() for k in keywords_raw.split(',') if k.strip()]
+        if kw_list:
+            def matches_kw(it):
+                t_lower = it['title'].lower()
+                return any(kw in t_lower for kw in kw_list)
+            matching = [it for it in unique_news if matches_kw(it)]
+            non_matching = [it for it in unique_news if not matches_kw(it)]
+            unique_news = matching + non_matching
+
+    unique_news = unique_news[:news_limit]
+    _CATAMARCA_NEWS_CACHE = {'timestamp': now_ts, 'items': unique_news}
+    return unique_news
+
+@app.route('/api/news', methods=['GET'])
+def get_catamarca_news():
+    raw_news = collect_live_news(force_refresh=False)
     custom_text = Setting.get_val('custom_marquee_text', '').strip()
-
-    # Check cache (5 min TTL)
-    if now_ts - _CATAMARCA_NEWS_CACHE['timestamp'] < 300 and _CATAMARCA_NEWS_CACHE['items']:
-        raw_news = _CATAMARCA_NEWS_CACHE['items']
-    else:
-        news_collected = []
-        # El Esquiú
-        news_collected.extend(fetch_catamarca_rss(
-            "El Esquiú",
-            "https://www.elesquiu.com/rss/universo.html",
-            "https://www.elesquiu.com",
-            "fuente-esquiu",
-            "🏛️ Política & Región: Últimas novedades y actualidad de Catamarca"
-        ))
-        # El Ancasti
-        news_collected.extend(fetch_catamarca_rss(
-            "El Ancasti",
-            "https://www.elancasti.com.ar/rss/universo.html",
-            "https://www.elancasti.com.ar",
-            "fuente-ancasti",
-            "🚧 Obras & Economía: Avances productivos en el Valle Central"
-        ))
-        # Catamarca Actual
-        news_collected.extend(fetch_catamarca_rss(
-            "Catamarca Actual",
-            "https://www.catamarcactual.com.ar/rss/universo.html",
-            "https://www.catamarcactual.com.ar",
-            "fuente-catamarca",
-            "📈 Finanzas & Sociedad: Balance provincial y actividad comercial"
-        ))
-        # La Unión
-        news_collected.extend(fetch_catamarca_rss(
-            "La Unión",
-            "https://launion.digital/rss/",
-            "https://launion.digital",
-            "fuente-launion",
-            "🏥 Salud & Comunidad: Actualidad de San Fernando del Valle"
-        ))
-
-        if news_collected:
-            _CATAMARCA_NEWS_CACHE = {'timestamp': now_ts, 'items': news_collected}
-            raw_news = news_collected
-        else:
-            raw_news = get_fallback_catamarca_news()
-
-    # Apply source filtering
     result = []
     if custom_text:
         result.append({
@@ -2693,16 +2755,21 @@ def get_catamarca_news():
             "title": f"📢 {custom_text}",
             "url": None
         })
-
-    for item in raw_news:
-        src = item.get("source")
-        if src == "El Esquiú" and not src_esquiu: continue
-        if src == "El Ancasti" and not src_ancasti: continue
-        if src == "Catamarca Actual" and not src_catamarca_actual: continue
-        if src == "La Unión" and not src_la_union: continue
-        result.append(item)
-
+    result.extend(raw_news)
     return jsonify(result)
+
+@app.route('/api/news/refresh', methods=['POST'])
+def refresh_catamarca_news():
+    global _CATAMARCA_NEWS_CACHE
+    _CATAMARCA_NEWS_CACHE['timestamp'] = 0.0
+    _CATAMARCA_NEWS_CACHE['items'] = []
+    news = collect_live_news(force_refresh=True)
+    return jsonify({
+        "success": True,
+        "count": len(news),
+        "updated_at": datetime.now().strftime("%H:%M:%S")
+    })
+
 
 
 # ----------------------------------------------------

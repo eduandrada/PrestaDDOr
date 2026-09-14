@@ -12,3 +12,6 @@ instance/
 .vscode/
 *.zip
 .DS_Store
+news_cache.json
+scratch_flyer_test.png
+logs/
