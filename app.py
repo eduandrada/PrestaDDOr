@@ -6732,33 +6732,6 @@ def consultar_bcra_deudor(cuit):
         })
 
 
-if __name__ == '__main__':
-    with app.app_context():
-        init_db_and_seeds()
-    
-    port = int(os.environ.get('PORT', 5000))
-    host = os.environ.get('HOST', '0.0.0.0')
-    is_render = os.environ.get('RENDER') is not None or os.environ.get('PORT') is not None
-
-    print("==========================================================")
-    print("SISTEMA DE GESTION DE PRESTAMOS INICIADO CORRECTAMENTE")
-    print(f"Servidor ejecutándose en: http://{host}:{port}")
-    print("==========================================================")
-    
-    # Auto-open browser in thread only when running locally
-    if not is_render:
-        threading.Thread(target=open_browser, daemon=True).start()
-    
-    try:
-        from waitress import serve
-        print(f"[Servidor WSGI Producción Waitress Activo (16 Threads)]")
-        serve(app, host=host, port=port, threads=16, connection_limit=200)
-    except ImportError:
-        try:
-            app.run(host=host, port=port, debug=False, use_reloader=False)
-        except Exception as err:
-            print(f"\n[ERROR AL INICIAR]: {err}")
-
 
 
 @app.route('/api/loans/<int:loan_id>/approve', methods=['POST'])
@@ -7251,3 +7224,32 @@ def delete_client_registration_request(token):
         db.session.delete(req_item)
         db.session.commit()
     return jsonify({"success": True})
+
+
+if __name__ == '__main__':
+    with app.app_context():
+        init_db_and_seeds()
+    
+    port = int(os.environ.get('PORT', 5000))
+    host = os.environ.get('HOST', '0.0.0.0')
+    is_render = os.environ.get('RENDER') is not None or os.environ.get('PORT') is not None
+
+    print("==========================================================")
+    print("SISTEMA DE GESTION DE PRESTAMOS INICIADO CORRECTAMENTE")
+    print(f"Servidor ejecutándose en: http://{host}:{port}")
+    print("==========================================================")
+    
+    # Auto-open browser in thread only when running locally
+    if not is_render:
+        threading.Thread(target=open_browser, daemon=True).start()
+    
+    try:
+        from waitress import serve
+        print(f"[Servidor WSGI Producción Waitress Activo (16 Threads)]")
+        serve(app, host=host, port=port, threads=16, connection_limit=200)
+    except ImportError:
+        try:
+            app.run(host=host, port=port, debug=False, use_reloader=False)
+        except Exception as err:
+            print(f"\n[ERROR AL INICIAR]: {err}")
+

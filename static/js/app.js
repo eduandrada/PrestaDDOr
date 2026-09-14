@@ -4069,6 +4069,20 @@ function registerPrestamosApp() {
                 this.clientRegistrationCopied = false;
                 try {
                     const res = await fetch('/api/client_registration_requests', { method: 'POST' });
+                    if (!res.ok) {
+                        let errDetail = `Error HTTP ${res.status}`;
+                        try {
+                            const errJson = await res.json();
+                            if (errJson.error) errDetail = errJson.error;
+                        } catch(e) {
+                            if (res.status === 404) {
+                                errDetail = "Servicio no disponible (404). Por favor reinicia el servidor local para activar las nuevas rutas.";
+                            }
+                        }
+                        alert("Error al generar QR de registro: " + errDetail);
+                        this.showClientQrRegistrationModal = false;
+                        return;
+                    }
                     const data = await res.json();
                     if (data.success) {
                         this.clientRegistrationQrData = data;
