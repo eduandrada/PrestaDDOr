@@ -1434,7 +1434,7 @@ function registerPrestamosApp() {
                         this.settingsForm.extra_salaries_json = JSON.stringify(this.settingsForm.extra_salaries);
                         this.settings.extra_salaries_json = JSON.stringify(this.settingsForm.extra_salaries);
                     }
-                    const payload = { ...this.settingsForm, ...this.settings };
+                    const payload = { ...this.settings, ...this.settingsForm };
                     const res = await fetch('/api/settings', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1445,6 +1445,7 @@ function registerPrestamosApp() {
                         this.settingsForm = { ...this.settingsForm, ...payload };
                         await this.fetchSettings();
                         await this.fetchNews();
+                        await this.fetchStats();
                         this.showToast("✅ Ajustes guardados correctamente en la base de datos.", "success");
                         alert("✅ Ajustes del sistema guardados correctamente en la base de datos.");
                     } else {
@@ -2455,25 +2456,7 @@ function registerPrestamosApp() {
                 }
             },
 
-            async saveSettings() {
-                try {
-                    const res = await fetch('/api/settings', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.settings)
-                    });
-                    if (res.ok) {
-                        alert("Ajustes guardados correctamente.");
-                        await this.fetchSettings();
-                        await this.fetchStats();
-                    } else {
-                        alert("Error al guardar los ajustes.");
-                    }
-                } catch (err) {
-                    console.error("Error saving settings:", err);
-                    alert("Error de conexión al guardar los ajustes.");
-                }
-            },
+
 
             // Personal Accounts & AI Tips Methods
             async fetchPersonalAccounts() {
