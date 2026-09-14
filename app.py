@@ -172,13 +172,23 @@ def restore_auto_backup():
         # Restore Payments
         for p_data in data.get('Payment', []):
             if not db.session.get(Payment, p_data['id']):
-                p_date = datetime.fromisoformat(p_data['payment_date']).date() if isinstance(p_data['payment_date'], str) else p_data['payment_date']
+                inst_id = p_data.get('installment_id')
+                inst = db.session.get(Installment, inst_id) if inst_id else None
+                loan_id = p_data.get('loan_id') or (inst.loan_id if inst else None)
+                client_id = p_data.get('client_id') or (inst.loan.client_id if inst and inst.loan else None)
+                if not loan_id or not client_id:
+                    continue
+                p_date = datetime.fromisoformat(p_data['payment_date']) if isinstance(p_data['payment_date'], str) else p_data['payment_date']
                 p = Payment(
                     id=p_data['id'],
-                    installment_id=p_data['installment_id'],
-                    amount=p_data['amount'],
+                    installment_id=inst_id,
+                    loan_id=loan_id,
+                    client_id=client_id,
+                    amount=float(p_data.get('amount', 0.0)),
                     payment_date=p_date,
-                    notes=p_data.get('notes', '')
+                    payment_method=p_data.get('payment_method', 'Transferencia'),
+                    notes=p_data.get('notes', ''),
+                    receipt_number=p_data.get('receipt_number', f"REC-{p_data.get('id', 1)}")
                 )
                 db.session.add(p)
         db.session.commit()
@@ -221,6 +231,7 @@ def restore_auto_backup():
         print("[Auto-Restore] Realizado con éxito desde backups/database_auto_backup.json")
         return True
     except Exception as err:
+        db.session.rollback()
         print(f"[Auto-Restore Exception]: {err}")
         return False
 
@@ -3477,6 +3488,13 @@ def restore_backup():
             target_inst_id = installment_id_map.get(old_inst_id, old_inst_id)
             target_loan_id = loan_id_map.get(p_raw.get('loan_id'), p_raw.get('loan_id'))
             target_client_id = client_id_map.get(p_raw.get('client_id'), p_raw.get('client_id'))
+            if not target_loan_id or not target_client_id:
+                inst_obj = db.session.get(Installment, target_inst_id) if target_inst_id else None
+                if inst_obj:
+                    target_loan_id = target_loan_id or inst_obj.loan_id
+                    target_client_id = target_client_id or (inst_obj.loan.client_id if inst_obj.loan else None)
+            if not target_loan_id or not target_client_id:
+                continue
 
             new_p = Payment(
                 id=p_raw.get('id'),
