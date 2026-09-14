@@ -1028,160 +1028,6 @@ function registerPrestamosApp() {
                         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                         return {
-            clientRegistrationRequests: [],
-            clientRegistrationQrData: null,
-            showClientQrRegistrationModal: false,
-            activeClientSubTab: 'lista',
-
-            async generateClientRegistrationQr() {
-                try {
-                    const res = await fetch('/api/client_registration_requests', { method: 'POST' });
-                    const data = await res.json();
-                    if (data.success) {
-                        this.clientRegistrationQrData = data;
-                        this.showClientQrRegistrationModal = true;
-                    }
-                } catch(e) {
-                    alert("Error al generar QR de registro: " + e.message);
-                }
-            },
-
-            closeClientQrRegistrationModal() {
-                this.showClientQrRegistrationModal = false;
-                this.clientRegistrationQrData = null;
-            },
-
-            async fetchClientRegistrationRequests() {
-                try {
-                    const res = await fetch('/api/client_registration_requests');
-                    if (res.ok) {
-                        this.clientRegistrationRequests = await res.json();
-                    }
-                } catch(e) {
-                    console.error("Error al obtener solicitudes de registro:", e);
-                }
-            },
-
-            async approveClientRegistration(req) {
-                if (!req || !req.token) return;
-                if (!confirm(`¿Confirmas la APROBACIÓN del registro del cliente ${req.name}?`)) return;
-                try {
-                    const res = await fetch(`/api/client_registration_requests/${req.token}/approve`, { method: 'POST' });
-                    const data = await res.json();
-                    if (data.success) {
-                        alert("✅ Cliente APROBADO y REGISTRADO exitosamente.");
-                        if (data.wa_url) {
-                            window.open(data.wa_url, '_blank');
-                        }
-                        await this.fetchClientRegistrationRequests();
-                        await this.fetchClients();
-                    } else {
-                        alert(data.error || "Error al aprobar el registro.");
-                    }
-                } catch(e) {
-                    alert("Error al conectar con el servidor: " + e.message);
-                }
-            },
-
-            async deleteClientRegistrationRequest(req) {
-                if (!req || !req.token) return;
-                if (!confirm("¿Eliminar/Rechazar esta solicitud de registro de cliente?")) return;
-                try {
-                    await fetch(`/api/client_registration_requests/${req.token}`, { method: 'DELETE' });
-                    await this.fetchClientRegistrationRequests();
-                } catch(e) {
-                    alert("Error al eliminar solicitud: " + e.message);
-                }
-            },
-
-            showAiContadorModal: false,
-            aiContadorTab: 'balance',
-            aiContadorData: null,
-            aiContadorQuery: '',
-            aiContadorMessages: [],
-            selectedAiContadorClient: null,
-
-            async openAiContadorModal(clientObj = null) {
-                this.showAiContadorModal = true;
-                this.aiContadorTab = 'balance';
-                this.selectedAiContadorClient = clientObj;
-                try {
-                    const res = await fetch('/api/ai_financial_advisor');
-                    if (res.ok) {
-                        this.aiContadorData = await res.json();
-                    }
-                } catch(e) {
-                    console.error("Error al obtener datos del Contador IA:", e);
-                }
-
-                if (clientObj) {
-                    this.aiContadorTab = 'chat';
-                    await this.sendAiContadorQuery(`Informe contable y saldo de ${clientObj.name}`, clientObj.id);
-                }
-            },
-
-            closeAiContadorModal() {
-                this.showAiContadorModal = false;
-                this.selectedAiContadorClient = null;
-            },
-
-            async sendAiContadorQuery(overrideQuery = null, overrideClientId = null) {
-                const queryText = (overrideQuery || this.aiContadorQuery || '').trim();
-                const clientId = overrideClientId || (this.selectedAiContadorClient ? this.selectedAiContadorClient.id : null);
-                if (!queryText) return;
-
-                this.aiContadorMessages.push({ role: 'user', text: queryText });
-                if (!overrideQuery) this.aiContadorQuery = '';
-
-                try {
-                    const res = await fetch('/api/ai_financial_advisor/chat', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ query: queryText, client_id: clientId })
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        this.aiContadorMessages.push({
-                            role: 'assistant',
-                            text: data.reply,
-                            title: data.title,
-                            pdf_export_available: data.pdf_export_available
-                        });
-                    } else {
-                        this.aiContadorMessages.push({ role: 'assistant', text: "⚠️ " + (data.error || "No se pudo procesar la consulta.") });
-                    }
-                } catch(e) {
-                    this.aiContadorMessages.push({ role: 'assistant', text: "Error de conexión: " + e.message });
-                }
-            },
-
-            async downloadAiContadorPdf(title = 'Informe Contable IA', textBody = '') {
-                try {
-                    const res = await fetch('/api/ai_financial_advisor/export_pdf', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ title: title, text_body: textBody })
-                    });
-                    if (res.ok) {
-                        const blob = await res.blob();
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                    } else {
-                        alert("Error al exportar PDF.");
-                    }
-                } catch(e) {
-                    alert("Error al descargar PDF: " + e.message);
-                }
-            },
-
-            showArqueoModal: false,
-            async openArqueoModal() { await this.fetchArqueoCaja(); this.showArqueoModal = true; },
-            closeArqueoModal() { this.showArqueoModal = false; },
                             x: clientX - rect.left,
                             y: clientY - rect.top
                         };
@@ -4205,7 +4051,168 @@ function registerPrestamosApp() {
                         }
                     });
                 }
-            }
+            },
+
+            // ==========================================
+            // REGISTRO REMOTO DE CLIENTES QR
+            // ==========================================
+            clientRegistrationRequests: [],
+            clientRegistrationQrData: null,
+            showClientQrRegistrationModal: false,
+            activeClientSubTab: 'lista',
+
+            async generateClientRegistrationQr() {
+                try {
+                    const res = await fetch('/api/client_registration_requests', { method: 'POST' });
+                    const data = await res.json();
+                    if (data.success) {
+                        this.clientRegistrationQrData = data;
+                        this.showClientQrRegistrationModal = true;
+                    }
+                } catch(e) {
+                    alert("Error al generar QR de registro: " + e.message);
+                }
+            },
+
+            closeClientQrRegistrationModal() {
+                this.showClientQrRegistrationModal = false;
+                this.clientRegistrationQrData = null;
+            },
+
+            async fetchClientRegistrationRequests() {
+                try {
+                    const res = await fetch('/api/client_registration_requests');
+                    if (res.ok) {
+                        this.clientRegistrationRequests = await res.json();
+                    }
+                } catch(e) {
+                    console.error("Error al obtener solicitudes de registro:", e);
+                }
+            },
+
+            async approveClientRegistration(req) {
+                if (!req || !req.token) return;
+                if (!confirm(`¿Confirmas la APROBACIÓN del registro del cliente ${req.name}?`)) return;
+                try {
+                    const res = await fetch(`/api/client_registration_requests/${req.token}/approve`, { method: 'POST' });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert("✅ Cliente APROBADO y REGISTRADO exitosamente.");
+                        if (data.wa_url) {
+                            window.open(data.wa_url, '_blank');
+                        }
+                        await this.fetchClientRegistrationRequests();
+                        await this.fetchClients();
+                    } else {
+                        alert(data.error || "Error al aprobar el registro.");
+                    }
+                } catch(e) {
+                    alert("Error al conectar con el servidor: " + e.message);
+                }
+            },
+
+            async deleteClientRegistrationRequest(req) {
+                if (!req || !req.token) return;
+                if (!confirm("¿Eliminar/Rechazar esta solicitud de registro de cliente?")) return;
+                try {
+                    await fetch(`/api/client_registration_requests/${req.token}`, { method: 'DELETE' });
+                    await this.fetchClientRegistrationRequests();
+                } catch(e) {
+                    alert("Error al eliminar solicitud: " + e.message);
+                }
+            },
+
+            // ==========================================
+            // CONTADOR VIRTUAL IA & ARQUEO DE CAJA
+            // ==========================================
+            showAiContadorModal: false,
+            aiContadorTab: 'balance',
+            aiContadorData: null,
+            aiContadorQuery: '',
+            aiContadorMessages: [],
+            selectedAiContadorClient: null,
+
+            async openAiContadorModal(clientObj = null) {
+                this.showAiContadorModal = true;
+                this.aiContadorTab = 'balance';
+                this.selectedAiContadorClient = clientObj;
+                try {
+                    const res = await fetch('/api/ai_financial_advisor');
+                    if (res.ok) {
+                        this.aiContadorData = await res.json();
+                    }
+                } catch(e) {
+                    console.error("Error al obtener datos del Contador IA:", e);
+                }
+
+                if (clientObj) {
+                    this.aiContadorTab = 'chat';
+                    await this.sendAiContadorQuery(`Informe contable y saldo de ${clientObj.name}`, clientObj.id);
+                }
+            },
+
+            closeAiContadorModal() {
+                this.showAiContadorModal = false;
+                this.selectedAiContadorClient = null;
+            },
+
+            async sendAiContadorQuery(overrideQuery = null, overrideClientId = null) {
+                const queryText = (overrideQuery || this.aiContadorQuery || '').trim();
+                const clientId = overrideClientId || (this.selectedAiContadorClient ? this.selectedAiContadorClient.id : null);
+                if (!queryText) return;
+
+                this.aiContadorMessages.push({ role: 'user', text: queryText });
+                if (!overrideQuery) this.aiContadorQuery = '';
+
+                try {
+                    const res = await fetch('/api/ai_financial_advisor/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: queryText, client_id: clientId })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        this.aiContadorMessages.push({
+                            role: 'assistant',
+                            text: data.reply,
+                            title: data.title,
+                            pdf_export_available: data.pdf_export_available
+                        });
+                    } else {
+                        this.aiContadorMessages.push({ role: 'assistant', text: "⚠️ " + (data.error || "No se pudo procesar la consulta.") });
+                    }
+                } catch(e) {
+                    this.aiContadorMessages.push({ role: 'assistant', text: "Error de conexión: " + e.message });
+                }
+            },
+
+            async downloadAiContadorPdf(title = 'Informe Contable IA', textBody = '') {
+                try {
+                    const res = await fetch('/api/ai_financial_advisor/export_pdf', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title: title, text_body: textBody })
+                    });
+                    if (res.ok) {
+                        const blob = await res.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                    } else {
+                        alert("Error al exportar PDF.");
+                    }
+                } catch(e) {
+                    alert("Error al descargar PDF: " + e.message);
+                }
+            },
+
+            showArqueoModal: false,
+            async openArqueoModal() { await this.fetchArqueoCaja(); this.showArqueoModal = true; },
+            closeArqueoModal() { this.showArqueoModal = false; }
         }));
     }
 }
