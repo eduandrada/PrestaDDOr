@@ -419,6 +419,7 @@ function registerPrestamosApp() {
                 if (this.darkMode) document.documentElement.classList.add('dark');
                 if (this.privacyMode) document.body.classList.add('privacy-mode');
                 this.loadAllData();
+                this.fetchClientRegistrationRequests();
                 this.fetchDolarRates();
                 this.fetchCatamarcaWeather();
                 this.startMarqueeClock();
@@ -4060,23 +4061,47 @@ function registerPrestamosApp() {
             clientRegistrationQrData: null,
             showClientQrRegistrationModal: false,
             activeClientSubTab: 'lista',
+            clientRegistrationCopied: false,
 
             async generateClientRegistrationQr() {
+                this.showClientQrRegistrationModal = true;
+                this.clientRegistrationQrData = null;
+                this.clientRegistrationCopied = false;
                 try {
                     const res = await fetch('/api/client_registration_requests', { method: 'POST' });
                     const data = await res.json();
                     if (data.success) {
                         this.clientRegistrationQrData = data;
-                        this.showClientQrRegistrationModal = true;
+                        await this.fetchClientRegistrationRequests();
+                    } else {
+                        alert("Error al generar QR de registro: " + (data.error || "No se pudo generar"));
+                        this.showClientQrRegistrationModal = false;
                     }
                 } catch(e) {
                     alert("Error al generar QR de registro: " + e.message);
+                    this.showClientQrRegistrationModal = false;
+                }
+            },
+
+            copyClientRegistrationUrl() {
+                if (!this.clientRegistrationQrData || !this.clientRegistrationQrData.sign_url) return;
+                const text = this.clientRegistrationQrData.sign_url;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        this.clientRegistrationCopied = true;
+                        setTimeout(() => { this.clientRegistrationCopied = false; }, 2500);
+                    }).catch(() => {
+                        prompt("Copia este enlace de registro:", text);
+                    });
+                } else {
+                    prompt("Copia este enlace de registro:", text);
                 }
             },
 
             closeClientQrRegistrationModal() {
                 this.showClientQrRegistrationModal = false;
                 this.clientRegistrationQrData = null;
+                this.clientRegistrationCopied = false;
             },
 
             async fetchClientRegistrationRequests() {
