@@ -2717,14 +2717,26 @@ function registerPrestamosApp() {
                 const id = typeof bill === 'object' ? bill.id : bill;
                 const billObj = typeof bill === 'object' ? bill : (this.personalBills || []).find(b => b.id === id);
                 const billName = billObj ? billObj.name : 'esta cuenta';
+                const monthStr = this.monthNames ? (this.monthNames[this.selectedAccountMonth] + ' ' + this.selectedAccountYear) : 'el mes actual';
 
+                const option = prompt(
+                    `🗑️ ¿Cómo deseas eliminar "${billName}"?\n\n` +
+                    `1 - Eliminar SOLO de ${monthStr}\n` +
+                    `2 - Eliminar de TODOS los meses registrados\n\n` +
+                    `Ingresa 1 o 2 (o Cancelar para anular):`,
+                    "1"
+                );
+
+                if (option === null) return; // Cancelled
+                
+                const optTrim = option.trim();
                 let deleteAll = false;
-                if (confirm(`¿Deseas eliminar "${billName}" de TODOS los meses registrados?\n\n• ACEPTAR: Eliminar la cuenta por completo de todos los meses.\n• CANCELAR: Ver opción para eliminar solo este mes.`)) {
+                if (optTrim === "2") {
                     deleteAll = true;
-                } else if (confirm(`¿Deseas eliminar "${billName}" SOLO del mes actual (${this.monthNames[this.selectedAccountMonth]} ${this.selectedAccountYear})?`)) {
+                } else if (optTrim === "1") {
                     deleteAll = false;
                 } else {
-                    return; // Cancelled
+                    return; // Invalid option
                 }
 
                 try {

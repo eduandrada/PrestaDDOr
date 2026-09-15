@@ -2967,38 +2967,44 @@ def handle_personal_accounts():
     except (ValueError, TypeError):
         req_year = date.today().year
 
-    # Auto carry-forward recurring bills from EARLIER months if they don't exist for req_month/req_year
-    existing_in_req = PersonalBill.query.filter_by(month=req_month, year=req_year).all()
-    existing_names_req = {b.name.strip().lower() for b in existing_in_req}
+    # Auto carry-forward recurring bills from EARLIER months if month has not been initialized yet
+    init_key = f'personal_accounts_init_{req_year}_{req_month}'
+    is_month_initialized = Setting.get_val(init_key, 'false') == 'true'
 
-    earlier_recurring = PersonalBill.query.filter(
-        PersonalBill.is_recurring == True,
-        (PersonalBill.year < req_year) | ((PersonalBill.year == req_year) & (PersonalBill.month < req_month))
-    ).all()
+    if not is_month_initialized:
+        existing_in_req = PersonalBill.query.filter_by(month=req_month, year=req_year).all()
+        existing_names_req = {b.name.strip().lower() for b in existing_in_req}
 
-    seen_recurring_names = set()
-    for rec in earlier_recurring:
-        rec_name_key = rec.name.strip().lower()
-        if rec_name_key not in existing_names_req and rec_name_key not in seen_recurring_names:
-            new_clone = PersonalBill(
-                name=rec.name,
-                category=rec.category,
-                owner=rec.owner,
-                amount=rec.amount,
-                due_day=rec.due_day,
-                status='pendiente',
-                notes=rec.notes,
-                month=req_month,
-                year=req_year,
-                installments_count=1,
-                current_installment=1,
-                is_recurring=True
-            )
-            db.session.add(new_clone)
-            seen_recurring_names.add(rec_name_key)
+        earlier_recurring = PersonalBill.query.filter(
+            PersonalBill.is_recurring == True,
+            (PersonalBill.year < req_year) | ((PersonalBill.year == req_year) & (PersonalBill.month < req_month))
+        ).all()
 
-    if seen_recurring_names:
-        db.session.commit()
+        seen_recurring_names = set()
+        for rec in earlier_recurring:
+            rec_name_key = rec.name.strip().lower()
+            if rec_name_key not in existing_names_req and rec_name_key not in seen_recurring_names:
+                new_clone = PersonalBill(
+                    name=rec.name,
+                    category=rec.category,
+                    owner=rec.owner,
+                    amount=rec.amount,
+                    due_day=rec.due_day,
+                    status='pendiente',
+                    notes=rec.notes,
+                    month=req_month,
+                    year=req_year,
+                    installments_count=1,
+                    current_installment=1,
+                    is_recurring=True
+                )
+                db.session.add(new_clone)
+                seen_recurring_names.add(rec_name_key)
+
+        if seen_recurring_names or len(existing_in_req) > 0:
+            db.session.commit()
+
+        Setting.set_val(init_key, 'true')
 
     bills = PersonalBill.query.filter_by(month=req_month, year=req_year).order_by(PersonalBill.due_day.asc()).all()
     salary_eduardo = float(Setting.get_val('user_salary_eduardo', '550000'))
