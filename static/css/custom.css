@@ -322,3 +322,100 @@ body.privacy-mode .privacy-hidden {
   0% { transform: translate3d(0, 0, 0); }
   100% { transform: translate3d(-100%, 0, 0); }
 }
+
+/* ==========================================================================
+   MOBILE DISPLAY OPTIMIZATIONS (Smartphones & Touch Devices)
+   ========================================================================== */
+
+@media (max-width: 767px) {
+  /* Prevent body horizontal scroll & viewport shift */
+  html, body {
+    overflow-x: hidden !important;
+    width: 100% !important;
+  }
+
+  /* Responsive Tables Container */
+  table {
+    display: block;
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Text Size Scaling for Mobile Devices */
+  h1 { font-size: 1.25rem !important; line-height: 1.3 !important; }
+  h2 { font-size: 1.15rem !important; line-height: 1.3 !important; }
+  h3 { font-size: 1.05rem !important; line-height: 1.35 !important; }
+  h4, h5, h6 { font-size: 0.95rem !important; }
+
+  /* Input fields prevention of auto-zoom on iOS/Android */
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  input[type="email"],
+  input[type="password"],
+  select,
+  textarea {
+    font-size: 16px !important; /* Prevents viewport zoom in mobile browsers */
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Button Touch Targets & Responsive Padding */
+  button, .btn {
+    touch-action: manipulation;
+    max-width: 100%;
+  }
+
+  /* Adaptive Card Mobile Spacing */
+  .adaptive-card {
+    padding: 0.875rem !important;
+    border-radius: 1rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  /* Modal Optimization for Smartphones */
+  .fixed.inset-0 > div {
+    max-width: 94vw !important;
+    max-height: 92vh !important;
+    padding: 1rem !important;
+    margin: auto !important;
+    border-radius: 1.25rem !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Horizontal Navigation Tabs on Mobile */
+  nav .flex {
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
+    gap: 0.35rem !important;
+  }
+
+  nav button {
+    padding: 0.4rem 0.75rem !important;
+    font-size: 0.75rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Utility classes for tight mobile layouts */
+  .mobile-text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 180px;
+  }
+
+  .mobile-flex-wrap {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+
+  .mobile-w-full {
+    width: 100% !important;
+  }
+
+  .mobile-p-compact {
+    padding: 0.75rem !important;
+  }
+}
