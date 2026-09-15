@@ -458,6 +458,57 @@
       "guarantor_phone": null,
       "created_at": "2026-09-15T17:34:20.953824",
       "custom_score": null
+    },
+    {
+      "id": 28,
+      "name": "Cliente Auditoria 1789495040",
+      "whatsapp": "54911495040",
+      "email": "",
+      "address": "Av. San Martín 100",
+      "cuit": "20949504099",
+      "notes": "",
+      "bank_alias": "ALIAS.AUDITORIA.MP",
+      "has_guarantor": false,
+      "guarantor_name": null,
+      "guarantor_address": null,
+      "guarantor_cuit": null,
+      "guarantor_phone": null,
+      "created_at": "2026-09-15T17:57:20.592872",
+      "custom_score": null
+    },
+    {
+      "id": 29,
+      "name": "Carlos Perez Test 1789495041",
+      "whatsapp": "5493834495041",
+      "email": "carlos@test.com",
+      "address": "Calle Falsa 123",
+      "cuit": "20178949504",
+      "notes": "Cliente de prueba auditoria",
+      "bank_alias": "",
+      "has_guarantor": false,
+      "guarantor_name": null,
+      "guarantor_address": null,
+      "guarantor_cuit": null,
+      "guarantor_phone": null,
+      "created_at": "2026-09-15T17:57:21.105683",
+      "custom_score": null
+    },
+    {
+      "id": 30,
+      "name": "Cliente Express 1789495041",
+      "whatsapp": "54911495041",
+      "email": "express_1789495041@test.com",
+      "address": "Calle Falsa 742",
+      "cuit": "20949504188",
+      "notes": "Registrado vía Cliente Express QR. Cliente registrado desde QR remoto",
+      "bank_alias": "ALIAS.EXPRESS.MP",
+      "has_guarantor": false,
+      "guarantor_name": null,
+      "guarantor_address": null,
+      "guarantor_cuit": null,
+      "guarantor_phone": null,
+      "created_at": "2026-09-15T17:57:21.710160",
+      "custom_score": null
     }
   ],
   "Loan": [
@@ -928,6 +979,60 @@
       "signature_data": "",
       "created_by": "Administración",
       "created_at": "2026-09-15T17:34:20.782406"
+    },
+    {
+      "id": 27,
+      "client_id": 28,
+      "amount": 200000.0,
+      "interest_rate": 15.0,
+      "rate_type": "mensual",
+      "modality": "mensual",
+      "installments_count": 4,
+      "start_date": "2026-09-15",
+      "status": "activo",
+      "grace_days": 3,
+      "late_fee_type": "porcentaje",
+      "late_fee_value": 1.0,
+      "notes": "",
+      "signature_data": "",
+      "created_by": "Asesor Carlos",
+      "created_at": "2026-09-15T17:57:20.675975"
+    },
+    {
+      "id": 28,
+      "client_id": 6,
+      "amount": 100000.0,
+      "interest_rate": 15.0,
+      "rate_type": "mensual",
+      "modality": "mensual",
+      "installments_count": 4,
+      "start_date": "2026-09-15",
+      "status": "pendiente_otorgamiento",
+      "grace_days": 3,
+      "late_fee_type": "porcentaje",
+      "late_fee_value": 1.0,
+      "notes": "Pagaré Virtual Express firmado el 15/09/2026 14:57. Selfie y documentos registrados.",
+      "signature_data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "created_by": "Administración",
+      "created_at": "2026-09-15T17:57:21.060334"
+    },
+    {
+      "id": 29,
+      "client_id": 1,
+      "amount": 75000.0,
+      "interest_rate": 15.0,
+      "rate_type": "mensual",
+      "modality": "mensual",
+      "installments_count": 3,
+      "start_date": "2026-09-15",
+      "status": "activo",
+      "grace_days": 3,
+      "late_fee_type": "porcentaje",
+      "late_fee_value": 1.0,
+      "notes": "",
+      "signature_data": "",
+      "created_by": "Administración",
+      "created_at": "2026-09-15T17:57:21.499738"
     }
   ],
   "Installment": [
@@ -2031,9 +2136,9 @@
       "amount": 36250.0,
       "capital_portion": 25000.0,
       "interest_portion": 11250.0,
-      "paid_amount": 0.0,
-      "status": "pendiente",
-      "paid_date": null
+      "paid_amount": 1000.0,
+      "status": "parcial",
+      "paid_date": "2026-09-15"
     },
     {
       "id": 93,
@@ -2050,6 +2155,138 @@
     {
       "id": 94,
       "loan_id": 26,
+      "number": 3,
+      "due_date": "2026-12-14",
+      "amount": 36250.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 11250.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 95,
+      "loan_id": 27,
+      "number": 1,
+      "due_date": "2026-10-15",
+      "amount": 80000.0,
+      "capital_portion": 50000.0,
+      "interest_portion": 30000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 96,
+      "loan_id": 27,
+      "number": 2,
+      "due_date": "2026-11-14",
+      "amount": 80000.0,
+      "capital_portion": 50000.0,
+      "interest_portion": 30000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 97,
+      "loan_id": 27,
+      "number": 3,
+      "due_date": "2026-12-14",
+      "amount": 80000.0,
+      "capital_portion": 50000.0,
+      "interest_portion": 30000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 98,
+      "loan_id": 27,
+      "number": 4,
+      "due_date": "2027-01-13",
+      "amount": 80000.0,
+      "capital_portion": 50000.0,
+      "interest_portion": 30000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 99,
+      "loan_id": 28,
+      "number": 1,
+      "due_date": "2026-10-15",
+      "amount": 40000.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 15000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 100,
+      "loan_id": 28,
+      "number": 2,
+      "due_date": "2026-11-14",
+      "amount": 40000.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 15000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 101,
+      "loan_id": 28,
+      "number": 3,
+      "due_date": "2026-12-14",
+      "amount": 40000.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 15000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 102,
+      "loan_id": 28,
+      "number": 4,
+      "due_date": "2027-01-13",
+      "amount": 40000.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 15000.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 103,
+      "loan_id": 29,
+      "number": 1,
+      "due_date": "2026-10-15",
+      "amount": 36250.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 11250.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 104,
+      "loan_id": 29,
+      "number": 2,
+      "due_date": "2026-11-14",
+      "amount": 36250.0,
+      "capital_portion": 25000.0,
+      "interest_portion": 11250.0,
+      "paid_amount": 0.0,
+      "status": "pendiente",
+      "paid_date": null
+    },
+    {
+      "id": 105,
+      "loan_id": 29,
       "number": 3,
       "due_date": "2026-12-14",
       "amount": 36250.0,
@@ -2148,6 +2385,17 @@
       "payment_method": "Transferencia",
       "notes": "Test payment unit test",
       "receipt_number": "REC-20260915142822-81"
+    },
+    {
+      "id": 9,
+      "installment_id": 92,
+      "loan_id": 26,
+      "client_id": 1,
+      "amount": 1000.0,
+      "payment_date": "2026-09-15T14:34:22.543110",
+      "payment_method": "Transferencia",
+      "notes": "Test payment unit test",
+      "receipt_number": "REC-20260915143422-92"
     }
   ],
   "Expense": [
@@ -2775,6 +3023,16 @@
       "notes": null,
       "is_completed": false,
       "created_at": "2026-09-15T17:34:20.048787"
+    },
+    {
+      "id": 12,
+      "title": "Pago de Servicio Luz 1789495040",
+      "category": "servicio",
+      "due_date": "2026-09-20",
+      "due_time": "10:00",
+      "notes": null,
+      "is_completed": false,
+      "created_at": "2026-09-15T17:57:20.731745"
     }
   ]
 }

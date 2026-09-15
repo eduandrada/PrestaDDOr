@@ -4184,19 +4184,19 @@ function registerPrestamosApp() {
                         rec.onstart = () => {
                             this.isRecordingDictation = true;
                             this.dictationStatusMessage = '🔴 Escuchando voz en vivo en español... ¡Hablá ahora!';
+                            this._dictationBaseText = this.zeroUiText ? this.zeroUiText.trim() : '';
                         };
 
                         rec.onresult = (event) => {
-                            let transcript = '';
-                            for (let i = event.resultIndex; i < event.results.length; i++) {
-                                transcript += event.results[i][0].transcript;
+                            let fullTranscript = '';
+                            for (let i = 0; i < event.results.length; i++) {
+                                fullTranscript += event.results[i][0].transcript;
                             }
-                            if (transcript) {
-                                if (this.zeroUiText && !this.zeroUiText.endsWith(' ') && !this.zeroUiText.endsWith('\n')) {
-                                    this.zeroUiText += ' ' + transcript;
-                                } else {
-                                    this.zeroUiText += transcript;
-                                }
+                            const cleanTranscript = fullTranscript.trim();
+                            if (this._dictationBaseText) {
+                                this.zeroUiText = this._dictationBaseText + ' ' + cleanTranscript;
+                            } else {
+                                this.zeroUiText = cleanTranscript;
                             }
                         };
 

@@ -5918,60 +5918,130 @@ def process_zero_ui_text(raw_text, source="Voz/Zero-UI"):
 
     created_items = {"shopping": [], "calendar": [], "notices": []}
 
-    shopping_keywords = ["comprar", "compras", "detergente", "leche", "tomates", "pan", "carne", "clavos", "supermercado", "verdulería", "ferretería", "aceite", "jabón", "fideos", "harina"]
-    calendar_keywords = ["turno", "dentista", "médico", "vacuna", "examen", "colegio", "vencimiento", "factura", "jueves", "martes", "miércoles", "viernes", "sábado", "domingo", "lunes"]
+    # 1. Cleaning speech duplication artifacts & greetings
+    clean_speech = re.sub(r'(?i)\bhola\b|\bcómo estás\b|\bcomo estas\b|\bquisiera\b|\bpor favor\b', ' ', raw_text)
+    clean_speech = re.sub(r'\b(\w+)(?:\s+\1)+\b', r'\1', clean_speech, flags=re.IGNORECASE)
+    clean_speech = re.sub(r'\s+', ' ', clean_speech).strip()
 
-    sentences = [s.strip() for s in raw_text.replace('\n', '.').split('.') if s.strip()]
-    if not sentences:
-        sentences = [raw_text]
+    categories_kw = {
+        'verduleria': ['lechuga', 'tomate', 'tomates', 'papa', 'papas', 'cebolla', 'zanahoria', 'manzana', 'banana', 'fruta', 'verdura'],
+        'ferreteria': ['clavo', 'clavos', 'tornillo', 'cinta', 'cable', 'pintura', 'martillo', 'lira', 'foco'],
+        'farmacia': ['remedio', 'remedios', 'aspirina', 'paracetamol', 'ibuprofeno', 'gasas', 'alcohol', 'farmacia'],
+        'supermercado': ['detergente', 'leche', 'pan', 'carne', 'aceite', 'jabon', 'fideos', 'harina', 'arroz', 'queso', 'fiambre']
+    }
+    calendar_kw = ['turno', 'dentista', 'medico', 'médico', 'examen', 'pagar', 'factura', 'vencimiento', 'cita', 'reunion', 'reunión']
+    notice_kw = ['recordar', 'nota', 'aviso', 'importante', 'ojo']
 
-    for sentence in sentences:
-        s_lower = sentence.lower()
+    qty_pattern = r'(\d+(?:\.\d+)?\s*(?:kg|kilos|kilo|gr|gramos|g|l|litros|litro|paquetes|paquete|unidades|un)?)\s+(?:de\s+)?([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+)'
+
+    clauses = re.split(r'[\.\n;]|(?:\b(?:y|también|tamien|además)\b)', clean_speech, flags=re.IGNORECASE)
+    
+    seen_shopping = set()
+    seen_calendar = set()
+    seen_notices = set()
+
+    for clause in clauses:
+        clause_str = clause.strip()
+        if not clause_str or len(clause_str) < 3:
+            continue
+            
+        c_lower = clause_str.lower()
         
-        if any(k in s_lower for k in shopping_keywords) or "anotát" in s_lower or "comprar" in s_lower or "compras" in s_lower:
-            cat = 'supermercado'
-            if any(k in s_lower for k in ['tomate', 'verdura', 'fruta', 'papa', 'cebolla']):
-                cat = 'verduleria'
-            elif any(k in s_lower for k in ['clavo', 'cinta', 'tornillo', 'cable', 'pintura']):
-                cat = 'ferreteria'
-            elif any(k in s_lower for k in ['remedio', 'remédio', 'remedios', 'aspirina', 'farmacia']):
-                cat = 'farmacia'
+        # Check calendar
+        if any(k in c_lower for k in calendar_kw):
+            clean_title = re.sub(r'^(?:necesito|tengo que|hay que|recordar|hacer)\s+', '', clause_str, flags=re.IGNORECASE).capitalize()
+            if clean_title not in seen_calendar:
+                seen_calendar.add(clean_title)
+                cat = 'servicio'
+                if any(k in c_lower for k in ['dentista', 'medico', 'médico', 'doctor']):
+                    cat = 'medico'
+                elif any(k in c_lower for k in ['vacuna', 'perro', 'gato', 'mascota']):
+                    cat = 'mascota'
+                
+                ev = HomeCalendarItem(
+                    title=clean_title,
+                    category=cat,
+                    due_date=(date.today() + timedelta(days=2)).strftime('%Y-%m-%d'),
+                    due_time="17:00",
+                    notes=f"Agendado desde {source}"
+                )
+                db.session.add(ev)
+                db.session.commit()
+                created_items["calendar"].append(ev.to_dict())
+            continue
 
-            item = ShoppingItem(store_category=cat, item_name=sentence.capitalize(), quantity="1", added_by=source)
-            db.session.add(item)
-            db.session.commit()
-            created_items["shopping"].append(item.to_dict())
+        # Check noticeboard
+        if any(k in c_lower for k in notice_kw) and not any(k in c_lower for k in ['comprar', 'tomate', 'lechuga', 'carne']):
+            clean_content = clause_str.capitalize()
+            if clean_content not in seen_notices:
+                seen_notices.add(clean_content)
+                n = NoticeBoardItem(author=source, message=clean_content, is_pinned=False)
+                db.session.add(n)
+                db.session.commit()
+                created_items["notices"].append(n.to_dict())
+            continue
 
-        elif any(k in s_lower for k in calendar_keywords):
-            cat = 'servicio'
-            if any(k in s_lower for k in ['médico', 'dentista', 'doctor', 'salud', 'clinica']):
-                cat = 'medico'
-            elif any(k in s_lower for k in ['vacuna', 'perro', 'gato', 'mascota', 'veterinaria']):
-                cat = 'mascota'
-            elif any(k in s_lower for k in ['examen', 'prueba', 'colegio', 'escuela']):
-                cat = 'examen'
+        # Extract shopping items with quantities
+        qty_matches = re.findall(qty_pattern, clause_str, flags=re.IGNORECASE)
+        if qty_matches:
+            for qty, prod_raw in qty_matches:
+                prod = prod_raw.strip().capitalize()
+                prod = re.sub(r'^(?:comprar|necesito|compras|traer)\s+', '', prod, flags=re.IGNORECASE).strip()
+                prod_tokens = prod.split()
+                if prod_tokens:
+                    target_prod = prod_tokens[-1].capitalize() if len(prod_tokens) > 1 and prod_tokens[0].lower() in ['comprar', 'lechuga', 'tomate'] else prod
+                    if target_prod and target_prod.lower() not in ['de', 'y', 'para', 'que'] and len(target_prod) > 2:
+                        if target_prod.lower() not in seen_shopping:
+                            seen_shopping.add(target_prod.lower())
+                            cat = 'supermercado'
+                            for c_name, keywords in categories_kw.items():
+                                if any(k in target_prod.lower() for k in keywords):
+                                    cat = c_name
+                                    break
+                            item_label = f"{target_prod} ({qty.strip()})" if qty.strip() != '1' else target_prod
+                            item = ShoppingItem(store_category=cat, item_name=item_label, quantity=qty.strip(), added_by=source)
+                            db.session.add(item)
+                            db.session.commit()
+                            created_items["shopping"].append(item.to_dict())
 
-            ev = HomeCalendarItem(title=sentence.capitalize(), category=cat, due_date=(date.today() + timedelta(days=2)).strftime('%Y-%m-%d'), due_time="17:00", notes=f"Registrado desde {source}")
-            db.session.add(ev)
-            db.session.commit()
-            created_items["calendar"].append(ev.to_dict())
+        # Check direct product keywords (e.g. lechuga, tomate)
+        for cat_name, kw_list in categories_kw.items():
+            for kw in kw_list:
+                if kw in c_lower and kw not in seen_shopping:
+                    seen_shopping.add(kw)
+                    display_name = kw.capitalize()
+                    item = ShoppingItem(store_category=cat_name, item_name=display_name, quantity="1", added_by=source)
+                    db.session.add(item)
+                    db.session.commit()
+                    created_items["shopping"].append(item.to_dict())
 
-        else:
-            n = NoticeBoardItem(author=source, message=sentence.capitalize(), is_pinned=False)
-            db.session.add(n)
-            db.session.commit()
-            created_items["notices"].append(n.to_dict())
+    # Deduplicate sub-prefix words if a longer word exists in shopping list
+    final_shopping = []
+    for s_item in created_items["shopping"]:
+        item_name = s_item.get("name") or s_item.get("item_name") or ""
+        name_lower = re.sub(r'\s*\([^)]*\)', '', item_name).strip().lower()
+        is_sub_prefix = False
+        for other_item in created_items["shopping"]:
+            other_title = other_item.get("name") or other_item.get("item_name") or ""
+            other_name = re.sub(r'\s*\([^)]*\)', '', other_title).strip().lower()
+            if len(other_name) > len(name_lower) and other_name.startswith(name_lower):
+                is_sub_prefix = True
+                break
+        if not is_sub_prefix:
+            final_shopping.append(s_item)
+
+    created_items["shopping"] = final_shopping
 
     return {
         "status": "success",
         "success": True,
         "raw_text": raw_text,
-        "summary": f"Se procesó la nota: {len(created_items['shopping'])} compras, {len(created_items['calendar'])} turnos y {len(created_items['notices'])} avisos.",
+        "summary": f"Se procesó el dictado: {len(created_items['shopping'])} compras, {len(created_items['calendar'])} turnos y {len(created_items['notices'])} avisos.",
         "created_items": created_items,
         "result": {
-            "shopping": [i["name"] for i in created_items["shopping"]],
-            "calendar": [i["title"] for i in created_items["calendar"]],
-            "notices": [i["content"] for i in created_items["notices"]]
+            "shopping": [i.get("name") or i.get("item_name") for i in created_items["shopping"]],
+            "calendar": [i.get("title") for i in created_items["calendar"]],
+            "notices": [i.get("content") or i.get("message") for i in created_items["notices"]]
         }
     }
 
