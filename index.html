@@ -996,13 +996,26 @@
                   </div>
 
                   <!-- Credit Underwriting Assessment Box -->
-                  <div class="p-3.5 rounded-xl border text-xs font-semibold leading-relaxed"
+                  <div class="p-3.5 rounded-xl border text-xs font-semibold leading-relaxed space-y-3"
                        :class="{
                          'bg-emerald-950/40 border-emerald-500/40 text-emerald-200': bcraResult.underwriting?.traffic_light === 'verde',
                          'bg-amber-950/40 border-amber-500/40 text-amber-200': bcraResult.underwriting?.traffic_light === 'amarillo',
                          'bg-rose-950/40 border-rose-500/40 text-rose-200': bcraResult.underwriting?.traffic_light === 'rojo'
                        }">
-                    <span x-text="bcraResult.underwriting?.message"></span>
+                    <p x-text="bcraResult.underwriting?.message"></p>
+
+                    <!-- Acciones: Notificación WhatsApp & Descargar PDF de Deudas BCRA -->
+                    <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-700/50">
+                      <button @click="sendBcraWhatsappNotice()" 
+                              class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow cursor-pointer"
+                              :class="bcraResult.underwriting?.traffic_light === 'verde' ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-rose-600 hover:bg-rose-500 text-white'">
+                        <span>📲 Notificar Resolución por WhatsApp</span>
+                      </button>
+                      <a :href="'/api/bcra/report_pdf/' + (bcraResult.cuit || bcraSearchCuit)" target="_blank"
+                         class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow no-underline">
+                        <span>📄 Descargar Informe BCRA en PDF</span>
+                      </a>
+                    </div>
                   </div>
 
                   <!-- Key Financial Metrics Grid -->
@@ -3757,7 +3770,7 @@
         <!-- BCRA Report Results -->
         <div x-show="bcraReport.data && !bcraReport.loading" class="space-y-3">
           <!-- Motor de Decisiones Card -->
-          <div class="p-3 rounded-xl border" :class="{
+          <div class="p-3 rounded-xl border space-y-2" :class="{
             'bg-emerald-50 border-emerald-300 dark:bg-emerald-950/50 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200': bcraReport.data?.underwriting?.traffic_light === 'verde',
             'bg-amber-50 border-amber-300 dark:bg-amber-950/50 dark:border-amber-800 text-amber-950 dark:text-amber-200': bcraReport.data?.underwriting?.traffic_light === 'amarillo',
             'bg-rose-50 border-rose-300 dark:bg-rose-950/50 dark:border-rose-800 text-rose-950 dark:text-rose-200': bcraReport.data?.underwriting?.traffic_light === 'rojo'
@@ -3766,6 +3779,19 @@
               <span x-text="bcraReport.data?.underwriting?.traffic_light === 'verde' ? '🟢 APROBADO - RIESGO BAJO (SITUACIÓN 1)' : (bcraReport.data?.underwriting?.traffic_light === 'amarillo' ? '🟡 OBSERVADO - RIESGO MODERADO' : '🔴 ALTO RIESGO / RECHAZO RECOMENDADO')"></span>
             </div>
             <p class="text-xs font-semibold" x-text="bcraReport.data?.underwriting?.message"></p>
+
+            <!-- Acciones: Notificación WhatsApp & Descargar PDF de Deudas BCRA -->
+            <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-800/80">
+              <button @click="sendBcraWhatsappNotice(selectedClientHistory?.client, bcraReport.data)" 
+                      class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center space-x-1 shadow cursor-pointer"
+                      :class="bcraReport.data?.underwriting?.traffic_light === 'verde' ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-rose-600 hover:bg-rose-500 text-white'">
+                <span>📲 Notificar Resolución por WhatsApp</span>
+              </button>
+              <a :href="'/api/bcra/report_pdf/' + (bcraReport.data?.cuit || (selectedClientHistory ? selectedClientHistory.client.cuit : ''))" target="_blank"
+                 class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold transition flex items-center space-x-1 shadow no-underline">
+                <span>📄 Descargar Informe BCRA en PDF</span>
+              </a>
+            </div>
           </div>
 
           <!-- Summary Grid -->

@@ -837,6 +837,234 @@ def check_bcra(cuit_or_id):
     return jsonify(res)
 
 
+@app.route('/api/bcra/report_pdf/<cuit_or_id>', methods=['GET'])
+def generate_bcra_report_pdf(cuit_or_id):
+    cuit = str(cuit_or_id).strip()
+    client = None
+    if cuit.isdigit() and len(cuit) < 10:
+        client = db.session.get(Client, int(cuit))
+        if client and client.cuit:
+            cuit = client.cuit
+            
+    if not client:
+        clean_c = "".join(c for c in cuit if c.isdigit())
+        if clean_c:
+            client = Client.query.filter(Client.cuit.like(f"%{clean_c}%")).first()
+
+    bcra_data = query_bcra_api(cuit)
+    if "error" in bcra_data:
+        return f"<h3>Error al generar Informe BCRA: {bcra_data.get('error')}</h3>", 400
+
+    company = Setting.get_val('company_name', 'PrestaDDOr - Sistema de Préstamos')
+    company_cuit = Setting.get_val('company_cuit', '30-71234567-8')
+    company_phone = Setting.get_val('company_phone', '+54 9 383 412-3456')
+    
+    denominacion = bcra_data.get('denominacion') or (client.name if client else 'Cliente / Consultante')
+    cuit_clean = bcra_data.get('cuit') or cuit
+    max_sit = bcra_data.get('max_situacion', 1)
+    tot_deuda = bcra_data.get('total_deuda_pesos', 0.0)
+    ch_rech = bcra_data.get('cheques_rechazados', 0)
+    entidades = bcra_data.get('entidades') or []
+    underwriting = bcra_data.get('underwriting') or {}
+    traffic_light = underwriting.get('traffic_light', 'verde')
+
+    if traffic_light == 'verde':
+        badge_bg = '#059669'
+        badge_text = '🟢 APROBADO - EXCELENTE PERFIL (SITUACIÓN 1 NORMAL)'
+        decision_box_style = 'background: #ecfdf5; border: 2px solid #059669; color: #064e3b;'
+    elif traffic_light == 'amarillo':
+        badge_bg = '#d97706'
+        badge_text = '🟡 OBSERVADO - RIESGO MEDIO (REQUIERE GARANTE SOLVENTE)'
+        decision_box_style = 'background: #fffbeb; border: 2px solid #d97706; color: #78350f;'
+    else:
+        badge_bg = '#b91c1c'
+        badge_text = '🔴 RECHAZADO - ALTO RIESGO CREDITICIO / MORA O CHEQUES'
+        decision_box_style = 'background: #fef2f2; border: 2px solid #b91c1c; color: #7f1d1d;'
+
+    client_wa = client.whatsapp if client else ''
+    client_alias = client.bank_alias if client else 'N/A'
+
+    entities_rows = ""
+    if entidades:
+        for ent in entidades:
+            m_pesos = ent.get('monto_pesos') or ent.get('monto') or 0.0
+            sit = ent.get('situacion', 1)
+            dias = ent.get('diasAtraso') or ent.get('dias_atraso') or 0
+            ent_name = ent.get('entidad', 'Entidad Financiera')
+            periodo = ent.get('periodo', 'N/A')
+            desc = ent.get('estado_texto', '')
+
+            sit_badge_color = '#059669' if sit == 1 else ('#d97706' if sit == 2 else '#b91c1c')
+            dias_color = '#b91c1c' if dias > 0 else '#059669'
+            
+            entities_rows += f"""
+            <tr>
+                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">
+                    <strong style="font-size: 13px; color: #0f172a;">{ent_name}</strong>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">{desc}</div>
+                </td>
+                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+                    <span style="background: {sit_badge_color}; color: #fff; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 11px;">Sit. {sit}</span>
+                </td>
+                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: {dias_color};">
+                    {f'🔴 {dias} días de atraso' if dias > 0 else '🟢 0 días (Al día)'}
+                </td>
+                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center; font-family: monospace; font-size: 11px; color: #475569;">
+                    {periodo}
+                </td>
+                <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace; font-weight: bold; font-size: 13px; color: {'#059669' if m_pesos > 0 else '#64748b'};">
+                    ${m_pesos:,.2f}
+                </td>
+            </tr>
+            """
+    else:
+        entities_rows = """
+        <tr>
+            <td colspan="5" style="padding: 18px; text-align: center; color: #059669; font-weight: bold; background: #ecfdf5;">
+                ✅ El titular no registra deudas vigentes ni moras en entidades del Sistema Bancario Argentino (Situación 1 Normal).
+            </td>
+        </tr>
+        """
+
+    import urllib.parse
+    if traffic_light == 'verde':
+        wa_text = f"¡Hola {denominacion}! Te notificamos que tu Evaluación Crediticia en la Central de Deudores BCRA ha sido APROBADA CON ÉXITO 🟢. Tu solicitud de préstamo se encuentra lista para otorgamiento. Por favor comunicate con nosotros. Saludos, {company}."
+    elif traffic_light == 'amarillo':
+        wa_text = f"Hola {denominacion}. Te informamos que de acuerdo a tu evaluación crediticia en la Central de Deudores BCRA, tu préstamo fue OBSERVADO debido a atrasos leves en el sistema bancario (Situación 2). Podremos otorgarlo requiriendo un Garante Solvente con recibo de sueldo verificado. Saludos, {company}."
+    else:
+        wa_text = f"Hola {denominacion}. Te informamos que tras evaluar tus antecedentes en la Central de Deudores del Banco Central (BCRA), la solicitud de préstamo NO PUDO SER APROBADA en esta oportunidad debido a observaciones o deudas registradas en el sistema financiero (Situación {max_sit}). Quedamos a tu disposición si deseas presentar un Garante Solvente. Saludos, {company}."
+    
+    clean_wa_phone = "".join(c for c in str(client_wa) if c.isdigit())
+    wa_url = f"https://wa.me/{clean_wa_phone}?text={urllib.parse.quote(wa_text)}" if clean_wa_phone else f"https://wa.me/?text={urllib.parse.quote(wa_text)}"
+
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informe Oficial BCRA - {denominacion} ({cuit_clean})</title>
+    <style>
+        body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #0f172a; padding: 25px; margin: 0; }}
+        .card {{ max-width: 860px; margin: 0 auto; background: #ffffff; border: 2px solid #334155; border-radius: 16px; padding: 35px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }}
+        .header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 18px; margin-bottom: 20px; }}
+        .badge {{ background: {badge_bg}; color: #ffffff; padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; }}
+        table {{ width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 12px; }}
+        th {{ background: #0f172a; color: #ffffff; padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; }}
+        .grid-summary {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; text-align: center; }}
+        .sum-box {{ background: #f1f5f9; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; }}
+        .sum-title {{ font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: bold; }}
+        .sum-val {{ font-size: 15px; font-weight: 900; margin-top: 4px; }}
+        .btn {{ display: inline-block; padding: 10px 20px; font-size: 13px; font-weight: bold; border-radius: 10px; text-decoration: none; cursor: pointer; border: none; margin: 0 4px; transition: all 0.2s; }}
+        .btn-print {{ background: #0f172a; color: #fff; }}
+        .btn-wa {{ background: #25d366; color: #fff; }}
+        @media print {{
+            body {{ background: #fff; padding: 0; }}
+            .card {{ border: none; box-shadow: none; padding: 0; max-width: 100%; }}
+            .no-print {{ display: none; }}
+        }}
+    </style>
+</head>
+<body>
+    <div style="text-align: center; margin-bottom: 20px;" class="no-print">
+        <button onclick="window.print()" class="btn btn-print">🖨️ Imprimir / Guardar Informe en PDF</button>
+        <a href="{wa_url}" target="_blank" class="btn btn-wa">📲 Enviar Resolución por WhatsApp al Cliente</a>
+    </div>
+
+    <div class="card">
+        <div class="header">
+            <div>
+                <h1 style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 0;">{company}</h1>
+                <p style="font-size: 11px; color: #64748b; font-weight: bold; margin: 4px 0 0 0; text-transform: uppercase;">Departamento de Análisis de Riesgo & Evaluación Crediticia BCRA • CUIT {company_cuit}</p>
+                <p style="font-size: 12px; color: #475569; margin: 4px 0 0 0;">📍 Central de Consultas Oficiales Banco Central de la República Argentina • Tel: {company_phone}</p>
+            </div>
+            <div style="text-align: right;">
+                <div class="badge">AUDITORÍA CREDITICIA OFICIAL</div>
+                <div style="font-size: 11px; color: #64748b; font-weight: bold; margin-top: 6px;">Emisión: {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>
+            </div>
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
+                <div><strong>Titular / Cliente:</strong> <span style="font-size: 15px; font-weight: 900; color: #0f172a;">{denominacion}</span></div>
+                <div><strong>CUIT / CUIL:</strong> <span style="font-family: monospace; font-weight: 900; color: #0284c7;">{cuit_clean}</span></div>
+                <div><strong>Contacto WhatsApp:</strong> {client_wa or 'No registrado'}</div>
+                <div><strong>Alias Bancario:</strong> <span style="font-family: monospace;">{client_alias}</span></div>
+            </div>
+        </div>
+
+        <div style="{decision_box_style} padding: 16px; border-radius: 12px; margin-bottom: 20px;">
+            <div style="font-weight: 900; font-size: 14px; text-transform: uppercase; margin-bottom: 6px;">{badge_text}</div>
+            <div style="font-size: 12px; line-height: 1.5;">{underwriting.get('message', 'Evaluación realizada correctamente.')}</div>
+        </div>
+
+        <div class="grid-summary">
+            <div class="sum-box">
+                <div class="sum-title">Deuda Total Registrada</div>
+                <div class="sum-val" style="color: #0284c7;">${tot_deuda:,.2f}</div>
+            </div>
+            <div class="sum-box">
+                <div class="sum-title">Peor Situación BCRA</div>
+                <div class="sum-val" style="color: {'#059669' if max_sit == 1 else '#b91c1c'};">Sit. {max_sit}</div>
+            </div>
+            <div class="sum-box">
+                <div class="sum-title">Entidades Financieras</div>
+                <div class="sum-val">{len(entidades)} Entidad(es)</div>
+            </div>
+            <div class="sum-box">
+                <div class="sum-title">Cheques Rechazados</div>
+                <div class="sum-val" style="color: {'#b91c1c' if ch_rech > 0 else '#0f172a'};">{ch_rech}</div>
+            </div>
+        </div>
+
+        <h3 style="font-size: 14px; text-transform: uppercase; color: #0f172a; margin-top: 25px; margin-bottom: 8px;">🏛️ Listado Detallado de Bancos & Entidades (Central de Deudores BCRA):</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Banco / Entidad Financiera</th>
+                    <th style="text-align: center;">Situación</th>
+                    <th style="text-align: center;">Días de Atraso</th>
+                    <th style="text-align: center;">Período</th>
+                    <th style="text-align: right;">Monto Deuda ($)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {entities_rows}
+            </tbody>
+        </table>
+
+        <div style="font-size: 11px; color: #64748b; line-height: 1.5; margin-top: 30px; border-top: 1px solid #cbd5e1; padding-top: 12px;">
+            * El presente informe ha sido generado automáticamente mediante la integración con la API oficial de la Central de Deudores del Banco Central de la República Argentina (BCRA). Los importes y situaciones representan los registros públicos reportados por el sistema financiero.
+        </div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 40px; padding-top: 20px; border-top: 1px dashed #cbd5e1;">
+            <div style="text-align: center; width: 45%; border-top: 1px solid #0f172a; padding-top: 8px; font-size: 12px; font-weight: bold;">
+                Firma del Evaluador de Riesgo
+                <div style="font-size: 10px; color: #64748b;">Departamento de Créditos</div>
+            </div>
+            <div style="text-align: center; width: 45%; border-top: 1px solid #0f172a; padding-top: 8px; font-size: 12px; font-weight: bold;">
+                Conformidad del Solicitante
+                <div style="font-size: 10px; color: #64748b;">Firma / Aclaración</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>"""
+
+    if request.args.get('download') == '1':
+        import tempfile
+        from utils.notification import create_pdf
+        fd, path = tempfile.mkstemp(suffix='.pdf'); os.close(fd)
+        create_pdf(html, path)
+        with open(path, 'rb') as f: pdf_bytes = f.read()
+        os.unlink(path)
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'inline; filename=Informe_BCRA_{cuit_clean}_{datetime.now().strftime("%Y%m%d")}.pdf'
+        return response
+
+    return html
+
+
 @app.route('/api/clients', methods=['GET', 'POST'])
 def handle_clients():
     if request.method == 'POST':

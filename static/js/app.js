@@ -762,6 +762,35 @@ function registerPrestamosApp() {
                 }
             },
 
+            sendBcraWhatsappNotice(customClient = null, customBcra = null) {
+                const bcra = customBcra || this.bcraResult || (this.bcraReport ? this.bcraReport.data : null);
+                if (!bcra) {
+                    alert("Por favor realiza primero la consulta BCRA para obtener la resolución.");
+                    return;
+                }
+                const client = customClient || (this.selectedClientHistory ? this.selectedClientHistory.client : null);
+                let phone = (client ? client.whatsapp : '') || '';
+                if (!phone) {
+                    phone = prompt("Ingrese el número de WhatsApp del cliente para enviar la notificación (ej: 5493834123456):") || '';
+                }
+                const cleanPhone = phone.replace(/\D/g, '');
+                const name = bcra.denominacion || (client ? client.name : 'Estimado/a cliente');
+                const situacion = bcra.peorSituacion || bcra.max_situacion || 1;
+                const trafficLight = bcra.underwriting?.traffic_light || (situacion > 1 ? 'rojo' : 'verde');
+
+                let msg = "";
+                if (trafficLight === 'verde') {
+                    msg = `¡Hola ${name}! Te notificamos que tu Evaluación Crediticia en la Central de Deudores BCRA ha sido APROBADA CON ÉXITO 🟢. Tu solicitud de préstamo se encuentra aprobada y lista para otorgamiento. Por favor comunicate con nosotros para coordinar la firma y entrega. Saludos.`;
+                } else if (trafficLight === 'amarillo') {
+                    msg = `Hola ${name}. Te informamos que de acuerdo a tu evaluación crediticia en la Central de Deudores BCRA, tu préstamo fue OBSERVADO debido a atrasos leves en bancos (Situación ${situacion}). Podremos otorgarlo requiriendo un Garante Solvente con recibo de sueldo verificado. Saludos.`;
+                } else {
+                    msg = `Hola ${name}. Te informamos que tras evaluar tus antecedentes en la Central de Deudores del Banco Central (BCRA), la solicitud de préstamo NO PUDO SER APROBADA en esta oportunidad debido a observaciones o deudas registradas en el sistema financiero (Situación ${situacion}). Quedamos a tu disposición si deseas presentar un Garante Solvente. Saludos.`;
+                }
+
+                const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+                window.open(waUrl, '_blank');
+            },
+
             async saveClient() {
                 if (!this.clientForm || !this.clientForm.name || !this.clientForm.name.trim()) {
                     alert("Por favor ingrese el Nombre Completo del cliente.");
