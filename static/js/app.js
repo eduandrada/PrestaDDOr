@@ -3633,6 +3633,200 @@ function registerPrestamosApp() {
                 window.open(url, '_blank');
             },
 
+            async generarArteSorteo(tituloPremio, eventBtn = null) {
+                let btn = eventBtn ? (eventBtn.target || eventBtn.currentTarget) : null;
+                if (btn) {
+                    btn.dataset.origText = btn.innerText;
+                    btn.innerText = "⏳ Generando...";
+                    btn.disabled = true;
+                }
+                try {
+                    const res = await fetch("/api/ai/arte-sorteo", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ premio: tituloPremio })
+                    });
+                    const data = await res.json();
+                    if (data.imagen_base64) {
+                        this.flyerModal = {
+                            open: true,
+                            raffleTitle: tituloPremio,
+                            imgUrl: data.imagen_base64
+                        };
+                    } else {
+                        alert("No se pudo generar la imagen del sorteo: " + (data.error || "Error desconocido"));
+                    }
+                } catch (err) {
+                    alert("Error al conectar con Gemini API para arte de sorteo.");
+                } finally {
+                    if (btn) {
+                        btn.innerText = btn.dataset.origText || "✨ Arte IA";
+                        btn.disabled = false;
+                    }
+                }
+            },
+
+            async consultarAsesor(pregunta, tipoRol = "asesor") {
+                try {
+                    const res = await fetch("/api/ai/chat", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ mensaje: pregunta, rol: tipoRol })
+                    });
+                    const data = await res.json();
+                    return data.respuesta;
+                } catch (err) {
+                    console.error("Error al consultar Asesor Gemini:", err);
+                    return "Error al conectar con Gemini API.";
+                }
+            },
+
+            // CAMSCANNER & PDF COMPRESS FUNCTIONS
+            showCamScannerModal: false,
+            camScannerStream: null,
+            camScannerSnapshot: null,
+            camScannerForm: {
+                filterMode: 'aclarado',
+                targetFormat: 'docx',
+                isProcessing: false
+            },
+            showPdfCompressModal: false,
+            pdfCompressForm: {
+                file: null,
+                filename: '',
+                isCompressing: false
+            },
+            pdfCompressResult: null,
+
+            async openCamScannerModal() {
+                this.showCamScannerModal = true;
+                this.camScannerSnapshot = null;
+                this.$nextTick(async () => {
+                    try {
+                        this.camScannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: 1280, height: 1280 } });
+                        const videoEl = document.getElementById('camScannerVideo');
+                        if (videoEl) {
+                            videoEl.srcObject = this.camScannerStream;
+                        }
+                    } catch(err) {
+                        console.log("Cámara no disponible, usando subida directa.");
+                    }
+                });
+            },
+
+            closeCamScannerModal() {
+                if (this.camScannerStream) {
+                    this.camScannerStream.getTracks().forEach(track => track.stop());
+                    this.camScannerStream = null;
+                }
+                this.showCamScannerModal = false;
+                this.camScannerSnapshot = null;
+            },
+
+            takeCamScannerSnapshot() {
+                const videoEl = document.getElementById('camScannerVideo');
+                const canvasEl = document.getElementById('camScannerCanvas');
+                if (videoEl && canvasEl) {
+                    canvasEl.width = videoEl.videoWidth || 800;
+                    canvasEl.height = videoEl.videoHeight || 800;
+                    const ctx = canvasEl.getContext('2d');
+                    ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+                    this.camScannerSnapshot = canvasEl.toDataURL('image/jpeg', 0.92);
+                }
+            },
+
+            retakeCamScannerSnapshot() {
+                this.camScannerSnapshot = null;
+            },
+
+            async submitCamScannerOcr() {
+                if (!this.camScannerSnapshot) {
+                    alert("Primero capturá o seleccioná una foto.");
+                    return;
+                }
+                this.camScannerForm.isProcessing = true;
+                try {
+                    const res = await fetch("/api/camscanner/ocr", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            image_base64: this.camScannerSnapshot,
+                            filter_mode: this.camScannerForm.filterMode,
+                            target_format: this.camScannerForm.targetFormat
+                        })
+                    });
+                    if (res.ok) {
+                        const blob = await res.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `Escaneo_CamScanner.${this.camScannerForm.targetFormat}`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        this.closeCamScannerModal();
+                    } else {
+                        const errData = await res.json();
+                        alert("Error en escaneo CamScanner: " + (errData.message || "Error al procesar"));
+                    }
+                } catch(err) {
+                    alert("Error de conexión al procesar escaneo CamScanner: " + err.message);
+                } finally {
+                    this.camScannerForm.isProcessing = false;
+                }
+            },
+
+            openPdfCompressModal() {
+                this.showPdfCompressModal = true;
+                this.pdfCompressForm = { file: null, filename: '', isCompressing: false };
+                this.pdfCompressResult = null;
+            },
+
+            onPdfCompressFileSelected(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    this.pdfCompressForm.file = file;
+                    this.pdfCompressForm.filename = file.name;
+                    this.pdfCompressResult = null;
+                }
+            },
+
+            async submitPdfCompress() {
+                if (!this.pdfCompressForm.file) return;
+                this.pdfCompressForm.isCompressing = true;
+                try {
+                    const formData = new FormData();
+                    formData.append('file', this.pdfCompressForm.file);
+                    formData.append('target_max_kb', '1000');
+
+                    const res = await fetch("/api/pdf/compress", {
+                        method: "POST",
+                        headers: { "Accept": "application/json" },
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        this.pdfCompressResult = data;
+                    } else {
+                        alert("Error al comprimir PDF: " + (data.message || "Error desconocido"));
+                    }
+                } catch(err) {
+                    alert("Error de conexión al comprimir PDF: " + err.message);
+                } finally {
+                    this.pdfCompressForm.isCompressing = false;
+                }
+            },
+
+            downloadCompressedPdf() {
+                if (!this.pdfCompressResult || !this.pdfCompressResult.pdf_base64) return;
+                const a = document.createElement('a');
+                a.href = this.pdfCompressResult.pdf_base64;
+                a.download = this.pdfCompressResult.filename || 'documento_comprimido.pdf';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            },
+
             generateQuickFlyer() {
                 const title = prompt("Título para el Flyer Promocional (Edit.org / Adobe Express / Pinterest):", "GRAN SORTEO Y RIFA FAMILIAR");
                 if (!title) return;

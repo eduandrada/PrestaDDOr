@@ -6561,43 +6561,68 @@ def convert_spreadsheet():
         base_name = os.path.splitext(filename)[0]
         content_bytes = file.read()
         
-        # Try pandas first, fallback to standard library csv/json parser
+        # Parsing phase (openpyxl / pandas / csv / json)
         rows = []
-        try:
-            import pandas as pd
-            if ext in ['.xlsx', '.xls']:
-                df = pd.read_excel(io.BytesIO(content_bytes))
-            elif ext == '.json':
-                df = pd.read_json(io.BytesIO(content_bytes))
-            elif ext == '.tsv':
-                df = pd.read_csv(io.BytesIO(content_bytes), sep='\t')
-            else:
-                df = pd.read_csv(io.BytesIO(content_bytes))
-            rows = [df.columns.tolist()] + df.values.tolist()
-        except Exception:
-            text_str = content_bytes.decode('utf-8', errors='ignore')
-            if ext == '.json':
-                try:
-                    data = json.loads(text_str)
-                    if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
-                        headers = list(data[0].keys())
-                        rows.append(headers)
-                        for item in data:
-                            rows.append([str(item.get(h, '')) for h in headers])
-                    else:
-                        rows = [["Clave", "Valor"]] + [[str(k), str(v)] for k, v in data.items()]
-                except Exception:
-                    rows = [["Contenido"], [text_str]]
-            elif ext == '.tsv':
-                reader = csv.reader(text_str.splitlines(), delimiter='\t')
-                rows = list(reader)
-            else:
-                reader = csv.reader(text_str.splitlines())
-                rows = list(reader)
+        if ext in ['.xlsx', '.xls']:
+            try:
+                import openpyxl
+                wb = openpyxl.load_workbook(io.BytesIO(content_bytes), data_only=True)
+                ws = wb.active
+                for r in ws.iter_rows(values_only=True):
+                    rows.append([str(c) if c is not None else "" for c in r])
+            except Exception:
+                pass
+
+        if not rows:
+            try:
+                import pandas as pd
+                if ext in ['.xlsx', '.xls']:
+                    df = pd.read_excel(io.BytesIO(content_bytes))
+                elif ext == '.json':
+                    df = pd.read_json(io.BytesIO(content_bytes))
+                elif ext == '.tsv':
+                    df = pd.read_csv(io.BytesIO(content_bytes), sep='\t')
+                else:
+                    df = pd.read_csv(io.BytesIO(content_bytes))
+                rows = [df.columns.tolist()] + df.values.tolist()
+            except Exception:
+                text_str = content_bytes.decode('utf-8', errors='ignore')
+                if ext == '.json':
+                    try:
+                        data = json.loads(text_str)
+                        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
+                            headers = list(data[0].keys())
+                            rows.append(headers)
+                            for item in data:
+                                rows.append([str(item.get(h, '')) for h in headers])
+                        else:
+                            rows = [["Clave", "Valor"]] + [[str(k), str(v)] for k, v in data.items()]
+                    except Exception:
+                        rows = [["Contenido"], [text_str]]
+                elif ext == '.tsv':
+                    reader = csv.reader(text_str.splitlines(), delimiter='\t')
+                    rows = list(reader)
+                else:
+                    reader = csv.reader(text_str.splitlines())
+                    rows = list(reader)
         
         out_io = io.BytesIO()
         
         if target_fmt == 'xlsx':
+            try:
+                import openpyxl
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = "Datos"
+                for r in rows:
+                    ws.append([str(c) for c in r])
+                wb.save(out_io)
+                out_io.seek(0)
+                return send_file(out_io, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                 as_attachment=True, download_name=f"{base_name}_convertido.xlsx")
+            except Exception:
+                pass
+
             try:
                 import pandas as pd
                 df = pd.DataFrame(rows[1:], columns=rows[0]) if len(rows) > 1 else pd.DataFrame(rows)
@@ -6607,7 +6632,6 @@ def convert_spreadsheet():
                 return send_file(out_io, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                  as_attachment=True, download_name=f"{base_name}_convertido.xlsx")
             except Exception:
-                # Fallback XML Spreadsheet 2003
                 xml_rows = ""
                 for row in rows:
                     cells = "".join([f"<Cell><Data ss:Type=\"String\">{str(c)}</Data></Cell>" for c in row])
@@ -6638,11 +6662,37 @@ def convert_spreadsheet():
             html_rows = ""
             for idx, r in enumerate(rows):
                 tag = "th" if idx == 0 else "td"
-                cells = "".join([f"<{tag}>{str(c)}</{tag}>" for c in r])
-                html_rows += f"<tr>{cells}</tr>\n"
-            full_html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>{base_name}</title>
-            <style>body{{font-family:sans-serif;padding:20px;}} table{{border-collapse:collapse;width:100%;}} th,td{{border:1px solid #ddd;padding:8px;text-align:left;}} th{{background:#0f172a;color:#fff;}}</style>
-            </head><body><h2>{base_name}</h2><table>{html_rows}</table></body></html>"""
+                cells = "".join([f"<{tag} class='p-3 border border-slate-200 dark:border-slate-800 text-xs'>{str(c)}</{tag}>" for c in r])
+                bg_cls = "bg-slate-900 text-white font-black uppercase text-[11px]" if idx == 0 else ("bg-slate-50 dark:bg-slate-900/50" if idx % 2 == 0 else "bg-white dark:bg-slate-900")
+                html_rows += f"<tr class='{bg_cls}'>{cells}</tr>\n"
+            
+            full_html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{base_name} - PrestaDDOr Tabla HTML</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 p-6 min-h-screen font-sans">
+    <div class="max-w-6xl mx-auto space-y-4">
+        <div class="flex justify-between items-center bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl">
+            <div>
+                <h1 class="text-xl font-black text-white">📊 {base_name}</h1>
+                <p class="text-xs text-slate-400">Tabla de Datos Convertida • {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
+            </div>
+            <span class="px-3 py-1 bg-indigo-500/20 text-indigo-300 text-xs font-bold rounded-xl border border-indigo-500/30">Total Filas: {max(0, len(rows)-1)}</span>
+        </div>
+        <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
+            <table class="w-full text-left border-collapse">
+                <tbody>
+                    {html_rows}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>"""
             out_io.write(full_html.encode('utf-8'))
             out_io.seek(0)
             return send_file(out_io, mimetype='text/html', as_attachment=True, download_name=f"{base_name}_convertido.html")
@@ -6659,6 +6709,151 @@ def convert_spreadsheet():
         return jsonify({'status': 'error', 'message': f'Error en conversión de datos: {str(e)}'}), 500
 
 
+from image_filters import apply_document_clean_filter, apply_color_enhance_filter, compress_pdf_in_ram
+
+
+@app.route('/api/pdf/compress', methods=['POST'])
+def route_compress_pdf():
+    try:
+        file = request.files.get('file')
+        pdf_bytes = None
+        filename = "documento.pdf"
+        
+        if file:
+            pdf_bytes = file.read()
+            filename = file.filename or "documento.pdf"
+        else:
+            data = request.get_json(silent=True) or {}
+            b64 = data.get('pdf_base64', '')
+            if b64:
+                import base64
+                if ',' in b64:
+                    b64 = b64.split(',', 1)[1]
+                pdf_bytes = base64.b64decode(b64)
+                filename = data.get('filename', 'documento.pdf')
+
+        if not pdf_bytes:
+            return jsonify({'status': 'error', 'message': 'No se recibió ningún archivo PDF'}), 400
+
+        target_max_kb = 1000
+        try:
+            if request.form.get('target_max_kb'):
+                target_max_kb = int(request.form.get('target_max_kb'))
+            elif request.is_json and request.json.get('target_max_kb'):
+                target_max_kb = int(request.json.get('target_max_kb'))
+        except Exception:
+            target_max_kb = 1000
+
+        target_max_bytes = target_max_kb * 1024
+        compressed_bytes, orig_size, comp_size = compress_pdf_in_ram(pdf_bytes, target_max_bytes)
+        
+        base_name = os.path.splitext(filename)[0]
+        saving_pct = round((1 - comp_size / max(orig_size, 1)) * 100, 1)
+
+        if request.headers.get('Accept') == 'application/json' or (request.is_json and request.json.get('return_json')):
+            import base64
+            return jsonify({
+                'success': True,
+                'filename': f"{base_name}_comprimido.pdf",
+                'original_size_kb': round(orig_size / 1024, 1),
+                'compressed_size_kb': round(comp_size / 1024, 1),
+                'saving_percentage': saving_pct,
+                'pdf_base64': f"data:application/pdf;base64,{base64.b64encode(compressed_bytes).decode('utf-8')}"
+            })
+
+        out_io = io.BytesIO(compressed_bytes)
+        return send_file(out_io, mimetype='application/pdf', as_attachment=True, download_name=f"{base_name}_comprimido.pdf")
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Error al comprimir PDF en RAM: {str(e)}'}), 500
+
+
+@app.route('/api/camscanner/ocr', methods=['POST'])
+def route_camscanner_ocr():
+    try:
+        from PIL import Image
+        file = request.files.get('file')
+        img_bytes = None
+        filename = "escaneo.jpg"
+        
+        if file:
+            img_bytes = file.read()
+            filename = file.filename or "escaneo.jpg"
+        else:
+            data = request.get_json(silent=True) or {}
+            b64 = data.get('image_base64', '')
+            if b64:
+                import base64
+                if ',' in b64:
+                    b64 = b64.split(',', 1)[1]
+                img_bytes = base64.b64decode(b64)
+                filename = data.get('filename', 'escaneo.jpg')
+
+        if not img_bytes:
+            return jsonify({'status': 'error', 'message': 'No se recibió ninguna imagen para escaneo CamScanner'}), 400
+
+        filter_mode = (request.form.get('filter_mode') or (request.json.get('filter_mode') if request.is_json else 'aclarado')).lower()
+        target_fmt = (request.form.get('target_format') or (request.json.get('target_format') if request.is_json else 'docx')).lower()
+
+        img = Image.open(io.BytesIO(img_bytes))
+        if filter_mode == 'aclarado':
+            img = apply_document_clean_filter(img)
+        elif filter_mode == 'color':
+            img = apply_color_enhance_filter(img)
+
+        processed_io = io.BytesIO()
+        img.save(processed_io, 'JPEG', quality=92)
+        processed_bytes = processed_io.getvalue()
+
+        from gemini_services import escaneo_camscanner_ia
+        ocr_result = escaneo_camscanner_ia(processed_bytes, formato_salida=target_fmt)
+
+        base_name = os.path.splitext(filename)[0]
+        out_io = io.BytesIO()
+
+        if target_fmt == 'docx':
+            docx_bytes = build_docx_bytes(f"Escaneo CamScanner IA - {base_name}", ocr_result)
+            out_io.write(docx_bytes)
+            out_io.seek(0)
+            return send_file(out_io, mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                             as_attachment=True, download_name=f"{base_name}_CamScanner.docx")
+        elif target_fmt == 'xlsx':
+            import openpyxl
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Escaneo CamScanner"
+            ws.append(["Escaneo CamScanner IA", base_name, datetime.now().strftime('%d/%m/%Y %H:%M')])
+            ws.append([])
+            for line in ocr_result.splitlines():
+                if line.strip():
+                    parts = [p.strip() for p in line.split('|')] if '|' in line else [line.strip()]
+                    ws.append(parts)
+            wb.save(out_io)
+            out_io.seek(0)
+            return send_file(out_io, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                             as_attachment=True, download_name=f"{base_name}_CamScanner.xlsx")
+        elif target_fmt == 'pdf':
+            from utils.notification import create_pdf
+            import tempfile
+            html_content = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+            <style>body{{font-family:sans-serif;margin:20px;color:#0f172a;}} h2{{color:#1e1b4b;}} pre{{background:#f8fafc;padding:15px;border-radius:8px;border:1px solid #cbd5e1;line-height:1.6;}}</style>
+            </head><body><h2>📄 Escaneo CamScanner IA - {base_name}</h2><hr><pre>{ocr_result}</pre></body></html>"""
+            fd, path = tempfile.mkstemp(suffix='.pdf'); os.close(fd)
+            create_pdf(html_content, path)
+            with open(path, 'rb') as f: pdf_data = f.read()
+            os.unlink(path)
+            out_io.write(pdf_data)
+            out_io.seek(0)
+            return send_file(out_io, mimetype='application/pdf', as_attachment=True, download_name=f"{base_name}_CamScanner.pdf")
+        else:
+            out_io.write(ocr_result.encode('utf-8'))
+            out_io.seek(0)
+            return send_file(out_io, mimetype='text/plain', as_attachment=True, download_name=f"{base_name}_CamScanner.txt")
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Error en escaneo CamScanner: {str(e)}'}), 500
+
+
 @app.route('/api/convert/image', methods=['POST'])
 def convert_image():
     try:
@@ -6668,6 +6863,7 @@ def convert_image():
             return jsonify({'status': 'error', 'message': 'No se recibió ninguna imagen'}), 400
         
         target_fmt = request.form.get('target_format', 'png').lower()
+        filter_mode = request.form.get('filter_mode', 'none').lower()
         is_ocr = request.form.get('is_ocr', 'false').lower() == 'true'
         first_filename = files[0].filename or 'imagen'
         base_name = os.path.splitext(first_filename)[0]
@@ -6685,6 +6881,12 @@ def convert_image():
                     img = Image.open(io.BytesIO(c_bytes))
             else:
                 img = Image.open(io.BytesIO(c_bytes))
+            
+            if filter_mode == 'aclarado':
+                img = apply_document_clean_filter(img)
+            elif filter_mode == 'color':
+                img = apply_color_enhance_filter(img)
+                
             images.append(img)
 
         out_io = io.BytesIO()
@@ -7492,6 +7694,31 @@ def generar_cv():
     target_template = template_map.get(plantilla, 'cv_templates/minimalista.html')
     return render_template(target_template, **data)
 
+import gemini_services as ai
+
+@app.route("/api/ai/chat", methods=["POST"])
+def route_ai_chat():
+    data = request.get_json() or {}
+    mensaje = data.get("mensaje", "")
+    rol = data.get("rol", "asesor")  # 'asesor' o 'contador'
+    respuesta = ai.chat_ia(mensaje, rol=rol)
+    return jsonify({"respuesta": respuesta})
+
+@app.route("/api/ai/cv", methods=["POST"])
+def route_ai_cv():
+    data = request.get_json() or {}
+    datos = data.get("datos", "")
+    cv_generado = ai.generar_cv_ia(datos)
+    return jsonify({"cv": cv_generado})
+
+@app.route("/api/ai/arte-sorteo", methods=["POST"])
+def route_ai_sorteo():
+    data = request.get_json() or {}
+    premio = data.get("premio", "Gran Premio")
+    img_b64 = ai.generar_imagen_sorteo(premio)
+    if img_b64:
+        return jsonify({"imagen_base64": f"data:image/jpeg;base64,{img_b64}"})
+    return jsonify({"error": "No se pudo generar la imagen"}), 500
 
 
 if __name__ == '__main__':

@@ -15,3 +15,4 @@ instance/
 news_cache.json
 scratch_flyer_test.png
 logs/
+.env

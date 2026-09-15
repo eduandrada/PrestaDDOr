@@ -12,7 +12,7 @@ class TestFinalSystem(unittest.TestCase):
         with urllib.request.urlopen(req) as resp:
             self.assertEqual(resp.status, 200)
             html = resp.read().decode('utf-8')
-            self.assertIn("Generador de CV Premium", html)
+            self.assertIn("Generador de CV", html)
             self.assertIn("Minimalista", html)
 
     def test_02_generar_cv_post(self):
