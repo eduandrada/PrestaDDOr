@@ -23,8 +23,8 @@ def _generar_respuesta_local_asesor(prompt: str, context_data: dict = None) -> s
         'funciones', 'modulos', 'módulos', 'opciones'
     ])
 
-    # 1. Guías Operativas de Funciones del Sistema
-    if is_app_guide_query or any(k in p_lower for k in ['pagare', 'pagaré', 'qr', 'bcra', 'veraz', 'garante', 'scoring', 'hormiga', 'calle', 'recibo', 'camscanner', 'bingo', 'cv', 'caja', 'compras']):
+    # 1. Guías Operativas de Funciones del Sistema (cuando no es una consulta directa de datos de agenda o cliente)
+    if (is_app_guide_query or any(k in p_lower for k in ['pagare', 'pagaré', 'qr', 'bcra', 'veraz', 'garante', 'scoring', 'hormiga', 'calle', 'recibo', 'camscanner', 'bingo', 'cv', 'caja', 'compras'])) and not (context_data and context_data.get('calendar_summary') and any(ck in p_lower for ck in ['calendario', 'vencimiento', 'agenda'])):
         if 'bcra' in p_lower or 'veraz' in p_lower or 'deudores' in p_lower or 'evaluacion' in p_lower or 'evaluación' in p_lower:
             return (
                 "🏛️ **Evaluación Crediticia & Central de Deudores BCRA**\n\n"
@@ -252,6 +252,7 @@ def chat_ia_asesor_contador(prompt: str, rol: str = "asesor", context_data: dict
             context_str += "\n--- INFORMACIÓN INTERNA DEL CLIENTE CONSULTADO ---\n"
             context_str += f"• Nombre: {ci.get('name')}\n"
             context_str += f"• CUIT: {ci.get('cuit') or 'N/A'}\n"
+            context_str += f"• Alias Bancario: {ci.get('bank_alias') or 'No registrado'}\n"
             context_str += f"• Scoring Interno: {ci.get('scoring_stars', 5)}★\n"
             context_str += f"• Préstamos Activos Internos: {ci.get('active_loans_count', 0)}\n"
             context_str += f"• Saldo Pendiente Interno: ${ci.get('remaining_balance', 0):,.2f}\n"
@@ -267,6 +268,11 @@ def chat_ia_asesor_contador(prompt: str, rol: str = "asesor", context_data: dict
             context_str += "\n--- RESUMEN DE OTROS CLIENTES REGISTRADOS ---\n"
             for c in context_data["clients_summary"][:15]:
                 context_str += f"• Cliente: {c.get('name')} | CUIT: {c.get('cuit') or 'N/A'} | Scoring: {c.get('scoring_stars')}★ | Préstamos Activos: {c.get('active_loans_count')} | Saldo Pendiente: ${c.get('remaining_balance', 0):,.2f} | Cuotas Vencidas: {c.get('overdue_count', 0)}\n"
+
+        if "calendar_summary" in context_data and context_data["calendar_summary"]:
+            context_str += "\n--- AGENDA Y VENCIMIENTOS PRÓXIMOS EN CALENDARIO ---\n"
+            for citem in context_data["calendar_summary"]:
+                context_str += f"• [{citem.get('category', 'SERVICIO').upper()}] {citem.get('title')} - Vence: {citem.get('due_date')} {citem.get('due_time') or ''}\n"
 
         if "bcra_report" in context_data and context_data["bcra_report"]:
             bcra = context_data["bcra_report"]
@@ -292,7 +298,7 @@ def chat_ia_asesor_contador(prompt: str, rol: str = "asesor", context_data: dict
         "1. **GUÍA OPERATIVO Y MANUAL INTERACTIVO**: Si el usuario te pregunta cómo usar una función, para qué sirve, dónde está o cómo realizar un procedimiento, explicáselo paso a paso de forma sumamente clara, amable y estructurada.\n"
         "2. **AUDITOR CREDITICIO & ASESOR CONTABLE**: Si el usuario consulta sobre un cliente o si puede otorgarle determinado dinero:\n"
         "   - Analizá el Historial BCRA (Situación 1 a 6, deudas en bancos/entidades, días de atraso, cheques rechazados).\n"
-        "   - Analizá el Historial Interno (Scoring 1-5★, cuotas vencidas, cumplimiento).\n"
+        "   - Analizá el Historial Interno (Nombre, CUIT, Alias Bancario si registra, Scoring 1-5★, cuotas vencidas, cumplimiento).\n"
         "   - Emití Dictamen: 🟢 APROBADO, 🟡 OBSERVADO CON CONDICIONES (con Garante Solvente) o 🔴 RECHAZADO.\n"
         "   - Asesorá sobre cuota mensual recomendada, tasa y notificaciones por WhatsApp o PDF.\n\n"
         "Responde siempre de manera muy ejecutiva, clara y pulcra, utilizando viñetas y emojis conceptuales (🏛️ 📊 🟢 🟡 🔴 💳 💡 👤 📱 💰 🚀)."

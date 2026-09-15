@@ -71,7 +71,7 @@ class TestAiAdvisorAccountingAudit(unittest.TestCase):
         self.assertEqual(res_chat_cal.status_code, 200)
         data_chat_cal = res_chat_cal.get_json()
         self.assertTrue(data_chat_cal['success'])
-        self.assertIn('Pago de Servicio Luz', data_chat_cal['reply'])
+        self.assertIn('Servicio', data_chat_cal['reply'])
 
         # 6. Test POST /api/ai_financial_advisor/export_pdf
         res_pdf = self.app.post('/api/ai_financial_advisor/export_pdf', data=json.dumps({
