@@ -196,6 +196,8 @@ function registerPrestamosApp() {
 
             // BCRA State
             bcraSearchCuit: '',
+            bcraLoading: false,
+            bcraResult: null,
             bcraReport: { loading: false, data: null, error: null },
 
             // Forms State
@@ -682,6 +684,40 @@ function registerPrestamosApp() {
                 }
             },
 
+            async consultarBcraSubSection() {
+                const targetCuit = this.bcraSearchCuit ? this.bcraSearchCuit.trim() : '';
+                if (!targetCuit) {
+                    alert("Por favor ingrese o seleccione un CUIT / CUIL válido (11 dígitos numéricos).");
+                    return;
+                }
+                this.bcraLoading = true;
+                this.bcraResult = null;
+                try {
+                    const res = await fetch(`/api/bcra/check/${targetCuit}`);
+                    const data = await res.json();
+                    if (res.ok && !data.error) {
+                        this.bcraResult = {
+                            denominacion: data.denominacion,
+                            cuit: data.cuit,
+                            peorSituacion: data.max_situacion,
+                            situacionTexto: data.situacion_label,
+                            periodos: data.entidades || [],
+                            totalDeuda: data.total_deuda_pesos,
+                            underwriting: data.underwriting
+                        };
+                        this.bcraReport = { loading: false, data: data, error: null };
+                    } else {
+                        alert(data.error || "No se encontraron registros ni deudas en la Central de Deudores del BCRA para este CUIT.");
+                        this.bcraReport = { loading: false, data: null, error: data.error };
+                    }
+                } catch (err) {
+                    alert("Error de conexión al consultar la API Oficial del BCRA.");
+                    this.bcraReport = { loading: false, data: null, error: 'Error de conexión' };
+                } finally {
+                    this.bcraLoading = false;
+                }
+            },
+
             async checkBcra(cuitOrId) {
                 const targetCuit = cuitOrId || (this.selectedClientHistory && this.selectedClientHistory.client ? this.selectedClientHistory.client.cuit : this.bcraSearchCuit);
                 if (!targetCuit) {
@@ -689,16 +725,28 @@ function registerPrestamosApp() {
                     return;
                 }
                 this.bcraReport = { loading: true, data: null, error: null };
+                this.bcraLoading = true;
                 try {
                     const res = await fetch(`/api/bcra/check/${targetCuit}`);
                     const data = await res.json();
-                    if (res.ok) {
+                    if (res.ok && !data.error) {
                         this.bcraReport = { loading: false, data: data, error: null };
+                        this.bcraResult = {
+                            denominacion: data.denominacion,
+                            cuit: data.cuit,
+                            peorSituacion: data.max_situacion,
+                            situacionTexto: data.situacion_label,
+                            periodos: data.entidades || [],
+                            totalDeuda: data.total_deuda_pesos,
+                            underwriting: data.underwriting
+                        };
                     } else {
                         this.bcraReport = { loading: false, data: null, error: data.error || 'Error al consultar Central de Deudores del BCRA.' };
                     }
                 } catch (err) {
                     this.bcraReport = { loading: false, data: null, error: 'Error de conexión con el servidor del BCRA.' };
+                } finally {
+                    this.bcraLoading = false;
                 }
             },
 

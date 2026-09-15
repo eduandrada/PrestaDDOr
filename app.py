@@ -678,53 +678,62 @@ def get_dashboard_stats():
 def query_bcra_api(cuit):
     clean_cuit = "".join(c for c in str(cuit) if c.isdigit())
     if len(clean_cuit) != 11:
-        return {"error": "El CUIT/CUIL debe contener exactamente 11 dígitos numéricos."}
+        return {"error": "El CUIT/CUIL debe contener exactamente 11 dígitos numéricos (ej. 20301234567)."}
     
-    url_deudores = f"https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudores/{clean_cuit}"
-    url_cheques = f"https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudores/ChequesRechazados/{clean_cuit}"
+    url_deudores = f"https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/{clean_cuit}"
+    url_cheques = f"https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/ChequesRechazados/{clean_cuit}"
     
     data_bcra = None
     cheques_data = None
     
     try:
-        res = requests.get(url_deudores, timeout=5, headers={'User-Agent': 'Mozilla/5.0'})
+        res = requests.get(url_deudores, timeout=8, verify=False, headers={'User-Agent': 'Mozilla/5.0'})
         if res.status_code == 200:
             data_bcra = res.json()
     except Exception as e:
-        print(f"BCRA Deudores connection error: {e}")
+        print(f"[BCRA Deudores Error]: {e}")
 
     try:
-        res_ch = requests.get(url_cheques, timeout=5, headers={'User-Agent': 'Mozilla/5.0'})
+        res_ch = requests.get(url_cheques, timeout=8, verify=False, headers={'User-Agent': 'Mozilla/5.0'})
         if res_ch.status_code == 200:
             cheques_data = res_ch.json()
     except Exception as e:
-        print(f"BCRA Cheques connection error: {e}")
+        print(f"[BCRA Cheques Error]: {e}")
 
     entities = []
     max_situacion = 1
     total_deuda_miles = 0.0
-    denominacion = "No registrado / Sin deudas en el sistema bancario"
+    denominacion = "Sin deudas bancarias registradas en BCRA"
     
     if data_bcra and isinstance(data_bcra, dict) and "results" in data_bcra and data_bcra["results"]:
         res_dict = data_bcra["results"]
         denominacion = res_dict.get("denominacion") or denominacion
-        periodos = res_dict.get("periodos") or []
-        if periodos:
-            ultimo_periodo = periodos[0]
-            entidades_raw = ultimo_periodo.get("entidades") or []
-            for ent in entidades_raw:
+        raw_periodos = res_dict.get("periodos") or []
+        
+        for p in raw_periodos:
+            p_str = str(p.get("periodo") or "")
+            formatted_periodo = f"{p_str[4:]}/{p_str[:4]}" if len(p_str) == 6 else p_str
+            
+            p_entidades = p.get("entidades") or []
+            for ent in p_entidades:
                 sit = int(ent.get("situacion") or 1)
                 monto = float(ent.get("monto") or 0.0)
+                dias = int(ent.get("diasAtrasoPago") or ent.get("diasAtraso") or 0)
+                
                 entities.append({
                     "entidad": ent.get("entidad") or "Entidad Financiera",
                     "situacion": sit,
+                    "monto": monto * 1000,
                     "monto_miles": monto,
-                    "monto_pesos": monto * 1000,
-                    "dias_atraso": ent.get("diasAtraso") or 0
+                    "diasAtraso": dias,
+                    "periodo": formatted_periodo
                 })
                 if sit > max_situacion:
                     max_situacion = sit
-                total_deuda_miles += monto
+
+    if entities:
+        # Take latest period entities total
+        total_deuda_miles = sum(e["monto_miles"] for e in entities[:len(raw_periodos[0].get("entidades", []))] if raw_periodos)
 
     rejected_cheques_count = 0
     if cheques_data and isinstance(cheques_data, dict) and "results" in cheques_data and cheques_data["results"]:
