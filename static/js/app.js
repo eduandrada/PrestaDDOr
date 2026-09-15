@@ -3200,33 +3200,46 @@ function registerPrestamosApp() {
                 }
             },
 
-            sendAiAdvisorQuestion(presetText = null) {
+            async sendAiAdvisorQuestion(presetText = null) {
                 const text = (presetText || this.aiAdvisor.userPrompt || '').trim();
                 if (!text) return;
 
                 this.aiAdvisor.chatMessages.push({ role: 'user', text });
                 this.aiAdvisor.userPrompt = '';
 
-                setTimeout(() => {
-                    let reply = "";
-                    const q = text.toLowerCase();
-
-                    if (q.includes('no tocar') || q.includes('dinero') || q.includes('cuanto tocar') || q.includes('retirar')) {
-                        reply = `🛡️ **Diagnóstico de Capital en Tiempo Real:**\n- **Capital INVIOLABLE (No tocar):** $${this.aiAdvisor.capital_inviolable.toLocaleString('es-AR', {minimumFractionDigits: 2})} (incluye capital en calle + 10% fondo de protección).\n- **Disponible para Retiro:** $${this.aiAdvisor.safe_withdrawable_amount.toLocaleString('es-AR', {minimumFractionDigits: 2})} (descontando 30% para reinversión).\n- **Reinversión aconsejada:** $${this.aiAdvisor.reinvestment_portion.toLocaleString('es-AR', {minimumFractionDigits: 2})}.`;
-                    } else if (q.includes('gasto') || q.includes('hormiga') || q.includes('fuga')) {
-                        reply = `🚨 **Radar de Gastos Hormiga:**\nTus gastos hormiga acumulados este mes suman **$${this.aiAdvisor.ant_expenses_month.toLocaleString('es-AR', {minimumFractionDigits: 2})}**.\n💡 *Consejo:* Configura alertas para compras menores a $2.500 y exige recibo para cada egreso extraordinario.`;
-                    } else if (q.includes('invertir') || q.includes('prestamo') || q.includes('cliente')) {
-                        if (this.aiAdvisor.mora_percentage > 10) {
-                            reply = `⚠️ **Atención:** Tu tasa de mora actual es de ${this.aiAdvisor.mora_percentage}%. No es el momento de otorgar créditos riesgosos. Prioriza el cobro y recupero de cuotas vencidas.`;
-                        } else {
-                            reply = `📈 **Estrategia de Inversión:** Tu mora es baja (${this.aiAdvisor.mora_percentage}%). Se recomienda colocar créditos en modalidad quincenal con tasa mensual directa del 15% al 20% a clientes con Scoring 5 estrellas.`;
-                        }
-                    } else {
-                        reply = `🤖 **Respuesta Financiera Personalizada:**\nBasado en tus métricas actuales (Ganancia Neta del mes: $${this.aiAdvisor.net_liquid_profit.toLocaleString('es-AR', {minimumFractionDigits: 2})}, Mora: ${this.aiAdvisor.mora_percentage}%):\n${this.aiAdvisor.recommendations.join('\n')}`;
+                try {
+                    const res = await fetch('/api/ai_financial_advisor/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: text })
+                    });
+                    const data = await res.json();
+                    if (data && data.success && data.reply) {
+                        this.aiAdvisor.chatMessages.push({ role: 'assistant', text: data.reply });
+                        return;
                     }
+                } catch (e) {
+                    console.warn("[AI Advisor Chat Fetch Fallback]:", e);
+                }
 
-                    this.aiAdvisor.chatMessages.push({ role: 'assistant', text: reply });
-                }, 600);
+                // Fallback local en frontend si falla la red
+                let reply = "";
+                const q = text.toLowerCase();
+                if (q.includes('no tocar') || q.includes('dinero') || q.includes('cuanto tocar') || q.includes('retirar')) {
+                    reply = `🛡️ **Diagnóstico de Capital en Tiempo Real:**\n- **Capital INVIOLABLE (No tocar):** $${this.aiAdvisor.capital_inviolable.toLocaleString('es-AR', {minimumFractionDigits: 2})} (incluye capital en calle + 10% fondo de protección).\n- **Disponible para Retiro:** $${this.aiAdvisor.safe_withdrawable_amount.toLocaleString('es-AR', {minimumFractionDigits: 2})} (descontando 30% para reinversión).\n- **Reinversión aconsejada:** $${this.aiAdvisor.reinvestment_portion.toLocaleString('es-AR', {minimumFractionDigits: 2})}.`;
+                } else if (q.includes('gasto') || q.includes('hormiga') || q.includes('fuga')) {
+                    reply = `🚨 **Radar de Gastos Hormiga:**\nTus gastos hormiga acumulados este mes suman **$${this.aiAdvisor.ant_expenses_month.toLocaleString('es-AR', {minimumFractionDigits: 2})}**.\n💡 *Consejo:* Configura alertas para compras menores a $2.500 y exige recibo para cada egreso extraordinario.`;
+                } else if (q.includes('invertir') || q.includes('prestamo') || q.includes('cliente')) {
+                    if (this.aiAdvisor.mora_percentage > 10) {
+                        reply = `⚠️ **Atención:** Tu tasa de mora actual es de ${this.aiAdvisor.mora_percentage}%. No es el momento de otorgar créditos riesgosos. Prioriza el cobro y recupero de cuotas vencidas.`;
+                    } else {
+                        reply = `📈 **Estrategia de Inversión:** Tu mora es baja (${this.aiAdvisor.mora_percentage}%). Se recomienda colocar créditos en modalidad quincenal con tasa mensual directa del 15% al 20% a clientes con Scoring 5 estrellas.`;
+                    }
+                } else {
+                    reply = `🤖 **Respuesta Financiera Personalizada:**\nBasado en tus métricas actuales (Ganancia Neta del mes: $${this.aiAdvisor.net_liquid_profit.toLocaleString('es-AR', {minimumFractionDigits: 2})}, Mora: ${this.aiAdvisor.mora_percentage}%):\n${this.aiAdvisor.recommendations.join('\n')}`;
+                }
+
+                this.aiAdvisor.chatMessages.push({ role: 'assistant', text: reply });
             },
 
             // Filtered Collections
