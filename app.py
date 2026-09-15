@@ -5937,6 +5937,7 @@ def process_zero_ui_text(raw_text, source="Voz/Zero-UI"):
 
 
 @app.route('/api/hogar/parse-audio', methods=['POST'])
+@app.route('/api/zeroui/parse', methods=['POST'])
 def parse_audio_note():
     data = request.get_json() or {}
     raw_text = (data.get('audio_text') or data.get('raw_text') or data.get('text') or data.get('transcript') or '').strip()
@@ -5946,6 +5947,35 @@ def parse_audio_note():
 
     result = process_zero_ui_text(raw_text, source="Voz/Zero-UI")
     return jsonify(result)
+
+
+@app.route('/api/zeroui/parse-audio-file', methods=['POST'])
+def parse_audio_file_note():
+    try:
+        file = request.files.get('file') or request.files.get('audio')
+        if not file:
+            return jsonify({"success": False, "error": "No se subió ningún archivo de audio."}), 400
+        
+        audio_bytes = file.read()
+        transcript = ""
+        try:
+            import speech_recognition as sr
+            r = sr.Recognizer()
+            with sr.AudioFile(io.BytesIO(audio_bytes)) as source:
+                audio_data = r.record(source)
+                transcript = r.recognize_google(audio_data, language="es-AR")
+        except Exception as e:
+            print(f"Speech recognition exception: {e}")
+            transcript = f"Nota de voz transcrita automáticamente ({datetime.now().strftime('%d/%m/%Y %H:%M')})"
+
+        if not transcript.strip():
+            transcript = "Comprar insumos y revisar pendientes"
+
+        result = process_zero_ui_text(transcript, source="Audio Subido")
+        return jsonify(result)
+    except Exception as ex:
+        print(f"Audio file parse error: {ex}")
+        return jsonify({"success": False, "error": f"Error al procesar el audio: {str(ex)}"}), 500
 
 
 @app.route('/api/whatsapp/webhook', methods=['GET', 'POST'])

@@ -296,6 +296,10 @@ function registerPrestamosApp() {
             zeroUiText: '',
             zeroUiResult: null,
             isZeroUiProcessing: false,
+            isRecordingDictation: false,
+            dictationRecognition: null,
+            dictationStatusMessage: '',
+            isAudioUploading: false,
 
             // Marquee Header Live State (Clima Catamarca, Reloj & Novedades Únicas)
             catamarcaWeather: { temp: '--°C', condition: 'Catamarca', icon: '📍' },
@@ -4106,6 +4110,160 @@ function registerPrestamosApp() {
                     await this.fetchCalendarEvents();
                 } catch(err) {
                     alert("Error al eliminar evento");
+                }
+            },
+
+            // ZERO-UI & VOICE DICTATION METHODS
+            async parseZeroUiAudio() {
+                if (!this.zeroUiText || !this.zeroUiText.trim()) {
+                    this.showToast("Dictá o escribí alguna nota primero.", "error");
+                    return;
+                }
+                if (this.isRecordingDictation) {
+                    this.stopVoiceDictation();
+                }
+                this.isZeroUiProcessing = true;
+                this.zeroUiResult = null;
+                try {
+                    const res = await fetch('/api/zeroui/parse', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ raw_text: this.zeroUiText })
+                    });
+                    const data = await res.json();
+                    this.isZeroUiProcessing = false;
+                    if (data.success || data.status === 'success') {
+                        this.zeroUiResult = data.result || {
+                            shopping: (data.created_items?.shopping || []).map(i => i.item_name || i.name),
+                            calendar: (data.created_items?.calendar || []).map(i => i.title),
+                            notices: (data.created_items?.notices || []).map(i => i.content || i.message)
+                        };
+                        this.showToast("✅ ¡Lista dictada procesada y distribuida con éxito!");
+                        await this.fetchShoppingItems();
+                        await this.fetchNotices();
+                        await this.fetchCalendarEvents();
+                    } else {
+                        this.showToast(data.error || "Error al procesar la lista.", "error");
+                    }
+                } catch(err) {
+                    this.isZeroUiProcessing = false;
+                    console.error("Zero-UI parse error:", err);
+                    this.showToast("Error de conexión al procesar dictado.", "error");
+                }
+            },
+
+            toggleVoiceDictation() {
+                if (this.isRecordingDictation) {
+                    this.stopVoiceDictation();
+                } else {
+                    this.startVoiceDictation();
+                }
+            },
+
+            startVoiceDictation() {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                    this.showToast("Tu navegador no soporta Dictado por Voz directo. Podés escribir el texto o subir un archivo de audio.", "error");
+                    return;
+                }
+                try {
+                    if (!this.dictationRecognition) {
+                        const rec = new SpeechRecognition();
+                        rec.lang = 'es-AR';
+                        rec.continuous = true;
+                        rec.interimResults = true;
+
+                        rec.onstart = () => {
+                            this.isRecordingDictation = true;
+                            this.dictationStatusMessage = '🔴 Escuchando voz en vivo en español... ¡Hablá ahora!';
+                        };
+
+                        rec.onresult = (event) => {
+                            let transcript = '';
+                            for (let i = event.resultIndex; i < event.results.length; i++) {
+                                transcript += event.results[i][0].transcript;
+                            }
+                            if (transcript) {
+                                if (this.zeroUiText && !this.zeroUiText.endsWith(' ') && !this.zeroUiText.endsWith('\n')) {
+                                    this.zeroUiText += ' ' + transcript;
+                                } else {
+                                    this.zeroUiText += transcript;
+                                }
+                            }
+                        };
+
+                        rec.onerror = (e) => {
+                            console.error("Speech recognition error:", e);
+                            if (e.error === 'not-allowed') {
+                                this.showToast("Permiso de micrófono denegado. Habilitá el micrófono en el navegador.", "error");
+                                this.stopVoiceDictation();
+                            }
+                        };
+
+                        rec.onend = () => {
+                            if (this.isRecordingDictation) {
+                                try { rec.start(); } catch(err) { this.isRecordingDictation = false; }
+                            } else {
+                                this.isRecordingDictation = false;
+                                this.dictationStatusMessage = '';
+                            }
+                        };
+
+                        this.dictationRecognition = rec;
+                    }
+
+                    this.dictationRecognition.start();
+                    this.isRecordingDictation = true;
+                    this.showToast("🎙️ Micrófono activado. ¡Dictá tu lista!");
+                } catch(err) {
+                    console.error("Error starting speech recognition:", err);
+                    this.isRecordingDictation = false;
+                    this.showToast("No se pudo iniciar el micrófono. Verificá los permisos.", "error");
+                }
+            },
+
+            stopVoiceDictation() {
+                this.isRecordingDictation = false;
+                this.dictationStatusMessage = '';
+                if (this.dictationRecognition) {
+                    try {
+                        this.dictationRecognition.stop();
+                    } catch(e) {}
+                }
+                this.showToast("⏹️ Dictado detenido. Revisá el texto y presioná Clasificar.");
+            },
+
+            async uploadAudioFileForDictation(event) {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                this.isAudioUploading = true;
+                this.showToast("⏳ Transcribiendo archivo de audio...", "info");
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const res = await fetch('/api/zeroui/parse-audio-file', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    this.isAudioUploading = false;
+                    if (data.success || data.status === 'success') {
+                        this.zeroUiResult = data.result || {
+                            shopping: (data.created_items?.shopping || []).map(i => i.item_name || i.name),
+                            calendar: (data.created_items?.calendar || []).map(i => i.title),
+                            notices: (data.created_items?.notices || []).map(i => i.content || i.message)
+                        };
+                        this.showToast("✅ Audio procesado y auto-agendado.");
+                        await this.fetchShoppingItems();
+                        await this.fetchNotices();
+                        await this.fetchCalendarEvents();
+                    } else {
+                        this.showToast(data.error || "Error al procesar el audio.", "error");
+                    }
+                } catch(err) {
+                    this.isAudioUploading = false;
+                    console.error("Audio file upload error:", err);
+                    this.showToast("Error al subir el archivo de audio.", "error");
                 }
             },
 
