@@ -705,9 +705,13 @@ function registerPrestamosApp() {
                             cuit: data.cuit,
                             peorSituacion: data.max_situacion,
                             situacionTexto: data.situacion_label,
-                            periodos: data.entidades || [],
+                            entidades: data.entidades || [],
+                            periodos: data.periodos || [],
                             totalDeuda: data.total_deuda_pesos,
-                            underwriting: data.underwriting
+                            chequesRechazados: data.cheques_rechazados || 0,
+                            chequesDetalle: data.cheques_detalle || [],
+                            underwriting: data.underwriting,
+                            consultedAt: data.consulted_at
                         };
                         this.bcraReport = { loading: false, data: data, error: null };
                     } else {
@@ -740,9 +744,13 @@ function registerPrestamosApp() {
                             cuit: data.cuit,
                             peorSituacion: data.max_situacion,
                             situacionTexto: data.situacion_label,
-                            periodos: data.entidades || [],
+                            entidades: data.entidades || [],
+                            periodos: data.periodos || [],
                             totalDeuda: data.total_deuda_pesos,
-                            underwriting: data.underwriting
+                            chequesRechazados: data.cheques_rechazados || 0,
+                            chequesDetalle: data.cheques_detalle || [],
+                            underwriting: data.underwriting,
+                            consultedAt: data.consulted_at
                         };
                     } else {
                         this.bcraReport = { loading: false, data: null, error: data.error || 'Error al consultar Central de Deudores del BCRA.' };

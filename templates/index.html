@@ -973,52 +973,111 @@
           <!-- BCRA RESULTS DISPLAY -->
           <div class="mt-6">
             <template x-if="bcraResult">
-              <div class="space-y-4">
-                <div class="p-4 rounded-xl bg-slate-800/90 border border-slate-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                  <div>
-                    <h4 class="text-base font-extrabold text-white" x-text="bcraResult.denominacion || bcraResult.nombre || 'Consulta BCRA'"></h4>
-                    <p class="text-xs font-mono text-indigo-300">CUIT/CUIL: <span x-text="bcraResult.cuit || bcraSearchCuit"></span></p>
-                  </div>
-                  <div class="flex items-center space-x-3">
-                    <div class="text-right">
-                      <span class="text-[10px] text-slate-400 font-bold uppercase block">Peor Situación</span>
-                      <span class="px-3 py-1 rounded-lg text-xs font-black uppercase inline-block"
+              <div class="space-y-5">
+                <!-- Underwriting Header Card -->
+                <div class="p-5 rounded-2xl bg-slate-800/90 border border-slate-700 space-y-4 shadow-lg">
+                  <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-700/60 pb-3">
+                    <div>
+                      <h4 class="text-lg font-extrabold text-white flex items-center gap-2">
+                        <span>🏛️</span>
+                        <span x-text="bcraResult.denominacion || 'Consulta Central de Deudores BCRA'"></span>
+                      </h4>
+                      <p class="text-xs font-mono text-indigo-300">CUIT/CUIL: <span x-text="bcraResult.cuit || bcraSearchCuit"></span></p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <span class="px-3 py-1 rounded-xl text-xs font-black uppercase shadow-sm"
                             :class="{
                               'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40': (bcraResult.peorSituacion || 1) == 1,
                               'bg-amber-500/20 text-amber-300 border border-amber-500/40': (bcraResult.peorSituacion || 1) == 2,
                               'bg-rose-500/20 text-rose-300 border border-rose-500/40': (bcraResult.peorSituacion || 1) >= 3
-                            }" x-text="'Situación ' + (bcraResult.peorSituacion || 1) + ' - ' + (bcraResult.situacionTexto || ((bcraResult.peorSituacion || 1) == 1 ? 'Normal' : 'Con Riesgo'))">
+                            }" x-text="'Situación ' + (bcraResult.peorSituacion || 1) + ' (' + (bcraResult.underwriting?.score_badge || 'Evaluado') + ')'">
                       </span>
+                    </div>
+                  </div>
+
+                  <!-- Credit Underwriting Assessment Box -->
+                  <div class="p-3.5 rounded-xl border text-xs font-semibold leading-relaxed"
+                       :class="{
+                         'bg-emerald-950/40 border-emerald-500/40 text-emerald-200': bcraResult.underwriting?.traffic_light === 'verde',
+                         'bg-amber-950/40 border-amber-500/40 text-amber-200': bcraResult.underwriting?.traffic_light === 'amarillo',
+                         'bg-rose-950/40 border-rose-500/40 text-rose-200': bcraResult.underwriting?.traffic_light === 'rojo'
+                       }">
+                    <span x-text="bcraResult.underwriting?.message"></span>
+                  </div>
+
+                  <!-- Key Financial Metrics Grid -->
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-center">
+                    <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-700/80">
+                      <span class="block text-[10px] text-slate-400 font-bold uppercase">Deuda Total Registrada</span>
+                      <span class="font-black text-sm text-emerald-400 font-mono">$<span x-text="(bcraResult.totalDeuda || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})"></span></span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-700/80">
+                      <span class="block text-[10px] text-slate-400 font-bold uppercase">Bancos / Entidades</span>
+                      <span class="font-black text-sm text-indigo-300" x-text="(bcraResult.entidades ? bcraResult.entidades.length : 0) + ' Entidad(es)'"></span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-700/80">
+                      <span class="block text-[10px] text-slate-400 font-bold uppercase">Peor Situación</span>
+                      <span class="font-black text-sm" :class="(bcraResult.peorSituacion || 1) > 1 ? 'text-rose-400' : 'text-emerald-400'" x-text="'Situación ' + (bcraResult.peorSituacion || 1)"></span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-700/80">
+                      <span class="block text-[10px] text-slate-400 font-bold uppercase">Cheques Rechazados</span>
+                      <span class="font-black text-sm" :class="bcraResult.chequesRechazados > 0 ? 'text-rose-400' : 'text-slate-300'" x-text="bcraResult.chequesRechazados > 0 ? (bcraResult.chequesRechazados + ' Rechazado(s)') : '0 Sin Rechazos'"></span>
                     </div>
                   </div>
                 </div>
 
-                <!-- Detalle de Entidades Financieras -->
-                <div x-show="bcraResult.periodos && bcraResult.periodos.length > 0" class="space-y-3">
-                  <h5 class="text-xs font-bold uppercase tracking-wider text-slate-400">Historial por Entidad Financiera (Últimos Periodos)</h5>
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <template x-for="(per, idx) in bcraResult.periodos" :key="idx">
-                      <div class="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/80 space-y-2">
-                        <div class="flex justify-between items-center text-xs">
-                          <span class="font-extrabold text-white" x-text="per.entidad || per.banco || 'Entidad Financiera'"></span>
-                          <span class="px-2 py-0.5 rounded text-[10px] font-black"
-                                :class="per.situacion == 1 ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-rose-950 text-rose-400 border border-rose-800'"
-                                x-text="'Sit. ' + per.situacion"></span>
+                <!-- Detalle por Entidad Financiera -->
+                <div x-show="bcraResult.entidades && bcraResult.entidades.length > 0" class="space-y-3">
+                  <div class="flex justify-between items-center">
+                    <h5 class="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                      <span>🏛️ Listado de Bancos y Entidades Financieras</span>
+                      <span class="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px]" x-text="bcraResult.entidades.length + ' encontradas'"></span>
+                    </h5>
+                    <span class="text-[10px] text-slate-400 font-mono" x-text="'Período Actual: ' + (bcraResult.entidades[0]?.periodo || '')"></span>
+                  </div>
+
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <template x-for="(ent, idx) in bcraResult.entidades" :key="idx">
+                      <div class="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 hover:border-indigo-500/50 transition space-y-3 shadow-sm">
+                        <div class="flex justify-between items-start gap-2">
+                          <h6 class="font-extrabold text-xs text-white leading-tight flex items-center gap-1.5" x-text="ent.entidad"></h6>
+                          <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase whitespace-nowrap"
+                                :class="{
+                                  'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40': ent.situacion == 1,
+                                  'bg-amber-950/80 text-amber-300 border border-amber-500/40': ent.situacion == 2,
+                                  'bg-rose-950/80 text-rose-300 border border-rose-500/40': ent.situacion >= 3
+                                }"
+                                x-text="'Sit. ' + ent.situacion">
+                          </span>
                         </div>
-                        <div class="flex justify-between items-center text-xs text-slate-300">
-                          <span>Monto Deuda: <b class="text-white font-mono">$<span x-text="(per.monto || 0).toLocaleString('es-AR')"></span></b></span>
-                          <span class="text-[10px] text-slate-400" x-text="per.periodo || ''"></span>
+
+                        <div class="space-y-1">
+                          <div class="text-[10px] uppercase font-bold text-slate-400">Monto Deuda Registrada:</div>
+                          <div class="text-base font-black font-mono" :class="ent.monto_pesos > 0 ? 'text-emerald-400' : 'text-slate-400'">
+                            <span x-text="'$' + (ent.monto_pesos || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})"></span>
+                            <span x-show="ent.monto_pesos === 0" class="text-[10px] font-sans font-normal text-slate-400 inline-block ml-1">(Sin deuda exigible)</span>
+                          </div>
                         </div>
-                        <p x-show="per.diasAtraso" class="text-[10px] text-rose-300">⚠️ Días de atraso: <span x-text="per.diasAtraso"></span></p>
+
+                        <div class="flex justify-between items-center text-[11px] pt-2 border-t border-slate-700/50">
+                          <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                :class="ent.diasAtraso > 0 ? 'bg-rose-950/60 text-rose-300 border border-rose-500/30' : 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/30'">
+                            <span x-text="ent.diasAtraso > 0 ? ('🔴 ' + ent.diasAtraso + ' días de atraso') : '🟢 0 días de atraso (Al día)'"></span>
+                          </span>
+                          <span class="text-[10px] text-slate-400 font-mono" x-text="ent.periodo"></span>
+                        </div>
+
+                        <p class="text-[10px] text-slate-300 font-medium italic" x-text="ent.estado_texto"></p>
                       </div>
                     </template>
                   </div>
                 </div>
 
-                <div x-show="!bcraResult.periodos || bcraResult.periodos.length === 0" class="p-4 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-center">
-                  <span class="text-xl">✅</span>
-                  <p class="text-xs font-bold text-emerald-300 mt-1">Sin deudas bancarias registradas en la Central de Deudores BCRA.</p>
-                  <p class="text-[10px] text-slate-400">El CUIT consultado presenta situación 1 (Normal / Sin Deudas en el Sistema Financiero).</p>
+                <!-- Si no posee deudas registradas -->
+                <div x-show="!bcraResult.entidades || bcraResult.entidades.length === 0" class="p-6 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-center space-y-2">
+                  <span class="text-3xl">✅</span>
+                  <h4 class="font-extrabold text-sm text-emerald-300">Sin deudas ni moras registradas en la Central de Deudores BCRA</h4>
+                  <p class="text-xs text-slate-300">El titular presenta comportamiento ejemplar en Situación 1 (Normal) en todo el Sistema Bancario Argentino sin saldos pendientes ni atrasos en ningún banco o entidad financiera.</p>
                 </div>
               </div>
             </template>
@@ -3735,19 +3794,34 @@
               <table class="w-full text-left text-[11px]">
                 <thead class="bg-slate-100 dark:bg-slate-800 text-slate-500 uppercase">
                   <tr>
-                    <th class="p-2">Entidad Financiera</th>
-                    <th class="p-2 text-center">Situación</th>
-                    <th class="p-2 text-right">Monto Deuda</th>
+                    <th class="p-2.5">Banco / Entidad Financiera</th>
+                    <th class="p-2.5 text-center">Situación</th>
+                    <th class="p-2.5 text-center">Atraso</th>
+                    <th class="p-2.5 text-center">Período</th>
+                    <th class="p-2.5 text-right">Monto Deuda</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                   <template x-for="ent in bcraReport.data.entidades" :key="ent.entidad">
                     <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td class="p-2 font-bold text-slate-800 dark:text-slate-200" x-text="ent.entidad"></td>
-                      <td class="p-2 text-center">
+                      <td class="p-2.5">
+                        <span class="font-extrabold text-slate-800 dark:text-slate-200 block" x-text="ent.entidad"></span>
+                        <span class="text-[10px] text-slate-400 italic font-normal block" x-text="ent.estado_texto"></span>
+                      </td>
+                      <td class="p-2.5 text-center">
                         <span :class="ent.situacion >= 3 ? 'bg-rose-100 text-rose-800 font-black' : (ent.situacion === 2 ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-emerald-100 text-emerald-800 font-bold')" class="px-2 py-0.5 rounded text-[10px]" x-text="'Situación ' + ent.situacion"></span>
                       </td>
-                      <td class="p-2 text-right font-mono text-slate-900 dark:text-white">$<span x-text="ent.monto_pesos.toLocaleString('es-AR')"></span></td>
+                      <td class="p-2.5 text-center">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold"
+                              :class="ent.diasAtraso > 0 ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'">
+                          <span x-text="ent.diasAtraso > 0 ? (ent.diasAtraso + ' días') : '0 días (Al día)'"></span>
+                        </span>
+                      </td>
+                      <td class="p-2.5 text-center font-mono text-[10px] text-slate-500" x-text="ent.periodo"></td>
+                      <td class="p-2.5 text-right font-mono font-bold" :class="ent.monto_pesos > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'">
+                        <span x-text="'$' + (ent.monto_pesos || 0).toLocaleString('es-AR', {minimumFractionDigits: 2})"></span>
+                        <span x-show="ent.monto_pesos === 0" class="block text-[9px] font-sans font-normal text-slate-400">(Sin deuda exigible)</span>
+                      </td>
                     </tr>
                   </template>
                 </tbody>

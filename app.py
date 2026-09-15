@@ -703,7 +703,8 @@ def query_bcra_api(cuit):
     entities = []
     max_situacion = 1
     total_deuda_miles = 0.0
-    denominacion = "Sin deudas bancarias registradas en BCRA"
+    denominacion = "Cliente registrado en Sistema BCRA"
+    periodos_resultado = []
     
     if data_bcra and isinstance(data_bcra, dict) and "results" in data_bcra and data_bcra["results"]:
         res_dict = data_bcra["results"]
@@ -715,37 +716,68 @@ def query_bcra_api(cuit):
             formatted_periodo = f"{p_str[4:]}/{p_str[:4]}" if len(p_str) == 6 else p_str
             
             p_entidades = p.get("entidades") or []
+            period_entities = []
             for ent in p_entidades:
                 sit = int(ent.get("situacion") or 1)
-                monto = float(ent.get("monto") or 0.0)
+                monto_miles = float(ent.get("monto") or 0.0)
+                monto_pesos = monto_miles * 1000
                 dias = int(ent.get("diasAtrasoPago") or ent.get("diasAtraso") or 0)
+                ent_nombre = (ent.get("entidad") or "Entidad Financiera").strip()
                 
-                entities.append({
-                    "entidad": ent.get("entidad") or "Entidad Financiera",
+                if sit == 1:
+                    if monto_pesos > 0:
+                        estado_texto = "Al día (Deuda Vigente Normal sin atrasos)"
+                    else:
+                        estado_texto = "Cliente/Usuario Activo sin deuda exigible"
+                elif sit == 2:
+                    estado_texto = f"En seguimiento - Atraso leve ({dias} días)"
+                elif sit == 3:
+                    estado_texto = f"Con Problemas ({dias} días de atraso)"
+                elif sit == 4:
+                    estado_texto = f"Alto Riesgo de Insolvencia ({dias} días de atraso)"
+                elif sit >= 5:
+                    estado_texto = f"Irrecuperable / En gestión judicial ({dias} días de atraso)"
+
+                ent_item = {
+                    "entidad": ent_nombre,
                     "situacion": sit,
-                    "monto": monto * 1000,
-                    "monto_miles": monto,
+                    "situacion_label": f"Situación {sit}",
+                    "monto": monto_pesos,
+                    "monto_pesos": monto_pesos,
+                    "monto_miles": monto_miles,
                     "diasAtraso": dias,
-                    "periodo": formatted_periodo
-                })
+                    "dias_atraso": dias,
+                    "periodo": formatted_periodo,
+                    "estado_texto": estado_texto,
+                    "tiene_deuda": (monto_pesos > 0 or sit > 1)
+                }
+                period_entities.append(ent_item)
                 if sit > max_situacion:
                     max_situacion = sit
 
-    if entities:
-        # Take latest period entities total
-        total_deuda_miles = sum(e["monto_miles"] for e in entities[:len(raw_periodos[0].get("entidades", []))] if raw_periodos)
+            periodos_resultado.append({
+                "periodo": formatted_periodo,
+                "raw_periodo": p_str,
+                "entidades": period_entities,
+                "subtotal_periodo": sum(item["monto_pesos"] for item in period_entities)
+            })
+
+    if periodos_resultado:
+        entities = periodos_resultado[0]["entidades"]
+        total_deuda_miles = sum(e["monto_miles"] for e in entities)
 
     rejected_cheques_count = 0
+    cheques_list = []
     if cheques_data and isinstance(cheques_data, dict) and "results" in cheques_data and cheques_data["results"]:
         ch_results = cheques_data["results"]
-        ch_list = ch_results.get("causales") or ch_results.get("cheques") or []
-        rejected_cheques_count = len(ch_list)
+        cheques_list = ch_results.get("causales") or ch_results.get("cheques") or []
+        rejected_cheques_count = len(cheques_list)
 
     situacion_labels = {
-        1: "Situación 1: Normal (Sin mora o atrasos leves hasta 31 días)",
+        1: "Situación 1: Normal (Sin mora o atrasos leves de 0 a 31 días)",
         2: "Situación 2: Riesgo Bajo / Seguimiento (Atraso entre 31 y 90 días)",
         3: "Situación 3: Con Problemas (Atraso entre 91 y 180 días)",
-        4: "Situación 4: Alto Riesgo de Insolvencia (Atraso entre 181 y 365 días)",
+        4: "Situación 4: Alto Riesgo (Atraso entre 181 y 365 días)",
         5: "Situación 5: Irrecuperable (Atraso mayor a 365 días)",
         6: "Situación 6: Disposición Judicial / Irrecuperable por Disposición Técnica"
     }
@@ -753,31 +785,39 @@ def query_bcra_api(cuit):
     if max_situacion in [3, 4, 5, 6] or rejected_cheques_count > 0:
         underwriting_status = "RECHAZADO_ALTO_RIESGO"
         traffic_light = "rojo"
-        decision_text = f"⚠️ ALERTA MOTOR DE DECISIONES: Cliente registra deudas en {situacion_labels.get(max_situacion, 'Alto Riesgo')} o cheques rechazados en BCRA. Se sugiere rechazar la operación o exigir garante e incrementar tasa por alto riesgo de incobrabilidad."
+        score_badge = "Riesgo Alto (D/E)"
+        decision_text = f"⚠️ ALERTA MOTOR DE DECISIONES: Cliente en {situacion_labels.get(max_situacion, 'Alto Riesgo')} o con {rejected_cheques_count} cheque(s) rechazado(s) en BCRA. Se sugiere rechazar la solicitud o requerir garante solvente con garantía real."
     elif max_situacion == 2:
         underwriting_status = "OBSERVADO_RIESGO_MEDIO"
         traffic_light = "amarillo"
-        decision_text = "⚠️ ATENCIÓN MOTOR DE DECISIONES: Cliente en Situación 2 (Atrasos leves en sistema bancario). Se sugiere limitar el cupo de crédito otorgado."
+        score_badge = "Riesgo Medio (B/C)"
+        decision_text = "⚠️ ATENCIÓN MOTOR DE DECISIONES: Cliente en Situación 2 (Atrasos leves entre 31 y 90 días en el sistema bancario). Se sugiere solicitar recibo de sueldo verificado y limitar cupo."
     else:
         underwriting_status = "APROBADO_NORMAL"
         traffic_light = "verde"
-        decision_text = "✅ MOTOR DE DECISIONES: Cliente Aprobado. Registra comportamiento normal (Situación 1) en la Central de Deudores del BCRA."
+        score_badge = "Riesgo Excelente (A+)"
+        decision_text = "✅ MOTOR DE DECISIONES: Cliente Aprobado. Excelente comportamiento crediticio al día (Situación 1) en todas las entidades financieras registradas en la Central de Deudores BCRA."
 
     return {
+        "status": "success",
         "cuit": clean_cuit,
         "denominacion": denominacion,
         "max_situacion": max_situacion,
         "situacion_label": situacion_labels.get(max_situacion, f"Situación {max_situacion}"),
         "total_deuda_miles": total_deuda_miles,
         "total_deuda_pesos": total_deuda_miles * 1000,
+        "entidades_count": len(entities),
         "entidades": entities,
+        "periodos": periodos_resultado,
         "cheques_rechazados": rejected_cheques_count,
+        "cheques_detalle": cheques_list,
         "underwriting": {
             "status": underwriting_status,
             "traffic_light": traffic_light,
+            "score_badge": score_badge,
             "message": decision_text
         },
-        "consulted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "consulted_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     }
 
 
