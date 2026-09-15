@@ -6626,9 +6626,22 @@
           </template>
         </div>
 
+        <!-- Quick Suggestions Chips -->
+        <div class="flex flex-wrap gap-1.5 pt-1">
+          <button @click="aiContadorQuery = '¿Le puedo prestar $500.000 a este cliente? Evaluá su BCRA e historial'; sendAiContadorQuery();" class="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900/40 text-emerald-400 hover:text-emerald-300 rounded-lg text-[10px] font-bold border border-slate-700 transition">
+            💰 ¿Otorgar préstamo de $500.000?
+          </button>
+          <button @click="aiContadorQuery = 'Auditar historial crediticio BCRA, bancos y deudas del cliente CUIT 20301234567'; sendAiContadorQuery();" class="px-2.5 py-1 bg-slate-800 hover:bg-sky-900/40 text-sky-400 hover:text-sky-300 rounded-lg text-[10px] font-bold border border-slate-700 transition">
+            🏛️ Auditar BCRA & Deudas Bancarias
+          </button>
+          <button @click="aiContadorQuery = 'Dame un informe de clientes con cuotas vencidas y scoring de morosidad'; sendAiContadorQuery();" class="px-2.5 py-1 bg-slate-800 hover:bg-amber-900/40 text-amber-400 hover:text-amber-300 rounded-lg text-[10px] font-bold border border-slate-700 transition">
+            📊 Morosidad & Cartera de Clientes
+          </button>
+        </div>
+
         <div class="flex items-center gap-2">
-          <input type="text" x-model="aiContadorQuery" @keydown.enter="sendAiContadorQuery()" placeholder="Ej: ¿Quién otorgó el préstamo a Juan? / ¿Cuánto debe María?..." class="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500">
-          <button @click="sendAiContadorQuery()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition shadow">
+          <input type="text" x-model="aiContadorQuery" @keydown.enter="sendAiContadorQuery()" placeholder="Ej: ¿Le puedo prestar $500.000 a Juan Pérez (o CUIT 20301234567)?..." class="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500">
+          <button @click="sendAiContadorQuery()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition shadow whitespace-nowrap">
             💬 Consultar
           </button>
         </div>

@@ -4213,84 +4213,79 @@ def get_ai_financial_advisor():
     })
 
 
-@app.route('/api/ai_financial_advisor/chat', methods=['POST'])
-def ai_financial_advisor_chat():
-    data = request.json or {}
-    user_query = str(data.get('query') or '').strip().lower()
-    client_id = data.get('client_id')
-    
+def get_ai_advisor_context_data(user_query, client_id=None):
+    """Genera el contexto financiero, de cliente e historial crediticio BCRA para el Contador Virtual IA."""
     today = date.today()
-    
     client = None
-    if client_id:
-        client = Client.query.get(client_id)
-    elif user_query:
-        all_clients = Client.query.all()
-        for c in all_clients:
-            if c.name and c.name.lower() in user_query:
-                client = c
-                break
+    target_cuit = None
+    
+    # 1. Búsqueda directa de CUIT en la consulta (ej. 20-30123456-7 o 20301234567)
+    cuit_match = re.search(r'\b(20|23|24|27|30|33|34)-?\d{8}-?\d\b|\b\d{11}\b', str(user_query))
+    if cuit_match:
+        target_cuit = "".join(c for c in cuit_match.group(0) if c.isdigit())
+        client = Client.query.filter((Client.cuit.like(f"%{target_cuit}%")) | (Client.dni.like(f"%{target_cuit}%"))).first()
 
+    if not client:
+        if client_id:
+            client = Client.query.get(client_id)
+        elif user_query:
+            all_clients = Client.query.all()
+            for c in all_clients:
+                if c.name and c.name.lower() in str(user_query).lower():
+                    client = c
+                    break
+
+    if client and not target_cuit:
+        cuit_raw = client.cuit or client.dni or ""
+        clean_c = "".join(ch for ch in str(cuit_raw) if ch.isdigit())
+        if len(clean_c) == 11:
+            target_cuit = clean_c
+
+    # 2. Consulta en Tiempo Real a Central de Deudores BCRA
+    bcra_report = None
+    if target_cuit and len(target_cuit) == 11:
+        try:
+            bcra_res = query_bcra_api(target_cuit)
+            if bcra_res and isinstance(bcra_res, dict) and bcra_res.get("status") == "success":
+                bcra_report = bcra_res
+        except Exception as e:
+            print(f"[AI Advisor BCRA Lookup Exception]: {e}")
+
+    # 3. Información Interna de la Cartera para el Cliente
+    client_info = None
     if client:
         active_loans = [l for l in client.loans if l.status == 'activo']
-        if not active_loans:
-            reply = f"👤 Informe de Cliente: {client.name}\n\nEl cliente no posee préstamos activos en este momento.\n• CUIT: {client.cuit or 'N/A'}\n• WhatsApp: {client.whatsapp or 'N/A'}\n• Alias Bancario: {client.bank_alias or 'No registrado'}"
-        else:
-            lines = [f"👤 Informe Detallado de Crédito: {client.name}\n"]
-            lines.append(f"• CUIT/CUIL: {client.cuit or 'N/A'}")
-            lines.append(f"• Contacto: {client.whatsapp or 'N/A'}")
-            lines.append(f"• Alias Bancario: {client.bank_alias or 'No registrado'}")
-            lines.append(f"• Scoring Crédito: {client.calculate_scoring_and_status()['score_stars']} Stars")
-            lines.append(f"\n📋 Préstamos Activos ({len(active_loans)}):\n")
-            
-            for idx, l in enumerate(active_loans, 1):
-                otorgante = getattr(l, 'created_by', 'Administración') or 'Administración'
-                pending = [inst for inst in l.installments if inst.status != 'pagado']
-                next_inst = min(pending, key=lambda x: x.due_date) if pending else None
-                lines.append(f"Préstamo #{idx} (ID {l.id}):")
-                lines.append(f"  • Otorgado por: {otorgante}")
-                lines.append(f"  • Fecha de Solicitud / Otorgamiento: {l.start_date.strftime('%d/%m/%Y')}")
-                lines.append(f"  • Monto Prestado: ${l.amount:,.2f}")
-                lines.append(f"  • Saldo Pendiente a Pagar: ${l.remaining_balance:,.2f}")
-                if next_inst:
-                    lines.append(f"  • Próximo Vencimiento: Cuota {next_inst.number} de ${next_inst.amount:,.2f} el {next_inst.due_date.strftime('%d/%m/%Y')}")
-                lines.append("")
-                
-            reply = "\n".join(lines)
-            
-        return jsonify({
-            "success": True,
-            "reply": reply,
-            "title": f"Informe Contable - {client.name}",
-            "pdf_export_available": True
-        })
-
-    if any(k in user_query for k in ['calendario', 'vencimiento', 'agenda', 'recordatorio', 'servicio']):
-        cal_items = HomeCalendarItem.query.filter_by(is_completed=False).all()
-        installments = Installment.query.filter(Installment.status != 'pagado', Installment.due_date <= today + timedelta(days=7)).all()
+        rem_balance = sum(l.remaining_balance for l in active_loans)
         
-        lines = ["📅 Agenda del Asesor IA & Vencimientos Próximos (7 Días)\n"]
-        if cal_items:
-            lines.append("Servicios & Compromisos del Calendario:")
-            for ci in cal_items:
-                lines.append(f"  • [{ci.category.upper()}] {ci.title} - Vence: {ci.due_date} {ci.due_time or ''}")
-            lines.append("")
-            
-        if installments:
-            lines.append("Cuotas de Préstamos a Cobrar:")
-            for inst in installments[:10]:
-                c_name = inst.loan.client.name if inst.loan and inst.loan.client else 'N/A'
-                lines.append(f"  • Cliente: {c_name} - Cuota ${inst.amount:,.2f} (Vence: {inst.due_date.strftime('%d/%m/%Y')})")
-        else:
-            lines.append("No hay cuotas pendientes con vencimiento en los próximos 7 días.")
-            
-        return jsonify({
-            "success": True,
-            "reply": "\n".join(lines),
-            "title": "Agenda de Vencimientos & Servicios",
-            "pdf_export_available": True
-        })
+        overdue_cnt = 0
+        for l in client.loans:
+            for inst in l.installments:
+                if inst.status in ['vencido', 'en_mora']:
+                    overdue_cnt += 1
+                    
+        scoring_data = client.calculate_scoring_and_status()
+        client_info = {
+            "id": client.id,
+            "name": client.name,
+            "cuit": client.cuit or client.dni or "N/A",
+            "bank_alias": client.bank_alias or "No registrado",
+            "whatsapp": client.whatsapp or "N/A",
+            "scoring_stars": scoring_data.get('scoring_num', 5),
+            "active_loans_count": len(active_loans),
+            "active_loans_details": [
+                {
+                    "id": l.id,
+                    "created_by": getattr(l, 'created_by', 'Administración') or 'Administración',
+                    "amount": l.amount,
+                    "remaining_balance": l.remaining_balance,
+                    "start_date": l.start_date.strftime('%d/%m/%Y')
+                } for l in active_loans
+            ],
+            "remaining_balance": rem_balance,
+            "overdue_count": overdue_cnt
+        }
 
+    # 4. Múltiples Métricas de la Empresa / Cartera
     loans = Loan.query.all()
     active_loans = [l for l in loans if l.status == 'activo']
     payments = Payment.query.all()
@@ -4307,25 +4302,83 @@ def ai_financial_advisor_chat():
     expenses_month_total = sum(e.amount for e in expenses_month)
     ant_expenses_month = sum(e.amount for e in expenses_month if e.is_ant_expense)
     net_liquid = interest_month - expenses_month_total
+    cash_income = sum(p.amount for p in payments_month if (getattr(p, 'payment_method', '') or '').lower() == 'efectivo')
+    transfer_income = sum(p.amount for p in payments_month if (getattr(p, 'payment_method', '') or '').lower() != 'efectivo')
+
+    financial_metrics = {
+        "capital_en_calle": capital_en_calle,
+        "cobros_mes": cash_income + transfer_income,
+        "gastos_mes": expenses_month_total,
+        "ant_expenses": ant_expenses_month,
+        "net_liquid": net_liquid,
+        "active_loans_count": len(active_loans)
+    }
+
+    # 5. Resumen de Clientes
+    all_clients_list = Client.query.all()
+    clients_summary = []
+    for c in all_clients_list[:15]:
+        a_loans = [l for l in c.loans if l.status == 'activo']
+        clients_summary.append({
+            "name": c.name,
+            "cuit": c.cuit or c.dni,
+            "scoring_stars": c.calculate_scoring_and_status().get('scoring_num', 5),
+            "active_loans_count": len(a_loans),
+            "remaining_balance": sum(l.remaining_balance for l in a_loans),
+            "overdue_count": sum(1 for l in c.loans for inst in l.installments if inst.status in ['vencido', 'en_mora'])
+        })
+
+    # 6. Resumen de Agenda y Calendario de Servicios
+    cal_items = HomeCalendarItem.query.filter_by(is_completed=False).all()
+    calendar_summary = [
+        {
+            "id": ci.id,
+            "title": ci.title,
+            "category": ci.category,
+            "due_date": ci.due_date,
+            "due_time": ci.due_time
+        } for ci in cal_items
+    ]
+
+    return {
+        "financial_metrics": financial_metrics,
+        "client_info": client_info,
+        "clients_summary": clients_summary,
+        "calendar_summary": calendar_summary,
+        "bcra_report": bcra_report,
+        "matched_client": client
+    }
+
+
+@app.route('/api/ai_financial_advisor/chat', methods=['POST'])
+def ai_financial_advisor_chat():
+    from gemini_services import chat_ia_asesor_contador
+    data = request.json or {}
+    user_query = str(data.get('query') or '').strip()
+    client_id = data.get('client_id')
     
-    cash_income = sum(p.amount for p in payments_month if (p.payment_method or '').lower() == 'efectivo')
-    transfer_income = sum(p.amount for p in payments_month if (p.payment_method or '').lower() != 'efectivo')
+    if not user_query:
+        if client_id:
+            user_query = f"Informe contable y crediticio del cliente ID {client_id}"
+        else:
+            user_query = "Informe general de balance, auditoría contable y estado de cartera"
 
-    reply = f"""📊 Balance General & Informe de Flujo de Dinero (Contador IA)
+    context_data = get_ai_advisor_context_data(user_query, client_id=client_id)
+    reply = chat_ia_asesor_contador(user_query, rol="contador", context_data=context_data)
 
-• Capital Total en Calle (Activo Principal): ${capital_en_calle:,.2f}
-• Cobros del Mes en Efectivo: ${cash_income:,.2f}
-• Cobros del Mes por Transferencia: ${transfer_income:,.2f}
-• Gastos Operativos del Mes: ${expenses_month_total:,.2f} (Gastos Hormiga: ${ant_expenses_month:,.2f})
-• Ganancia Neta Líquida del Mes: ${net_liquid:,.2f}
-• Préstamos Activos Auditados: {len(active_loans)} préstamos
+    matched_client = context_data.get("matched_client")
+    bcra_report = context_data.get("bcra_report")
 
-Sugerencia del Contador: Puedes consultar por un cliente en específico indicando su nombre o exportar este arqueo completo en PDF."""
+    report_title = "Dictamen del Contador Virtual IA & Auditoría Contable"
+    if matched_client:
+        report_title = f"Auditoría Contable & BCRA - {matched_client.name}"
+    elif bcra_report:
+        report_title = f"Auditoría Central de Deudores BCRA - {bcra_report.get('denominacion', 'Consulta Crediticia')}"
 
     return jsonify({
         "success": True,
         "reply": reply,
-        "title": "Balance General & Flujo de Dinero",
+        "title": report_title,
         "pdf_export_available": True
     })
 
@@ -7854,9 +7907,10 @@ import gemini_services as ai
 @app.route("/api/ai/chat", methods=["POST"])
 def route_ai_chat():
     data = request.get_json() or {}
-    mensaje = data.get("mensaje", "")
+    mensaje = str(data.get("mensaje", "")).strip()
     rol = data.get("rol", "asesor")  # 'asesor' o 'contador'
-    respuesta = ai.chat_ia(mensaje, rol=rol)
+    context_data = get_ai_advisor_context_data(mensaje)
+    respuesta = ai.chat_ia_asesor_contador(mensaje, rol=rol, context_data=context_data)
     return jsonify({"respuesta": respuesta})
 
 @app.route("/api/ai/cv", methods=["POST"])
